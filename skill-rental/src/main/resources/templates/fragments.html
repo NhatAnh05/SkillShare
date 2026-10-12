@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+
+ <th:block th:fragment="customerStyles">
+  <link href="https://fonts.googleapis.com" rel="preconnect"/>
+  <link href="https://fonts.gstatic.com" rel="preconnect" crossorigin="anonymous"/>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
+  <link rel="stylesheet" th:href="@{/css/tokens.css}"/>
+  <link rel="stylesheet" th:href="@{/css/app.css}"/>
+ </th:block>
+ <body>
+  <svg aria-hidden="true" class="icon-sprite" th:fragment="icons" xmlns="http://www.w3.org/2000/svg">
+   <symbol id="i-home" viewbox="0 0 24 24">
+    <path d="m3 10 9-7 9 7v10H3z">
+    </path>
+    <path d="M9 20v-7h6v7">
+    </path>
+   </symbol>
+   <symbol id="i-search" viewbox="0 0 24 24">
+    <circle cx="10.5" cy="10.5" r="6.5">
+    </circle>
+    <path d="m16 16 5 5">
+    </path>
+   </symbol>
+   <symbol id="i-user" viewbox="0 0 24 24">
+    <circle cx="12" cy="7.5" r="4">
+    </circle>
+    <path d="M4 21c0-5 3-8 8-8s8 3 8 8">
+    </path>
+   </symbol>
+   <symbol id="i-list" viewbox="0 0 24 24">
+    <path d="M8 5h13M8 12h13M8 19h13M3 5h1M3 12h1M3 19h1">
+    </path>
+   </symbol>
+   <symbol id="i-bag" viewbox="0 0 24 24">
+    <rect height="15" rx="2" width="18" x="3" y="6">
+    </rect>
+    <path d="M8 6V4a4 4 0 0 1 8 0v2">
+    </path>
+   </symbol>
+   <symbol id="i-chat" viewbox="0 0 24 24">
+    <path d="M20 16a3 3 0 0 1-3 3H8l-5 3V6a3 3 0 0 1 3-3h11a3 3 0 0 1 3 3z">
+    </path>
+   </symbol>
+   <symbol id="i-lock" viewbox="0 0 24 24">
+    <rect height="11" rx="2" width="16" x="4" y="10">
+    </rect>
+    <path d="M8 10V7a4 4 0 0 1 8 0v3">
+    </path>
+   </symbol>
+   <symbol id="i-settings" viewbox="0 0 24 24">
+    <circle cx="12" cy="12" r="3">
+    </circle>
+    <path d="M12 2v3m0 14v3M2 12h3m14 0h3M5 5l2 2m10 10 2 2M19 5l-2 2M7 17l-2 2">
+    </path>
+   </symbol>
+   <symbol id="i-bell" viewbox="0 0 24 24">
+    <path d="M18 8a6 6 0 0 0-12 0c0 7-3 8-3 9h18c0-1-3-2-3-9M10 21h4">
+    </path>
+   </symbol>
+   <symbol id="i-eye" viewbox="0 0 24 24">
+    <path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12Z">
+    </path>
+    <circle cx="12" cy="12" r="3">
+    </circle>
+   </symbol>
+   <symbol id="i-check" viewbox="0 0 24 24">
+    <path d="M4 12l5 5L20 6">
+    </path>
+   </symbol>
+   <symbol id="i-alert" viewbox="0 0 24 24">
+    <path d="M12 3 2 21h20L12 3Z">
+    </path>
+    <path d="M12 9v5m0 3v1">
+    </path>
+   </symbol>
+   <symbol id="i-logout" viewbox="0 0 24 24">
+    <path d="M9 4H4v16h5m4-12 4 4-4 4m-8-4h12">
+    </path>
+   </symbol>
+   <symbol id="i-x" viewbox="0 0 24 24">
+    <path d="M5 5l14 14M19 5 5 19">
+    </path>
+   </symbol>
+  </svg>
+  <header class="header" th:fragment="header">
+   <div class="container header-inner">
+    <a aria-label="Skill Rental - Trang chủ" class="logo" th:href="@{/marketplace}">
+     <span class="logo-mark">
+      S
+     </span>
+     <span>
+      SKILL RENTAL
+     </span>
+    </a>
+    <nav aria-label="Điều hướng chính" class="nav">
+     <a class="nav-item" th:href="@{/marketplace}">
+      <svg class="icon">
+       <use href="#i-home">
+       </use>
+      </svg>
+      <span>
+       Trang chủ
+      </span>
+     </a>
+     <a class="nav-item" th:href="@{/providers}">
+      <svg class="icon">
+       <use href="#i-search">
+       </use>
+      </svg>
+      <span>
+       Tìm Provider
+      </span>
+     </a>
+     <a class="nav-item" th:href="@{/requests}">
+      <svg class="icon">
+       <use href="#i-list">
+       </use>
+      </svg>
+      <span>
+       Request của tôi
+      </span>
+     </a>
+     <a class="nav-item" th:href="@{/requests/browse}">
+      <svg class="icon">
+       <use href="#i-search">
+       </use>
+      </svg>
+      <span>
+       Tìm Request
+      </span>
+     </a>
+     <a class="nav-item" th:href="@{/orders}">
+      <svg class="icon">
+       <use href="#i-bag">
+       </use>
+      </svg>
+      <span>
+       Đơn hàng
+      </span>
+     </a>
+     <button class="nav-item nav-button" data-open-chat="" type="button">
+      <svg class="icon">
+       <use href="#i-chat">
+       </use>
+      </svg>
+      <span>
+       Tin nhắn
+      </span>
+     </button>
+    </nav>
+    <form class="header-quick-search" th:action="@{/providers}" method="get" role="search"><label class="sr-only" for="header-search">Tìm kiếm nhanh</label><input id="header-search" name="q" placeholder="Tìm chuyên gia…" aria-label="Tìm kiếm nhanh"><button type="submit" aria-label="Tìm">⌕</button></form>
+    <div class="header-actions" th:if="${currentUser!=null}">
+     <details class="menu-wrap">
+      <summary aria-label="Thông báo" class="icon-button">
+       <svg class="icon">
+        <use href="#i-bell">
+        </use>
+       </svg>
+      </summary>
+      <div class="menu-panel">
+       <p class="muted">
+        Chưa có thông báo mới.
+       </p>
+      </div>
+     </details>
+     <details class="menu-wrap">
+      <summary aria-label="Mở menu tài khoản" class="avatar-button">
+       <img alt="Ảnh đại diện" class="avatar" th:src="${currentUser.avatarUrl}"/>
+       <span class="username" th:text="${currentUser.fullName}">
+        Tài khoản
+       </span>
+      </summary>
+      <div class="menu-panel menu-account">
+       <a th:href="@{/profile}">
+        <svg class="icon">
+         <use href="#i-user">
+         </use>
+        </svg>
+        Xem trang cá nhân
+       </a>
+       <a th:href="@{/settings}">
+        <svg class="icon">
+         <use href="#i-settings">
+         </use>
+        </svg>
+        Cài đặt
+       </a>
+       <a th:href="@{/change-password}">
+        <svg class="icon">
+         <use href="#i-lock">
+         </use>
+        </svg>
+        Đổi mật khẩu
+       </a>
+       <a th:if="${currentUser.role.name() == 'PROVIDER'}" th:href="@{/provider/dashboard}">
+        <svg class="icon"><use href="#i-bag"></use></svg>
+        Provider Workspace
+       </a>
+       <a th:if="${currentUser.role.name() == 'ADMIN'}" th:href="@{/admin/dashboard}">
+        <svg class="icon"><use href="#i-settings"></use></svg>
+        Admin Portal B4
+       </a>
+       <form method="post" th:action="@{/logout}">
+        <button class="menu-logout" type="submit">
+         <svg class="icon">
+          <use href="#i-logout">
+          </use>
+         </svg>
+         Đăng xuất
+        </button>
+       </form>
+      </div>
+     </details>
+    </div>
+   </div>
+  </header>
+  <aside aria-label="Điều hướng quản lý" class="sidebar" th:fragment="sidebar">
+   <a class="logo sidebar-logo" th:href="@{/marketplace}">
+    <span class="logo-mark">
+     S
+    </span>
+    <span>
+     SKILL RENTAL
+    </span>
+   </a>
+   <p class="sidebar-caption">
+    QUẢN LÝ
+   </p>
+   <a class="side-item" th:href="@{/marketplace}">
+    <svg class="icon">
+     <use href="#i-home">
+     </use>
+    </svg>
+    <span>
+     Trang chủ
+    </span>
+   </a>
+   <a class="side-item" th:href="@{/providers}">
+    <svg class="icon">
+     <use href="#i-search">
+     </use>
+    </svg>
+    <span>
+     Tìm Provider
+    </span>
+   </a>
+   <a class="side-item" th:href="@{/profile}">
+    <svg class="icon">
+     <use href="#i-user">
+     </use>
+    </svg>
+    <span>
+     Hồ sơ
+    </span>
+   </a>
+   <a class="side-item" th:href="@{/requests}">
+    <svg class="icon">
+     <use href="#i-list">
+     </use>
+    </svg>
+    <span>
+     Request của tôi
+    </span>
+   </a>
+   <a class="side-item" th:href="@{/orders}">
+    <svg class="icon">
+     <use href="#i-bag">
+     </use>
+    </svg>
+    <span>
+     Đơn hàng
+    </span>
+   </a>
+   <button class="side-item side-button" data-open-chat="" type="button">
+    <svg class="icon">
+     <use href="#i-chat">
+     </use>
+    </svg>
+    <span>
+     Tin nhắn
+    </span>
+   </button>
+   <a class="side-item" th:href="@{/settings}">
+    <svg class="icon">
+     <use href="#i-settings">
+     </use>
+    </svg>
+    <span>
+     Cài đặt
+    </span>
+   </a>
+   <a class="side-item" th:href="@{/change-password}">
+    <svg class="icon">
+     <use href="#i-lock">
+     </use>
+    </svg>
+    <span>
+     Đổi mật khẩu
+    </span>
+   </a>
+   <form method="post" th:action="@{/logout}">
+    <button class="side-item side-button" type="submit">
+     <svg class="icon">
+      <use href="#i-logout">
+      </use>
+     </svg>
+     <span>
+      Đăng xuất
+     </span>
+    </button>
+   </form>
+  </aside>
+  <div th:fragment="flash">
+   <div class="alert success" th:if="${success}" th:text="${success}">
+   </div>
+   <div class="alert danger" th:if="${error}" th:text="${error}">
+   </div>
+  </div>
+  <footer class="footer" th:fragment="footer">
+   <div class="container footer-inner">
+    <span>
+     © 2026 Skill Rental · Nền tảng kết nối kỹ năng
+    </span>
+    <a th:href="@{/marketplace}">
+     Về trang chủ
+    </a>
+   </div>
+  </footer>
+  <div th:fragment="floatingChat" th:if="${currentUser!=null}" th:replace="~{interaction/chat :: widget}">
+  </div>
+ </body>
+</html>

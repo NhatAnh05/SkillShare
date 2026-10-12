@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+ <head>
+  <meta charset="utf-8"/>
+  <meta content="width=device-width,initial-scale=1" name="viewport"/>
+  <title>
+   Thanh toán · Skill Rental
+  </title>
+  <th:block th:replace="~{fragments :: customerStyles}"></th:block>
+  <meta name="_csrf" th:content="${_csrf.token}"/>
+  <meta name="_csrf_header" th:content="${_csrf.headerName}"/>
+ </head>
+ <body>
+  <div th:replace="~{fragments :: icons}">
+  </div>
+  <div th:replace="~{fragments :: header}">
+  </div>
+  <main class="page">
+   <div class="container public-content">
+    <div aria-label="Các bước đặt lịch" class="booking-stepper">
+     <div class="is-done">
+      <b>
+       ✓
+      </b>
+      <span>
+       Chọn lịch
+      </span>
+     </div>
+     <span>
+      →
+     </span>
+     <div class="is-current">
+      <b>
+       2
+      </b>
+      <span>
+       Thanh toán
+      </span>
+     </div>
+     <span>
+      →
+     </span>
+     <div>
+      <b>
+       3
+      </b>
+      <span>
+       Hoàn tất
+      </span>
+     </div>
+    </div>
+    <p class="alert success">
+     Thanh toán trong project hiện chỉ là mô phỏng: không chuyển tiền, không giữ tiền trung gian.
+    </p>
+    <h1 class="title">
+     Thanh toán
+    </h1>
+    <div class="grid grid2" style="margin-top:20px">
+     <form class="card" method="post" th:action="@{/payment/{id}(id=${order.id})}" th:object="${form}">
+      <div class="alert danger" th:each="e:${#fields.globalErrors()}" th:if="${#fields.hasGlobalErrors()}" th:text="${e}">
+      </div>
+      <div class="form-group">
+       <label>
+        Phương thức
+       </label>
+       <select class="select" th:field="*{method}">
+        <option value="">
+         -- Chọn --
+        </option>
+        <option value="MOMO">
+         MoMo
+        </option>
+        <option value="VNPAY">
+         VNPay
+        </option>
+        <option value="BANK">
+         Chuyển khoản
+        </option>
+        <option value="COD">
+         Thanh toán sau
+        </option>
+       </select>
+      </div>
+      <div class="form-group">
+       <label>
+        Coupon
+       </label>
+       <input class="input" placeholder="WELCOME10 / SKILL20" th:field="*{couponCode}"/>
+      </div>
+      <label>
+       <input th:field="*{acceptedTerms}" type="checkbox"/>
+       Tôi đồng ý điều khoản
+      </label>
+      <button class="btn btn-primary" style="width:100%;margin-top:14px">
+       Xác nhận thanh toán
+      </button>
+     </form>
+     <div class="card">
+      <h3>
+       Tóm tắt đơn hàng · Thanh toán demo
+      </h3>
+      <p th:text="${order.booking.serviceName}">
+      </p>
+      <p class="muted" th:text="${order.provider.fullName}">
+      </p>
+      <p class="price" th:text="${#numbers.formatDecimal(order.subtotal,0,'POINT',0,'COMMA')+'đ'}">
+      </p>
+     </div>
+    </div>
+   </div>
+  </main>
+  <div th:replace="~{fragments :: footer}">
+  </div>
+  <div th:replace="~{fragments :: floatingChat}">
+  </div>
+  <script defer="" src="/js/app.js">
+  </script>
+ </body>
+</html>

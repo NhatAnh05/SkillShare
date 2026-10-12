@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+ <head>
+  <meta charset="utf-8"/>
+  <meta content="width=device-width,initial-scale=1" name="viewport"/>
+  <title>
+   Khiếu nại đơn hàng · Skill Rental
+  </title>
+  <th:block th:replace="~{fragments :: customerStyles}"></th:block>
+  <meta name="_csrf" th:content="${_csrf.token}"/>
+  <meta name="_csrf_header" th:content="${_csrf.headerName}"/>
+ </head>
+ <body>
+  <div th:replace="~{fragments :: icons}">
+  </div>
+  <main class="page">
+   <div class="container layout management-layout">
+    <div th:replace="~{fragments :: sidebar}">
+    </div>
+    <section class="page-content">
+     <div class="section-top">
+      <div>
+       <h1 class="title">
+        Gửi khiếu nại
+       </h1>
+       <p class="muted">
+        Đơn hàng
+        <strong th:text="${'#SR-'+order.id}">
+        </strong>
+        ·
+        <span th:text="${order.provider.fullName}">
+        </span>
+       </p>
+      </div>
+      <a class="btn btn-secondary" th:href="@{/orders}">
+       Quay lại đơn hàng
+      </a>
+     </div>
+     <div class="alert danger" style="max-width:650px">
+      Khiếu nại là luồng xử lý riêng, không làm thay đổi đánh giá sao của bạn.
+     </div>
+     <form class="card" method="post" style="max-width:650px" th:action="@{/orders/{id}/complaint(id=${order.id})}" th:object="${complaintForm}">
+      <div class="form-group">
+       <label for="complaint-subject">
+        Chủ đề khiếu nại
+       </label>
+       <input class="input" id="complaint-subject" maxlength="180" placeholder="Ví dụ: Chưa nhận được dịch vụ" required="" th:field="*{subject}"/>
+       <div class="error" th:errors="*{subject}">
+       </div>
+      </div>
+      <div class="form-group">
+       <label for="complaint-description">
+        Chi tiết sự việc
+       </label>
+       <textarea class="textarea" id="complaint-description" maxlength="2500" placeholder="Mô tả diễn biến và vấn đề bạn gặp phải..." required="" th:field="*{description}"></textarea>
+       <div class="error" th:errors="*{description}">
+       </div>
+      </div>
+      <button class="btn btn-danger" type="submit">
+       Gửi khiếu nại
+      </button>
+     </form>
+    </section>
+   </div>
+  </main>
+  <div th:replace="~{fragments :: footer}">
+  </div>
+  <div th:replace="~{fragments :: floatingChat}">
+  </div>
+  <script defer="" src="/js/app.js">
+  </script>
+ </body>
+</html>

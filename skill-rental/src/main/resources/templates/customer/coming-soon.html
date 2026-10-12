@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+ <head>
+  <meta charset="utf-8"/>
+  <meta content="width=device-width, initial-scale=1" name="viewport"/>
+  <title>
+   Đang phát triển · Skill Rental
+  </title>
+  <th:block th:replace="~{fragments :: customerStyles}"></th:block>
+  <meta name="_csrf" th:content="${_csrf.token}"/>
+  <meta name="_csrf_header" th:content="${_csrf.headerName}"/>
+ </head>
+ <body class="management-page">
+  <div th:replace="~{fragments :: icons}">
+  </div>
+  <main class="page">
+   <div class="container layout management-layout">
+    <div th:replace="~{fragments :: sidebar}">
+    </div>
+    <section class="page-content">
+     <div class="card empty-state">
+      <h1 th:text="${feature}">
+       Tính năng
+      </h1>
+      <p class="muted">
+       Tính năng này đang được phát triển; hiện chưa có nghiệp vụ backend để thực hiện giao dịch hay xác thực.
+      </p>
+      <a class="btn btn-primary" th:href="@{/settings}">
+       Quay lại cài đặt
+      </a>
+     </div>
+    </section>
+   </div>
+  </main>
+  <div th:replace="~{fragments :: footer}">
+  </div>
+  <div th:replace="~{fragments :: floatingChat}">
+  </div>
+  <script defer="" th:src="@{/js/app.js}">
+  </script>
+  <script defer="" th:src="@{/js/figma-ui.js}">
+  </script>
+ </body>
+</html>

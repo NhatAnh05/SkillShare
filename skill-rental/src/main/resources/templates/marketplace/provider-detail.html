@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+ <head>
+  <meta charset="utf-8"/>
+  <meta content="width=device-width, initial-scale=1" name="viewport"/>
+  <title>
+   Chi tiết Provider · Skill Rental
+  </title>
+  <th:block th:replace="~{fragments :: customerStyles}"></th:block>
+  <meta name="_csrf" th:content="${_csrf.token}"/>
+  <meta name="_csrf_header" th:content="${_csrf.headerName}"/>
+ </head>
+ <body class="public-page">
+  <div th:replace="~{fragments :: icons}">
+  </div>
+  <div th:replace="~{fragments :: header}">
+  </div>
+  <main class="page">
+   <div class="container public-content">
+    <div class="provider-detail-layout">
+     <div class="detail-main">
+      <section class="card expert-overview">
+       <div class="provider expert-profile">
+        <img alt="Ảnh Provider" th:src="${provider.user.avatarUrl}"/>
+        <div>
+         <h1 class="title" th:text="${provider.user.fullName}">
+         </h1>
+         <p class="expert-rating">
+          <span class="rating-star">
+           ★
+          </span>
+          <strong th:text="${provider.rating}">
+          </strong>
+          ·
+          <span th:text="${provider.reviewCount+' đánh giá (thống kê hồ sơ)'}">
+          </span>
+         </p>
+         <strong th:text="${provider.headline}">
+         </strong>
+        </div>
+       </div>
+       <hr/>
+       <h2>
+        Giới thiệu
+       </h2>
+       <p class="bio" th:text="${provider.introduction}">
+       </p>
+       <h2>
+        Kỹ năng
+       </h2>
+       <div class="tags colorful-skills">
+        <span class="tag" th:classappend="${'skill-tint-'+(st.index%4)}" th:each="skill,st : ${provider.skills}" th:text="${skill.name}">
+        </span>
+       </div>
+      </section>
+      <section class="card">
+       <h2>
+        Portfolio dự án
+       </h2>
+       <p class="muted">
+        Hình và tên dự án minh họa; hồ sơ chưa có dữ liệu portfolio được xác thực.
+       </p>
+       <div class="portfolio-grid">
+        <div class="portfolio-project" th:each="name,st : ${portfolioNames}">
+         <div class="portfolio-project-art" th:classappend="${'pt-'+((st.index%3)+1)}">
+          <span th:text="${'0'+(st.index+1)}">
+          </span>
+         </div>
+         <strong th:text="${name}">
+         </strong>
+        </div>
+       </div>
+      </section>
+      <section class="card">
+       <h2>
+        Đánh giá khách hàng
+       </h2>
+       <div class="review-overview">
+        <div class="review-score">
+         <strong th:text="${provider.rating}">
+         </strong>
+         <span class="rating-star">
+          ★★★★★
+         </span>
+         <small th:text="${provider.reviewCount+' đánh giá trên hồ sơ'}">
+         </small>
+        </div>
+        <div class="rating-bars">
+         <div class="rating-bar-row" th:each="n : ${#numbers.sequence(5,1)}">
+          <span th:text="${n+' ★'}">
+          </span>
+          <div class="rating-track">
+           <span th:style="|width: ${ratingPercent[n-1]}%|">
+           </span>
+          </div>
+          <small th:text="${ratingCounts[n-1]}">
+          </small>
+         </div>
+        </div>
+       </div>
+       <p class="muted" th:if="${#lists.isEmpty(reviews)}">
+        Chưa có đánh giá chi tiết từ các đơn hàng trong hệ thống. Phân bố sao chỉ thống kê các đánh giá đã gửi trên website.
+       </p>
+       <div class="review-quote" th:each="r : ${reviews}">
+        <img alt="Avatar khách hàng" th:src="${r.customer.avatarUrl}"/>
+        <div>
+         <strong th:text="${r.customer.fullName}">
+         </strong>
+         <div class="rating-star" th:text="${r.rating+' / 5 sao'}">
+         </div>
+         <p th:text="${r.comment}">
+         </p>
+        </div>
+       </div>
+      </section>
+     </div>
+     <aside class="card detail-price-card">
+      <p class="muted">
+       Giá / giờ
+      </p>
+      <div class="detail-price">
+       <strong th:text="${#numbers.formatDecimal(provider.hourlyRate,0,'POINT',0,'COMMA')+'đ'}">
+       </strong>
+       <span>
+        / giờ
+       </span>
+      </div>
+      <p class="muted">
+       Thời gian:
+       <span th:text="${provider.availability}">
+       </span>
+      </p>
+      <a class="btn btn-primary" th:href="@{/booking/provider/{id}(id=${provider.id})}">
+       Đặt lịch ngay
+      </a>
+      <form method="post" th:action="@{/chat/start/{id}(id=${provider.id})}">
+       <button class="btn btn-outline" type="submit">
+        Nhắn tin
+       </button>
+      </form>
+      <small class="muted">
+       Lịch sẽ được xác nhận ở bước đặt Provider. Chức năng khóa học chưa được triển khai.
+      </small>
+     </aside>
+    </div>
+   </div>
+  </main>
+  <div th:replace="~{fragments :: footer}">
+  </div>
+  <div th:replace="~{fragments :: floatingChat}">
+  </div>
+  <script defer="" th:src="@{/js/app.js}">
+  </script>
+  <script defer="" th:src="@{/js/figma-ui.js}">
+  </script>
+ </body>
+</html>

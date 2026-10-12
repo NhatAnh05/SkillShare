@@ -1,0 +1,4 @@
+-- H2 local schema is generated from the JPA entities by application.properties.
+-- Canonical MySQL schema: db/schema-mysql.sql
+-- Migration from the previous MySQL schema: db/migration-v1-to-v2.sql
+-- ERD and function-to-table mapping: docs/DATABASE_DESIGN.md

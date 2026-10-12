@@ -1,0 +1,506 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head>
+ <meta charset="utf-8"/>
+ <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+ <title>
+  Skill Rental - T&igrave;m chuy&ecirc;n gia ph&ugrave; hợp
+ </title>
+  <th:block th:replace="~{fragments :: customerStyles}"></th:block>
+</head>
+<body class="public-page marketplace-page">
+<!-- ICON SPRITE -->
+<div th:replace="~{fragments :: icons}">
+</div>
+<!-- HEADER -->
+<div th:replace="~{fragments :: header}">
+</div>
+<main class="page">
+ <div class="container public-content">
+  <!-- =====================================================
+     HERO
+     ===================================================== -->
+  <section class="market-hero">
+   <div class="market-hero-copy">
+      <span class="eyebrow">
+       NỀN TẢNG KẾT NỐI KỸ N&Abreve;NG
+      </span>
+    <h1>
+     T&igrave;m &dstrok;&uacute;ng chuy&ecirc;n gia cho c&ocirc;ng việc của bạn.
+    </h1>
+    <p>
+     Kh&aacute;m ph&aacute; Provider theo kỹ n&abreve;ng, gi&aacute; v&agrave; &dstrok;&aacute;nh gi&aacute;.
+     Hoặc tạo Request &dstrok;ể nhận hồ sơ ứng tuyển từ những
+     chuy&ecirc;n gia ph&ugrave; hợp.
+    </p>
+    <div class="actions">
+     <a class="btn btn-primary" href="/providers">
+      T&igrave;m Provider
+     </a>
+     <a class="btn btn-outline" href="/requests/create">
+      + Tạo Request
+     </a>
+    </div>
+   </div>
+   <!-- HERO VISUAL -->
+   <div aria-hidden="true" class="hero-visual">
+    <div class="hero-orbit">
+     <div class="hero-center">
+      SR
+     </div>
+     <div class="floating-profile">
+      <div class="floating-avatar">
+       UI
+      </div>
+      <div>
+       <strong>
+        UI/UX Designer
+       </strong>
+       <small>
+        &starf; 4.9 &middot; 128 &dstrok;&aacute;nh gi&aacute;
+       </small>
+      </div>
+     </div>
+     <div class="floating-profile">
+      <div class="floating-avatar">
+       BE
+      </div>
+      <div>
+       <strong>
+        Backend Developer
+       </strong>
+       <small>
+        &starf; 4.8 &middot; 96 &dstrok;&aacute;nh gi&aacute;
+       </small>
+      </div>
+     </div>
+     <div class="floating-profile">
+      <div class="floating-avatar">
+       DA
+      </div>
+      <div>
+       <strong>
+        Data Analyst
+       </strong>
+       <small>
+        &starf; 5.0 &middot; 74 &dstrok;&aacute;nh gi&aacute;
+       </small>
+      </div>
+     </div>
+    </div>
+   </div>
+  </section>
+  <!-- =====================================================
+     PLATFORM STATS
+     ===================================================== -->
+  <section aria-label="Thống k&ecirc; nền tảng" class="market-stats">
+   <div class="market-stat">
+    <strong>
+     120+
+    </strong>
+    <span>
+       Provider &dstrok;ang hoạt &dstrok;ộng
+      </span>
+   </div>
+   <div class="market-stat">
+    <strong>
+     350+
+    </strong>
+    <span>
+       Kỹ n&abreve;ng chuy&ecirc;n m&ocirc;n
+      </span>
+   </div>
+   <div class="market-stat">
+    <strong>
+     1.2K+
+    </strong>
+    <span>
+       Request &dstrok;&atilde; tạo
+      </span>
+   </div>
+   <div class="market-stat">
+    <strong>
+     4.8/5
+    </strong>
+    <span>
+       &Dstrok;iểm &dstrok;&aacute;nh gi&aacute; trung b&igrave;nh
+      </span>
+   </div>
+  </section>
+  <!-- =====================================================
+     SEARCH
+     ===================================================== -->
+  <section class="market-search-panel">
+   <div class="search-heading">
+    <strong>
+     T&igrave;m kiếm chuy&ecirc;n gia
+    </strong>
+    <span>
+       T&igrave;m theo t&ecirc;n, kỹ n&abreve;ng hoặc chuy&ecirc;n m&ocirc;n
+      </span>
+   </div>
+   <form class="market-search" method="get" th:action="@{/providers}">
+    <div class="search-field">
+       <span aria-hidden="true" class="search-icon">
+        &telrec;
+       </span>
+     <input id="home-search" name="q" placeholder="V&iacute; dụ: Java, UI/UX, Marketing..." type="text"/>
+    </div>
+    <button type="submit">
+     T&igrave;m kiếm
+    </button>
+   </form>
+   <div class="quick-filters">
+      <span class="quick-label">
+       Lọc nhanh:
+      </span>
+    <a class="quick-filter active" th:href="@{/providers}">
+     Tất cả
+    </a>
+    <a class="quick-filter" th:href="@{/providers(skill='Java')}">
+     Java
+    </a>
+    <a class="quick-filter" th:href="@{/providers(skill='UI/UX')}">
+     UI/UX
+    </a>
+    <a class="quick-filter" th:href="@{/providers(skill='React')}">
+     React
+    </a>
+    <a class="quick-filter" th:href="@{/providers(skill='Data')}">
+     Data
+    </a>
+    <a class="quick-filter" th:href="@{/providers(skill='Marketing')}">
+     Marketing
+    </a>
+    <a class="quick-filter" th:href="@{/providers(skill='Video')}">
+     Video
+    </a>
+   </div>
+  </section>
+  <!-- =====================================================
+     POPULAR SKILLS
+     ===================================================== -->
+  <section class="market-section">
+   <div class="section-heading">
+    <div>
+     <h2>
+      Kỹ n&abreve;ng &dstrok;ang &dstrok;ược quan t&acirc;m
+     </h2>
+     <p>
+      Kh&aacute;m ph&aacute; những nh&oacute;m kỹ n&abreve;ng phổ biến tr&ecirc;n nền tảng.
+     </p>
+    </div>
+    <a th:href="@{/providers}">
+     Xem tất cả &rarr;
+    </a>
+   </div>
+   <div class="skill-grid">
+    <a class="skill-box" th:each="s, stat : ${skills}" th:href="@{/providers(skill=${s.name})}" th:if="${stat.index &lt; 10}">
+     <div class="skill-icon" th:text="${stat.index + 1}">
+      1
+     </div>
+     <strong th:text="${s.name}">
+      Java
+     </strong>
+     <span>
+        Kh&aacute;m ph&aacute; Provider &rarr;
+       </span>
+    </a>
+   </div>
+  </section>
+  <!-- =====================================================
+     FEATURED PROVIDERS
+     ===================================================== -->
+  <section class="market-section">
+   <div class="section-heading">
+    <div>
+     <h2>
+      Provider nổi bật
+     </h2>
+     <p>
+      Những chuy&ecirc;n gia &dstrok;ang c&oacute; tr&ecirc;n nền tảng.
+     </p>
+    </div>
+    <a th:href="@{/providers}">
+     Xem tất cả &rarr;
+    </a>
+   </div>
+   <div class="expert-grid" data-provider-grid>
+    <article class="expert-card" th:each="p : ${providers}">
+     <!-- Provider -->
+     <div class="expert-person">
+      <img alt="Ảnh Provider" loading="lazy" th:src="${p.user.avatarUrl}"/>
+      <div>
+       <h3 th:text="${p.user.fullName}">
+        Provider
+       </h3>
+       <small class="verified">
+          <span aria-hidden="true">
+           ●
+          </span>
+        &Dstrok;&atilde; x&aacute;c minh
+       </small>
+       <div class="expert-rating">
+          <span class="rating-star">
+           &starf;
+          </span>
+        <strong th:text="${p.rating}">
+         4.9
+        </strong>
+        <span>
+           &middot;
+          </span>
+        <span th:text="${p.reviewCount + ' &dstrok;&aacute;nh gi&aacute;'}">
+           128 &dstrok;&aacute;nh gi&aacute;
+          </span>
+       </div>
+      </div>
+     </div>
+     <!-- Headline -->
+     <p class="expert-headline" th:text="${p.headline}">
+      Full-stack developer chuy&ecirc;n x&acirc;y dựng
+      website v&agrave; hệ thống backend.
+     </p>
+     <!-- Portfolio -->
+     <div aria-label="Portfolio minh họa" class="expert-gallery">
+        <span class="portfolio-thumb pt-1">
+         UI
+        </span>
+      <span class="portfolio-thumb pt-2">
+         API
+        </span>
+      <span class="portfolio-thumb pt-3">
+         WEB
+        </span>
+     </div>
+     <!-- Skills -->
+     <div class="tags expert-skills">
+        <span class="tag" th:each="s, stat : ${p.skills}" th:if="${stat.index &lt; 4}" th:text="${s.name}">
+         Java
+        </span>
+     </div>
+     <!-- Availability -->
+     <p class="expert-hours">
+      ◷
+      <span th:text="${p.availability}">
+         C&oacute; thể nhận việc
+        </span>
+     </p>
+     <!-- Price -->
+     <div class="expert-price">
+      Từ
+      <strong th:text="${#numbers.formatDecimal(p.hourlyRate,0,'POINT',0,'COMMA')+'&dstrok;'}">
+       150.000&dstrok;
+      </strong>
+      / giờ
+     </div>
+     <!-- Actions -->
+     <div class="actions expert-actions">
+      <a class="btn btn-outline btn-sm" th:href="@{/providers/{id}(id=${p.id})}">
+       Xem hồ sơ
+      </a>
+      <a class="btn btn-primary btn-sm" th:href="@{/booking/provider/{id}(id=${p.id})}">
+       &Dstrok;ặt Provider
+      </a>
+     </div>
+    </article>
+   </div>
+   <div class="provider-see-more-wrap" data-provider-toggle hidden>
+    <button class="btn btn-outline provider-see-more" type="button" data-provider-toggle-button aria-expanded="false">
+     Xem thêm Provider
+    </button>
+   </div>
+  </section>
+  <!-- =====================================================
+     NEW REQUESTS — actual open requests from database
+     ===================================================== -->
+  <section class="market-section">
+   <div class="section-heading">
+    <div>
+     <h2>Request đang tìm Provider</h2>
+     <p>Những yêu cầu mới nhất do khách hàng đăng, đang chờ chuyên gia gửi đề xuất.</p>
+    </div>
+    <a th:href="@{/requests/browse}">Xem tất cả Request &rarr;</a>
+   </div>
+   <div class="request-grid" th:if="${!#lists.isEmpty(recentRequests)}">
+    <article class="request-card" th:each="r : ${recentRequests}">
+     <div class="request-top">
+      <h3 th:text="${r.title}">Hoàn thiện website đặt lịch</h3>
+      <span class="request-status">ĐANG MỞ</span>
+     </div>
+     <p th:text="${r.description}">Mô tả công việc khách hàng đang cần hỗ trợ.</p>
+     <div class="request-meta">
+      <span th:text="${r.requiredSkills}">Java, Spring Boot</span>
+      <span th:text="${'Hạn ' + #temporals.format(r.deadline, 'dd/MM/yyyy')}">Hạn 30/10/2026</span>
+     </div>
+     <div class="request-bottom">
+      <div class="request-price">
+       <strong th:text="${#numbers.formatDecimal(r.budget,0,'POINT',0,'COMMA') + 'đ'}">5.000.000đ</strong>
+       <span>Ngân sách dự kiến</span>
+      </div>
+      <div class="request-applicants">
+       <strong th:text="${requestApplyCounts[r.id] == null ? 0 : requestApplyCounts[r.id]}">0</strong>
+       <br/>Provider đã ứng tuyển
+      </div>
+     </div>
+     <div class="request-card-actions" th:if="${currentUser != null and currentUser.role.name() == 'PROVIDER'}">
+      <a class="btn btn-primary btn-sm" th:href="@{/provider/requests/{id}(id=${r.id})}">Xem Request &rarr;</a>
+      <a class="btn btn-outline btn-sm" th:href="@{/provider/requests/{id}/apply(id=${r.id})}">Ứng tuyển</a>
+     </div>
+    </article>
+   </div>
+   <div class="request-board-empty" th:if="${#lists.isEmpty(recentRequests)}">
+    <strong>Chưa có Request đang mở</strong>
+    <p>Khi khách hàng đăng yêu cầu mới, thông tin sẽ xuất hiện tại đây.</p>
+    <a class="btn btn-outline btn-sm" th:href="@{/requests/browse}">Mở trang Request</a>
+   </div>
+   <div class="request-board-actions">
+    <a class="btn btn-outline" th:href="@{/requests/browse}">Khám phá tất cả Request &rarr;</a>
+    <a class="btn btn-primary" th:if="${currentUser != null and currentUser.role.name() == 'CUSTOMER'}" th:href="@{/requests/create}">+ Đăng Request mới</a>
+   </div>
+  </section>
+  <!-- =====================================================
+     NEW PROVIDERS
+     ===================================================== -->
+  <section class="market-section">
+   <div class="section-heading">
+    <div>
+     <h2>
+      Provider mới tham gia
+     </h2>
+     <p>
+      Kh&aacute;m ph&aacute; những chuy&ecirc;n gia mới tr&ecirc;n Skill Rental.
+     </p>
+    </div>
+    <a th:href="@{/providers}">
+     Kh&aacute;m ph&aacute; th&ecirc;m &rarr;
+    </a>
+   </div>
+   <div class="new-provider-grid">
+    <a class="new-provider" th:each="p, stat : ${providers}" th:href="@{/providers/{id}(id=${p.id})}" th:if="${stat.index &lt; 4}">
+     <img alt="Avatar" loading="lazy" th:src="${p.user.avatarUrl}"/>
+     <div class="new-provider-info">
+      <strong th:text="${p.user.fullName}">
+       Nguyễn V&abreve;n A
+      </strong>
+      <span th:text="${p.headline}">
+         Full-stack Developer
+        </span>
+      <div class="new-provider-rating">
+       &starf;
+       <span th:text="${p.rating}">
+          4.9
+         </span>
+      </div>
+     </div>
+     <span class="profile-arrow">
+        &rarr;
+       </span>
+    </a>
+   </div>
+  </section>
+  <!-- =====================================================
+     WHY SKILL RENTAL
+     ===================================================== -->
+  <section class="market-section">
+   <div class="section-heading">
+    <div>
+     <h2>
+      Tại sao chọn Skill Rental?
+     </h2>
+     <p>
+      Mọi thứ bạn cần &dstrok;ể t&igrave;m v&agrave; kết nối với chuy&ecirc;n gia.
+     </p>
+    </div>
+   </div>
+   <div class="benefit-grid">
+    <article class="benefit">
+     <div class="benefit-icon">
+      &checkmark;
+     </div>
+     <h3>
+      T&igrave;m &dstrok;&uacute;ng chuy&ecirc;n gia
+     </h3>
+     <p>
+      Kh&aacute;m ph&aacute; Provider theo kỹ n&abreve;ng, chuy&ecirc;n m&ocirc;n,
+      mức gi&aacute; v&agrave; &dstrok;&aacute;nh gi&aacute;.
+     </p>
+    </article>
+    <article class="benefit">
+     <div class="benefit-icon">
+      $
+     </div>
+     <h3>
+      Minh bạch chi ph&iacute;
+     </h3>
+     <p>
+      Xem mức gi&aacute; theo giờ v&agrave; th&ocirc;ng tin dịch vụ
+      trước khi &dstrok;ưa ra lựa chọn.
+     </p>
+    </article>
+    <article class="benefit">
+     <div class="benefit-icon">
+      &starf;
+     </div>
+     <h3>
+      &Dstrok;&aacute;nh gi&aacute; r&otilde; r&agrave;ng
+     </h3>
+     <p>
+      Tham khảo &dstrok;iểm &dstrok;&aacute;nh gi&aacute; v&agrave; số lượng review
+      trước khi &dstrok;ặt Provider.
+     </p>
+    </article>
+    <article class="benefit">
+     <div class="benefit-icon">
+      ◉
+     </div>
+     <h3>
+      Kết nối trực tiếp
+     </h3>
+     <p>
+      Tạo Request hoặc li&ecirc;n hệ Provider &dstrok;ể trao &dstrok;ổi
+      về c&ocirc;ng việc trước khi bắt &dstrok;ầu.
+     </p>
+    </article>
+   </div>
+  </section>
+  <!-- =====================================================
+     CTA
+     ===================================================== -->
+  <section class="market-cta">
+   <div class="market-cta-content">
+    <h2>
+     Bạn &dstrok;ang cần một chuy&ecirc;n gia?
+    </h2>
+    <p>
+     &Dstrok;&abreve;ng Request v&agrave; &dstrok;ể những Provider ph&ugrave; hợp
+     chủ &dstrok;ộng gửi hồ sơ ứng tuyển cho c&ocirc;ng việc
+     của bạn.
+    </p>
+    <div class="actions">
+     <a class="btn btn-primary" href="/requests/create">
+      + Tạo Request
+     </a>
+     <a class="btn btn-outline" href="/providers">
+      Kh&aacute;m ph&aacute; Provider
+     </a>
+    </div>
+   </div>
+  </section>
+ </div>
+</main>
+<!-- FOOTER -->
+<div th:replace="~{fragments :: footer}">
+</div>
+<!-- FLOATING CHAT -->
+<div th:replace="~{fragments :: floatingChat}">
+</div>
+<!-- SCRIPTS -->
+<script defer="" th:src="@{/js/app.js}">
+</script>
+<script defer="" th:src="@{/js/figma-ui.js}">
+</script>
+<script defer="" th:src="@{/js/home-marketplace.js}">
+</script>
+</body>
+</html>

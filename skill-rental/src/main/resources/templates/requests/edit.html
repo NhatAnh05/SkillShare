@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+ <head>
+  <meta charset="utf-8"/>
+  <meta content="width=device-width, initial-scale=1" name="viewport"/>
+  <title>
+   Chỉnh sửa Request · Skill Rental
+  </title>
+  <th:block th:replace="~{fragments :: customerStyles}"></th:block>
+  <meta name="_csrf" th:content="${_csrf.token}"/>
+  <meta name="_csrf_header" th:content="${_csrf.headerName}"/>
+ </head>
+ <body class="management-page">
+  <div th:replace="~{fragments :: icons}">
+  </div>
+  <main class="page">
+   <div class="container layout management-layout">
+    <div th:replace="~{fragments :: sidebar}">
+    </div>
+    <section class="page-content">
+     <h1 class="title">
+      Chỉnh sửa Request
+     </h1>
+     <form class="card" method="post" th:action="@{/requests/{id}/edit(id=${request.id})}" th:object="${form}">
+      <div class="form-group">
+       <label>
+        Tiêu đề
+       </label>
+       <input class="input" required="" th:field="*{title}"/>
+       <small class="error" th:errors="*{title}">
+       </small>
+      </div>
+      <div class="form-group">
+       <label>
+        Kỹ năng
+       </label>
+       <input class="input" required="" th:field="*{requiredSkills}"/>
+      </div>
+      <div class="form-group">
+       <label>
+        Mô tả
+       </label>
+       <textarea class="textarea" required="" th:field="*{description}"></textarea>
+      </div>
+      <div class="row">
+       <div class="form-group">
+        <label>
+         Ngân sách (đ)
+        </label>
+        <input class="input" min="1" required="" th:field="*{budget}" type="number"/>
+       </div>
+       <div class="form-group">
+        <label>
+         Hạn hoàn thành
+        </label>
+        <input class="input" required="" th:field="*{deadline}" type="date"/>
+       </div>
+      </div>
+      <button class="btn btn-primary" type="submit">
+       Lưu Request
+      </button>
+     </form>
+    </section>
+   </div>
+  </main>
+  <div th:replace="~{fragments :: footer}">
+  </div>
+  <div th:replace="~{fragments :: floatingChat}">
+  </div>
+  <script defer="" th:src="@{/js/app.js}">
+  </script>
+  <script defer="" th:src="@{/js/figma-ui.js}">
+  </script>
+ </body>
+</html>

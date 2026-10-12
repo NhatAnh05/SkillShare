@@ -1,0 +1,196 @@
+erDiagram
+    USERS ||--o| CUSTOMER_PROFILES : has
+    USERS ||--o| PROVIDER_PROFILES : has
+    USERS ||--o{ OAUTH_IDENTITIES : links
+    PROVIDER_PROFILES ||--o{ PROVIDER_SKILLS : maps
+    SKILLS ||--o{ PROVIDER_SKILLS : assigned
+    USERS ||--o{ SERVICES : publishes
+    SERVICES ||--o{ SERVICE_SKILLS : maps
+    SKILLS ||--o{ SERVICE_SKILLS : tags
+    USERS ||--o{ SERVICE_REQUESTS : creates
+    SERVICE_REQUESTS ||--o{ SERVICE_REQUEST_SKILLS : maps
+    SKILLS ||--o{ SERVICE_REQUEST_SKILLS : requested
+    SERVICE_REQUESTS ||--o{ APPLIES : receives
+    USERS ||--o{ APPLIES : submits
+    USERS ||--o{ CARTS : owns
+    CARTS ||--o{ CART_ITEMS : contains
+    SERVICES ||--o{ CART_ITEMS : selected
+    USERS ||--o{ BOOKINGS : customer
+    USERS ||--o{ BOOKINGS : provider
+    SERVICES o|--o{ BOOKINGS : booked_as
+    USERS ||--o{ RENTAL_ORDERS : customer
+    USERS o|--o{ RENTAL_ORDERS : legacy_provider
+    BOOKINGS o|--o| RENTAL_ORDERS : legacy_booking
+    RENTAL_ORDERS ||--o{ RENTAL_ORDER_ITEMS : contains
+    SERVICES o|--o{ RENTAL_ORDER_ITEMS : catalog_item
+    USERS ||--o{ RENTAL_ORDER_ITEMS : fulfills
+    BOOKINGS o|--o| RENTAL_ORDER_ITEMS : scheduled_as
+    RENTAL_ORDERS ||--o{ RENTAL_ORDER_STATUS_HISTORY : history
+    USERS o|--o{ RENTAL_ORDER_STATUS_HISTORY : changed_by
+    RENTAL_ORDERS ||--o| PAYMENTS : payment
+    PAYMENTS ||--o{ PAYMENT_ATTEMPTS : retries
+    PAYMENTS ||--o{ REFUNDS : may_refund
+    USERS ||--o{ REFUNDS : requests
+    USERS o|--o{ REFUNDS : approves
+    RENTAL_ORDERS ||--o| REVIEWS : reviewed
+    SERVICES o|--o{ REVIEWS : service_review
+    USERS ||--o{ REVIEWS : customer
+    USERS ||--o{ REVIEWS : provider
+    USERS o|--o{ COMPLAINTS : legacy_customer
+    USERS o|--o{ COMPLAINTS : reporter
+    USERS o|--o{ COMPLAINTS : reported_user
+    USERS o|--o{ COMPLAINTS : admin_handler
+    RENTAL_ORDERS o|--o{ COMPLAINTS : regarding
+    USERS ||--o{ CONVERSATIONS : customer
+    USERS ||--o{ CONVERSATIONS : provider
+    CONVERSATIONS ||--o{ MESSAGES : contains
+    USERS ||--o{ MESSAGES : sends
+
+    USERS {
+        bigint id PK
+        varchar email UK
+        varchar role
+        varchar account_status
+        boolean email_verified
+    }
+    OAUTH_IDENTITIES {
+        bigint id PK
+        bigint user_id FK
+        varchar identity_provider
+        varchar provider_subject UK
+    }
+    CUSTOMER_PROFILES {
+        bigint id PK
+        bigint user_id FK_UK
+        varchar location
+    }
+    PROVIDER_PROFILES {
+        bigint id PK
+        bigint user_id FK_UK
+        decimal hourly_rate
+        double rating
+        boolean is_approved
+    }
+    SKILLS {
+        bigint id PK
+        varchar name UK
+    }
+    PROVIDER_SKILLS {
+        bigint provider_profile_id PK_FK
+        bigint skill_id PK_FK
+    }
+    SERVICES {
+        bigint id PK
+        bigint provider_id FK
+        varchar name
+        decimal price
+        varchar status
+    }
+    SERVICE_SKILLS {
+        bigint service_id PK_FK
+        bigint skill_id PK_FK
+    }
+    SERVICE_REQUESTS {
+        bigint id PK
+        bigint customer_id FK
+        decimal budget
+        date deadline
+        varchar status
+    }
+    SERVICE_REQUEST_SKILLS {
+        bigint request_id PK_FK
+        bigint skill_id PK_FK
+    }
+    APPLIES {
+        bigint id PK
+        bigint request_id FK
+        bigint provider_id FK
+        decimal proposed_price
+    }
+    CARTS {
+        bigint id PK
+        bigint customer_id FK
+        varchar status
+    }
+    CART_ITEMS {
+        bigint id PK
+        bigint cart_id FK
+        bigint service_id FK
+        int quantity
+        decimal unit_price_snapshot
+    }
+    BOOKINGS {
+        bigint id PK
+        bigint customer_id FK
+        bigint provider_id FK
+        bigint service_id FK
+        date booking_date
+        varchar status
+    }
+    RENTAL_ORDERS {
+        bigint id PK
+        bigint customer_id FK
+        bigint booking_id FK_UK
+        bigint provider_id FK_nullable
+        decimal total
+        varchar status
+    }
+    RENTAL_ORDER_ITEMS {
+        bigint id PK
+        bigint order_id FK
+        bigint service_id FK_nullable
+        bigint provider_id FK
+        bigint booking_id FK_UK_nullable
+        decimal line_total
+    }
+    RENTAL_ORDER_STATUS_HISTORY {
+        bigint id PK
+        bigint order_id FK
+        varchar previous_status
+        varchar new_status
+    }
+    PAYMENTS {
+        bigint id PK
+        bigint order_id FK_UK
+        varchar gateway_name
+        varchar status
+        decimal amount
+    }
+    PAYMENT_ATTEMPTS {
+        bigint id PK
+        bigint payment_id FK
+        int attempt_number
+        varchar merchant_reference UK
+        varchar status
+    }
+    REFUNDS {
+        bigint id PK
+        bigint payment_id FK
+        bigint requested_by_user_id FK
+        decimal amount
+        varchar status
+    }
+    REVIEWS {
+        bigint id PK
+        bigint order_id FK_UK
+        bigint service_id FK_nullable
+        int rating
+    }
+    COMPLAINTS {
+        bigint id PK
+        bigint reporter_id FK_nullable
+        bigint reported_user_id FK_nullable
+        bigint order_id FK_nullable
+        varchar status
+    }
+    CONVERSATIONS {
+        bigint id PK
+        bigint customer_id FK
+        bigint provider_id FK
+    }
+    MESSAGES {
+        bigint id PK
+        bigint conversation_id FK
+        bigint sender_id FK
+        datetime sent_at
+    }

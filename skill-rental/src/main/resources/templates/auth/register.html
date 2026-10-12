@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+ <head>
+  <meta charset="utf-8"/>
+  <meta content="width=device-width,initial-scale=1" name="viewport"/>
+  <title>
+   Đăng ký · Skill Rental
+  </title>
+  <th:block th:replace="~{fragments :: customerStyles}"></th:block>
+ </head>
+ <body>
+  <div class="auth">
+   <div class="auth-art">
+    <h1>
+     Tạo tài khoản Skill Rental.
+    </h1>
+    <p>
+     Bắt đầu tìm Provider và đăng Service Request.
+    </p>
+   </div>
+   <div class="auth-box">
+    <div class="auth-card">
+     <div class="logo">
+      <i>
+       S
+      </i>
+      SKILL RENTAL
+     </div>
+     <h1>
+      Đăng ký
+     </h1>
+     <form method="post" th:action="@{/register}" th:object="${form}">
+      <div class="alert danger" th:each="e:${#fields.globalErrors()}" th:if="${#fields.hasGlobalErrors()}" th:text="${e}">
+      </div>
+      <div class="form-group">
+       <label>
+        Họ tên
+       </label>
+       <input class="input" th:field="*{fullName}"/>
+       <span class="error" th:errors="*{fullName}">
+       </span>
+      </div>
+      <div class="form-group">
+       <label>
+        Email
+       </label>
+       <input class="input" th:field="*{email}" type="email"/>
+      </div>
+      <div class="row">
+       <div class="form-group">
+        <label>
+         Mật khẩu
+        </label>
+        <input class="input" th:field="*{password}" type="password"/>
+       </div>
+       <div class="form-group">
+        <label>
+         Xác nhận
+        </label>
+        <input class="input" th:field="*{confirmPassword}" type="password"/>
+       </div>
+      </div>
+      <label>
+       <input th:field="*{acceptedTerms}" type="checkbox"/>
+       Đồng ý điều khoản
+      </label>
+      <button class="btn btn-primary" style="width:100%;margin-top:14px">
+       Đăng ký
+      </button>
+     </form>
+     <p class="muted">
+      Đã có tài khoản?
+      <a href="/login" style="color:var(--primary)">
+       Đăng nhập
+      </a>
+     </p>
+    </div>
+   </div>
+  </div>
+ </body>
+</html>

@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+ <head>
+  <meta charset="utf-8"/>
+  <meta content="width=device-width,initial-scale=1" name="viewport"/>
+  <title>
+   Danh sách ứng tuyển · Skill Rental
+  </title>
+  <th:block th:replace="~{fragments :: customerStyles}"></th:block>
+  <meta name="_csrf" th:content="${_csrf.token}"/>
+  <meta name="_csrf_header" th:content="${_csrf.headerName}"/>
+ </head>
+ <body>
+  <div th:replace="~{fragments :: icons}">
+  </div>
+  <main class="page">
+   <div class="container layout management-layout">
+    <div th:replace="~{fragments :: sidebar}">
+    </div>
+    <section class="page-content">
+     <h1 class="title">
+      Danh sách ứng tuyển
+     </h1>
+     <p class="muted">
+      Request:
+      <strong th:text="${request.title}">
+      </strong>
+     </p>
+     <div th:replace="~{fragments :: flash}">
+     </div>
+     <div class="grid grid2">
+      <article class="card" th:each="a:${applies}">
+       <div class="provider">
+        <img th:src="${a.provider.avatarUrl}"/>
+        <div>
+         <h3 th:text="${a.provider.fullName}">
+         </h3>
+         <span class="badge" th:classappend="${a.status.name()=='PENDING'?'pending':(a.status.name()=='ACCEPTED'?'done':'bad')}" th:text="${a.status.name()=='PENDING'?'Đang chờ':(a.status.name()=='ACCEPTED'?'Đã chấp nhận':'Đã từ chối')}">
+         </span>
+        </div>
+       </div>
+       <p th:text="${a.proposal}">
+       </p>
+       <p>
+        <strong>
+         Giá:
+        </strong>
+        <span th:text="${#numbers.formatDecimal(a.proposedPrice,0,'POINT',0,'COMMA')+'đ'}">
+        </span>
+       </p>
+       <form method="post" th:action="@{/requests/{r}/applies/{a}/choose(r=${request.id},a=${a.id})}" th:if="${request.status.name()=='OPEN'}">
+        <button class="btn btn-primary">
+         Chọn Provider
+        </button>
+       </form>
+      </article>
+     </div>
+    </section>
+   </div>
+  </main>
+  <div th:replace="~{fragments :: footer}">
+  </div>
+  <div th:replace="~{fragments :: floatingChat}">
+  </div>
+  <script defer="" src="/js/app.js">
+  </script>
+ </body>
+</html>

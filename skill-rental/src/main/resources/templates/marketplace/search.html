@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+ <head>
+  <meta charset="utf-8"/>
+  <meta content="width=device-width,initial-scale=1" name="viewport"/>
+  <title>
+   Tìm Provider · Skill Rental
+  </title>
+  <th:block th:replace="~{fragments :: customerStyles}"></th:block>
+  <meta name="_csrf" th:content="${_csrf.token}"/>
+  <meta name="_csrf_header" th:content="${_csrf.headerName}"/>
+ </head>
+ <body>
+  <div th:replace="~{fragments :: icons}">
+  </div>
+  <div th:replace="~{fragments :: header}">
+  </div>
+  <main class="page">
+   <div class="container public-content">
+    <div class="section-top">
+     <div>
+      <h1 class="title">
+       Tìm Provider
+      </h1>
+      <p class="muted">
+       Lọc theo kỹ năng và khoảng giá phù hợp.
+      </p>
+     </div>
+     <a class="btn btn-primary" href="/requests/create">
+      + Tạo Request
+     </a>
+    </div>
+    <form class="card filter-card" method="get" th:action="@{/providers}">
+     <div class="filter-grid">
+      <div class="form-group">
+       <label for="provider-q">
+        Từ khóa
+       </label>
+       <input class="input" id="provider-q" name="q" placeholder="Tên hoặc chuyên môn" th:value="${q}"/>
+      </div>
+      <div class="form-group">
+       <label for="skill-filter">
+        Tìm trong danh sách kỹ năng
+       </label>
+       <input aria-controls="skill-select" autocomplete="off" class="input" id="skill-filter" placeholder="Gõ để lọc lựa chọn" type="search"/>
+       <select aria-label="Chọn kỹ năng" class="select" id="skill-select" name="skill">
+        <option value="">
+         Tất cả kỹ năng
+        </option>
+        <option th:each="s:${skills}" th:selected="${skill==s.name}" th:text="${s.name}" th:value="${s.name}">
+         Kỹ năng
+        </option>
+       </select>
+       <small class="muted">
+        Chỉ chọn kỹ năng có trong danh sách.
+       </small>
+      </div>
+      <div class="form-group">
+       <label for="sort-providers">
+        Sắp xếp
+       </label>
+       <select class="select" id="sort-providers" name="sort">
+        <option th:selected="${sort=='rating'}" value="rating">
+         Đánh giá cao
+        </option>
+        <option th:selected="${sort=='priceAsc'}" value="priceAsc">
+         Giá tăng dần
+        </option>
+        <option th:selected="${sort=='priceDesc'}" value="priceDesc">
+         Giá giảm dần
+        </option>
+       </select>
+      </div>
+     </div>
+     <fieldset class="price-field">
+      <legend>
+       Khoảng giá / giờ
+      </legend>
+      <div class="price-current">
+       <output for="min-price" id="price-min-label">
+        0đ
+       </output>
+       <span>
+        —
+       </span>
+       <output for="max-price" id="price-max-label">
+        2.000.000đ
+       </output>
+      </div>
+      <div class="range-dual" id="range-dual">
+       <div class="range-track">
+       </div>
+       <div class="range-fill" id="range-fill">
+       </div>
+       <input aria-label="Giá thấp nhất" id="min-price" max="2000000" min="0" name="minPrice" step="10000" th:value="${minPrice}" type="range"/>
+       <input aria-label="Giá cao nhất" id="max-price" max="2000000" min="0" name="maxPrice" step="10000" th:value="${maxPrice}" type="range"/>
+      </div>
+     </fieldset>
+     <div class="actions">
+      <button class="btn btn-primary" type="submit">
+       Tìm kiếm
+      </button>
+      <a class="btn btn-secondary" th:href="@{/providers}">
+       Xóa bộ lọc
+      </a>
+     </div>
+    </form>
+    <div class="filter-selected" th:if="${skill != null and !skill.isBlank()}">Đang lọc: <span th:text="${skill}"></span> <a th:href="@{/providers(q=${q},minPrice=${minPrice},maxPrice=${maxPrice},sort=${sort})}" aria-label="Bỏ lọc kỹ năng">×</a></div>
+    <p class="muted" th:text="${#lists.size(providers)+' Provider phù hợp'}">
+    </p>
+    <div class="expert-grid">
+<article class="card expert-card" th:each="p : ${providers}">
+ <div class="expert-person"><img th:src="${p.user.avatarUrl}" alt="Ảnh Provider"><div><h3 th:text="${p.user.fullName}">Provider</h3>
+  <small class="verified"><span aria-hidden="true">●</span> Đã xác minh (demo)</small>
+  <div class="expert-rating"><span class="rating-star">★</span> <strong th:text="${p.rating}">4.9</strong> <span th:text="${'· '+p.reviewCount+' đánh giá'}"></span></div></div></div>
+ <p class="expert-headline" th:text="${p.headline}"></p>
+ <div class="expert-gallery" aria-label="Ảnh portfolio minh họa"><span class="portfolio-thumb pt-1">UI</span><span class="portfolio-thumb pt-2">API</span><span class="portfolio-thumb pt-3">WEB</span></div>
+ <div class="tags expert-skills"><span class="tag" th:each="s : ${p.skills}" th:text="${s.name}"></span></div>
+ <p class="expert-hours">◷ <span th:text="${p.availability}"></span></p>
+ <div class="expert-price">Từ <strong th:text="${#numbers.formatDecimal(p.hourlyRate,0,'POINT',0,'COMMA')+'đ'}"></strong> / giờ</div>
+ <div class="actions expert-actions"><a class="btn btn-outline btn-sm" th:href="@{/providers/{id}(id=${p.id})}">Xem hồ sơ</a><a class="btn btn-primary btn-sm" th:href="@{/booking/provider/{id}(id=${p.id})}">Đặt Provider</a></div>
+</article>
+    </div>
+    <p class="card muted" th:if="${#lists.isEmpty(providers)}">
+     Không tìm thấy Provider trong khoảng giá và kỹ năng đã chọn.
+    </p>
+   </div>
+  </main>
+  <div th:replace="~{fragments :: footer}">
+  </div>
+  <div th:replace="~{fragments :: floatingChat}">
+  </div>
+  <script defer="" src="/js/app.js">
+  </script>
+ </body>
+</html>

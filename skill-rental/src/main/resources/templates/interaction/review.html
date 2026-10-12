@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+ <head>
+  <meta charset="utf-8"/>
+  <meta content="width=device-width,initial-scale=1" name="viewport"/>
+  <title>
+   Đánh giá Provider · Skill Rental
+  </title>
+  <th:block th:replace="~{fragments :: customerStyles}"></th:block>
+  <meta name="_csrf" th:content="${_csrf.token}"/>
+  <meta name="_csrf_header" th:content="${_csrf.headerName}"/>
+ </head>
+ <body>
+  <div th:replace="~{fragments :: icons}">
+  </div>
+  <main class="page">
+   <div class="container layout management-layout">
+    <div th:replace="~{fragments :: sidebar}">
+    </div>
+    <section class="page-content">
+     <div class="section-top">
+      <div>
+       <h1 class="title">
+        Đánh giá Provider
+       </h1>
+       <p class="muted">
+        Đơn hàng
+        <strong th:text="${'#SR-'+order.id}">
+        </strong>
+        ·
+        <span th:text="${order.provider.fullName}">
+        </span>
+       </p>
+      </div>
+      <a class="btn btn-secondary" th:href="@{/orders}">
+       Quay lại đơn hàng
+      </a>
+     </div>
+     <form class="card review-form" method="post" style="max-width:650px;margin-top:20px" th:action="@{/orders/{id}/review(id=${order.id})}" th:object="${form}">
+      <h2>
+       Trải nghiệm dịch vụ của bạn
+      </h2>
+      <div class="alert danger" th:each="error:${#fields.globalErrors()}" th:if="${#fields.hasGlobalErrors()}" th:text="${error}">
+      </div>
+      <fieldset class="star-picker">
+       <legend>
+        Bạn đánh giá Provider bao nhiêu sao?
+       </legend>
+       <div class="star-options" id="star-options">
+        <th:block th:each="star:${#numbers.sequence(1,5)}">
+         <input required="" th:field="*{rating}" th:id="${'star-'+star}" th:value="${star}" type="radio"/>
+         <label th:attr="aria-label=${star}+' sao'" th:for="${'star-'+star}" th:text="'★'">
+          ★
+         </label>
+        </th:block>
+       </div>
+       <span class="star-hint" id="star-hint">
+        Chọn từ 1 đến 5 sao
+       </span>
+       <div class="error" th:errors="*{rating}">
+       </div>
+      </fieldset>
+      <div class="form-group">
+       <label for="review-comment">
+        Nhận xét của bạn
+       </label>
+       <textarea class="textarea" id="review-comment" maxlength="2000" placeholder="Chia sẻ trải nghiệm thực tế về dịch vụ..." required="" th:field="*{comment}"></textarea>
+       <div class="error" th:errors="*{comment}">
+       </div>
+      </div>
+      <button class="btn btn-primary" type="submit">
+       Gửi đánh giá
+      </button>
+     </form>
+    </section>
+   </div>
+  </main>
+  <div th:replace="~{fragments :: footer}">
+  </div>
+  <div th:replace="~{fragments :: floatingChat}">
+  </div>
+  <script defer="" src="/js/app.js">
+  </script>
+ </body>
+</html>

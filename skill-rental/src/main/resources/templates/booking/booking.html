@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+ <head>
+  <meta charset="utf-8"/>
+  <meta content="width=device-width, initial-scale=1" name="viewport"/>
+  <title>
+   Đặt Provider · Skill Rental
+  </title>
+  <th:block th:replace="~{fragments :: customerStyles}"></th:block>
+  <meta name="_csrf" th:content="${_csrf.token}"/>
+  <meta name="_csrf_header" th:content="${_csrf.headerName}"/>
+ </head>
+ <body class="public-page">
+  <div th:replace="~{fragments :: icons}">
+  </div>
+  <div th:replace="~{fragments :: header}">
+  </div>
+  <main class="page">
+   <div class="container public-content">
+    <div aria-label="Các bước đặt lịch" class="booking-stepper">
+     <div class="is-current">
+      <b>
+       1
+      </b>
+      <span>
+       Chọn lịch
+      </span>
+     </div>
+     <span>
+      →
+     </span>
+     <div>
+      <b>
+       2
+      </b>
+      <span>
+       Thanh toán
+      </span>
+     </div>
+     <span>
+      →
+     </span>
+     <div>
+      <b>
+       3
+      </b>
+      <span>
+       Hoàn tất
+      </span>
+     </div>
+    </div>
+    <h1 class="title booking-title">
+     Đặt Provider
+    </h1>
+    <div class="booking-layout">
+     <form class="card booking-form" id="booking-form" method="post" th:action="@{/booking/provider/{id}(id=${provider.id})}" th:object="${form}">
+      <input th:field="*{directBooking}" type="hidden"/>
+      <input th:field="*{durationHours}" type="hidden" value="2"/>
+      <div class="form-group">
+       <label for="service">
+        Dịch vụ
+       </label>
+       <select class="select" id="service" required="" th:field="*{serviceName}">
+        <option value="">
+         -- Chọn dịch vụ --
+        </option>
+        <option th:text="${'Tư vấn '+provider.headline}" th:value="${'Tư vấn '+provider.headline}">
+        </option>
+        <option th:text="${'Hỗ trợ thực hiện '+provider.headline}" th:value="${'Hỗ trợ thực hiện '+provider.headline}">
+        </option>
+       </select>
+       <small class="error" th:errors="*{serviceName}">
+       </small>
+      </div>
+      <div class="form-group">
+       <label>
+        Ngày làm việc
+       </label>
+       <p class="muted">
+        Chọn ngày mong muốn (chưa kiểm tra tình trạng trống theo thời gian thực).
+       </p>
+       <input id="booking-date" required="" th:field="*{bookingDate}" type="hidden"/>
+       <div aria-label="Lịch chọn ngày" class="date-picker" id="booking-calendar" role="group">
+        <div class="calendar-top">
+         <button aria-label="Tháng trước" id="calendar-prev" type="button">
+          ‹
+         </button>
+         <strong id="calendar-month">
+         </strong>
+         <button aria-label="Tháng sau" id="calendar-next" type="button">
+          ›
+         </button>
+        </div>
+        <div class="calendar-weekdays">
+         <span>
+          T2
+         </span>
+         <span>
+          T3
+         </span>
+         <span>
+          T4
+         </span>
+         <span>
+          T5
+         </span>
+         <span>
+          T6
+         </span>
+         <span>
+          T7
+         </span>
+         <span>
+          CN
+         </span>
+        </div>
+        <div class="calendar-days" id="calendar-days">
+        </div>
+       </div>
+       <small class="error" th:errors="*{bookingDate}">
+       </small>
+      </div>
+      <div class="form-group">
+       <label>
+        Khung giờ (2 giờ)
+       </label>
+       <input id="booking-time" required="" th:field="*{timeSlot}" type="hidden"/>
+       <div aria-label="Chọn khung giờ" class="time-slots" role="group">
+        <button data-start="10:00" type="button">
+         10:00 – 12:00
+        </button>
+        <button data-start="12:00" type="button">
+         12:00 – 14:00
+        </button>
+        <button data-start="18:00" type="button">
+         18:00 – 20:00
+        </button>
+        <button data-start="20:00" type="button">
+         20:00 – 22:00
+        </button>
+       </div>
+       <small class="error" th:errors="*{timeSlot}">
+       </small>
+      </div>
+      <div class="form-group">
+       <label for="booking-note">
+        Ghi chú
+       </label>
+       <textarea class="textarea" id="booking-note" placeholder="Mô tả nhu cầu của bạn…" th:field="*{note}"></textarea>
+      </div>
+      <label class="checkbox-label">
+       <input id="booking-premium" th:field="*{premium}" type="checkbox"/>
+       Đặt kỹ năng cao (+25%)
+      </label>
+      <button class="btn btn-primary booking-submit" type="submit">
+       Tiếp tục thanh toán →
+      </button>
+     </form>
+     <aside class="card booking-summary" th:attr="data-rate=${provider.hourlyRate}">
+      <h2>
+       Tóm tắt đơn hàng
+      </h2>
+      <div class="provider">
+       <img alt="Ảnh Provider" th:src="${provider.user.avatarUrl}"/>
+       <div>
+        <strong th:text="${provider.user.fullName}">
+        </strong>
+        <p th:text="${provider.headline}">
+        </p>
+       </div>
+      </div>
+      <h3>
+       Chi tiết chi phí
+      </h3>
+      <div class="price-line">
+       <span>
+        Dịch vụ cơ bản (2 giờ)
+       </span>
+       <strong id="booking-base">
+       </strong>
+      </div>
+      <div class="price-line">
+       <span>
+        Phí kỹ năng cao (+25%)
+       </span>
+       <strong id="booking-extra">
+        0đ
+       </strong>
+      </div>
+      <hr/>
+      <div class="price-line total">
+       <span>
+        Tổng cộng
+       </span>
+       <strong id="booking-total">
+       </strong>
+      </div>
+      <p class="booking-demo-notice">
+       Thanh toán ở phiên bản demo, chưa có dịch vụ giữ tiền trung gian thực tế.
+      </p>
+     </aside>
+    </div>
+   </div>
+  </main>
+  <div th:replace="~{fragments :: footer}">
+  </div>
+  <div th:replace="~{fragments :: floatingChat}">
+  </div>
+  <script defer="" th:src="@{/js/app.js}">
+  </script>
+  <script defer="" th:src="@{/js/figma-ui.js}">
+  </script>
+ </body>
+</html>

@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+ <head>
+  <meta charset="utf-8"/>
+  <meta content="width=device-width, initial-scale=1" name="viewport"/>
+  <title>
+   Quản lý Request · Skill Rental
+  </title>
+  <th:block th:replace="~{fragments :: customerStyles}"></th:block>
+  <meta name="_csrf" th:content="${_csrf.token}"/>
+  <meta name="_csrf_header" th:content="${_csrf.headerName}"/>
+ </head>
+ <body class="management-page">
+  <div th:replace="~{fragments :: icons}">
+  </div>
+  <main class="page">
+   <div class="container layout management-layout">
+    <div th:replace="~{fragments :: sidebar}">
+    </div>
+    <section class="page-content">
+     <div class="section-top">
+      <div>
+       <h1 class="title">
+        Quản lý Request
+       </h1>
+       <p class="muted">
+        Quản lý các yêu cầu kỹ năng và theo dõi tiến độ.
+       </p>
+      </div>
+      <a class="btn btn-primary" th:href="@{/requests/create}">
+       + Tạo Request
+      </a>
+     </div>
+     <div th:replace="~{fragments :: flash}">
+     </div>
+     <div class="request-stats">
+      <article class="card" th:each="stat : ${requestStats}">
+       <small th:text="${stat.label}">
+       </small>
+       <div class="stat-number" th:text="${stat.value}">
+       </div>
+       <span aria-hidden="true" class="stat-symbol">
+        ⌁
+       </span>
+      </article>
+     </div>
+     <div class="card request-table-card">
+      <div class="tablewrap">
+       <table class="request-table">
+        <thead>
+         <tr>
+          <th>
+           ID
+          </th>
+          <th>
+           Tên Request
+          </th>
+          <th>
+           Ngân sách
+          </th>
+          <th>
+           Hạn hoàn thành
+          </th>
+          <th>
+           Trạng thái
+          </th>
+          <th>
+           Provider ứng tuyển
+          </th>
+          <th>
+           Hành động
+          </th>
+         </tr>
+        </thead>
+        <tbody>
+         <tr th:each="r : ${requests}">
+          <td th:text="${'SR'+#numbers.formatInteger(r.id,3)}">
+          </td>
+          <td>
+           <strong th:text="${r.title}">
+           </strong>
+           <div class="muted" th:text="${r.requiredSkills}">
+           </div>
+          </td>
+          <td th:text="${#numbers.formatDecimal(r.budget,0,'POINT',0,'COMMA')+'đ'}">
+          </td>
+          <td th:text="${#temporals.format(r.deadline,'dd/MM/yyyy')}">
+          </td>
+          <td>
+           <span class="badge" th:classappend="${r.status.name()=='OPEN'?'pending':(r.status.name()=='IN_PROGRESS'?'info':(r.status.name()=='COMPLETED'?'done':'bad'))}" th:text="${r.status.name()=='OPEN'?'Đang mở':(r.status.name()=='IN_PROGRESS'?'Đang thực hiện':(r.status.name()=='COMPLETED'?'Hoàn thành':'Đã hủy'))}">
+           </span>
+          </td>
+          <td>
+           <div class="avatar-stack" th:if="${!#lists.isEmpty(applyMap[r.id])}">
+            <img th:alt="${a.provider.fullName}" th:each="a,iter : ${applyMap[r.id]}" th:if="${iter.index<3}" th:src="${a.provider.avatarUrl}"/>
+            <span th:if="${#lists.size(applyMap[r.id])>3}" th:text="${'+'+(#lists.size(applyMap[r.id])-3)}">
+            </span>
+           </div>
+           <span class="muted" th:if="${#lists.isEmpty(applyMap[r.id])}">
+            Chưa có ứng viên
+           </span>
+          </td>
+          <td>
+           <div class="request-actions">
+            <a th:href="@{/requests/{id}/applies(id=${r.id})}">
+             ◉ Xem chi tiết
+            </a>
+            <a th:href="@{/requests/{id}/applies(id=${r.id})}" th:if="${r.status.name()=='OPEN' and !#lists.isEmpty(applyMap[r.id])}">
+             ✓ Chọn ứng tuyển
+            </a>
+            <a th:href="@{/requests/{id}/edit(id=${r.id})}" th:if="${r.status.name()=='OPEN' and #lists.isEmpty(applyMap[r.id])}">
+             ✎ Chỉnh sửa
+            </a>
+            <a th:if="${r.status.name()=='COMPLETED'}" th:href="@{/orders}">
+             ★ Đánh giá qua đơn hàng
+            </a>
+           </div>
+          </td>
+         </tr>
+         <tr th:if="${#lists.isEmpty(requests)}">
+          <td class="muted" colspan="7">
+           Bạn chưa có Request nào.
+          </td>
+         </tr>
+        </tbody>
+       </table>
+      </div>
+     </div>
+    </section>
+   </div>
+  </main>
+  <div th:replace="~{fragments :: footer}">
+  </div>
+  <div th:replace="~{fragments :: floatingChat}">
+  </div>
+  <script defer="" th:src="@{/js/app.js}">
+  </script>
+  <script defer="" th:src="@{/js/figma-ui.js}">
+  </script>
+ </body>
+</html>

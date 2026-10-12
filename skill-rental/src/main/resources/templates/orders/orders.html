@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+ <head>
+  <meta charset="utf-8"/>
+  <meta content="width=device-width,initial-scale=1" name="viewport"/>
+  <title>
+   Đơn hàng · Skill Rental
+  </title>
+  <th:block th:replace="~{fragments :: customerStyles}"></th:block>
+  <meta name="_csrf" th:content="${_csrf.token}"/>
+  <meta name="_csrf_header" th:content="${_csrf.headerName}"/>
+ </head>
+ <body>
+  <div th:replace="~{fragments :: icons}">
+  </div>
+  <main class="page">
+   <div class="container layout management-layout">
+    <div th:replace="~{fragments :: sidebar}">
+    </div>
+    <section class="page-content">
+     <h1 class="title">
+      Đơn hàng của tôi
+     </h1>
+     <p class="muted">
+      Xem tiến độ, đánh giá hoặc khiếu nại từng đơn hàng.
+     </p>
+     <div th:replace="~{fragments :: flash}">
+     </div>
+     <div class="grid grid3" style="margin:20px 0">
+      <div class="card">
+       <span class="muted">
+        Tổng số đơn
+       </span>
+       <h2 id="total-count" th:text="${#lists.size(orders)}">
+        0
+       </h2>
+      </div>
+      <div class="card">
+       <span class="muted">
+        Đang xử lý
+       </span>
+       <h2 id="processing-count" th:text="${processingCount}">
+        0
+       </h2>
+      </div>
+      <div class="card">
+       <span class="muted">
+        Đã hoàn thành
+       </span>
+       <h2 id="completed-count" th:text="${completedCount}">
+        0
+       </h2>
+      </div>
+     </div>
+     <div class="tablewrap" id="orders-table" th:fragment="orderTable">
+      <table>
+       <thead>
+        <tr>
+         <th>
+          Mã đơn
+         </th>
+         <th>
+          Dịch vụ
+         </th>
+         <th>
+          Provider
+         </th>
+         <th>
+          Tổng tiền
+         </th>
+         <th>
+          Trạng thái
+         </th>
+         <th>
+          Thao tác
+         </th>
+        </tr>
+       </thead>
+       <tbody>
+        <tr th:attr="data-order-id=${o.id}" th:each="o:${orders}">
+         <td th:text="${'#SR-'+o.id}">
+         </td>
+         <td th:text="${o.booking.serviceName}">
+         </td>
+         <td th:text="${o.provider.fullName}">
+         </td>
+         <td th:text="${#numbers.formatDecimal(o.total,0,'POINT',0,'COMMA')+'đ'}">
+         </td>
+         <td>
+          <span class="badge" th:classappend="${o.status.name()=='PENDING_PAYMENT'?'pending':(o.status.name()=='PAID'||o.status.name()=='PROCESSING'?'info':(o.status.name()=='COMPLETED'?'done':'bad'))}" th:text="${o.status.name()=='PENDING_PAYMENT'?'Chờ thanh toán':(o.status.name()=='PAID'?'Đã thanh toán':(o.status.name()=='PROCESSING'?'Đang xử lý':(o.status.name()=='COMPLETED'?'Hoàn thành':'Đã hủy')))}">
+          </span>
+         </td>
+         <td>
+          <div class="icon-actions">
+           <button aria-label="Xem tiến độ" class="action-icon" th:attr="data-order-detail=${o.id}" title="Xem tiến độ" type="button">
+            <svg class="icon">
+             <use href="#i-list">
+             </use>
+            </svg>
+           </button>
+           <a aria-label="Đánh giá" class="action-icon" th:if="${o.status.name()=='COMPLETED'}" th:href="@{/orders/{id}/review(id=${o.id})}" title="Đánh giá đơn hàng đã hoàn thành">
+            <svg class="icon"><use href="#i-check"></use></svg>
+           </a>
+           <button aria-label="Chỉ đánh giá được khi đơn hoàn thành" class="action-icon is-disabled" disabled="disabled" th:unless="${o.status.name()=='COMPLETED'}" title="Chỉ đánh giá được khi đơn hoàn thành" type="button">
+            <svg class="icon"><use href="#i-check"></use></svg>
+           </button>
+           <a aria-label="Khiếu nại" class="action-icon" th:href="@{/orders/{id}/complaint(id=${o.id})}" title="Khiếu nại">
+            <svg class="icon">
+             <use href="#i-alert">
+             </use>
+            </svg>
+           </a>
+           <a class="btn btn-outline btn-sm" th:href="@{/payment/{id}(id=${o.id})}" th:if="${o.status.name()=='PENDING_PAYMENT'}">
+            Thanh toán
+           </a>
+          </div>
+         </td>
+        </tr>
+       </tbody>
+      </table>
+     </div>
+     <dialog aria-labelledby="order-dialog-title" class="order-modal" id="order-dialog">
+      <div class="modal-head">
+       <h2 id="order-dialog-title">
+        Chi tiết đơn hàng
+       </h2>
+       <button aria-label="Đóng" class="icon-button" id="order-dialog-close" type="button">
+        <svg class="icon">
+         <use href="#i-x">
+         </use>
+        </svg>
+       </button>
+      </div>
+      <div aria-live="polite" class="modal-content" id="order-dialog-content">
+       Đang tải...
+      </div>
+     </dialog>
+    </section>
+   </div>
+  </main>
+  <div th:replace="~{fragments :: footer}">
+  </div>
+  <div th:replace="~{fragments :: floatingChat}">
+  </div>
+  <script defer="" src="/js/app.js">
+  </script>
+ </body>
+</html>
