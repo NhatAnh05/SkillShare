@@ -1,7 +1,6 @@
 package com.skillrental.controller;
 
 import com.skillrental.dto.PaymentForm;
-import com.skillrental.entity.OrderStatus;
 import com.skillrental.service.*;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -60,27 +59,21 @@ import org.springframework.web.servlet.mvc.support.RedirectAttributes;
         return "orders/progress :: details";
     }
     @PostMapping("/orders/{id}/state") String state(@PathVariable Long id,@RequestParam String action,Authentication auth,Model model) {
-        var order=orders.owned(id,current.require(auth));
-        if("complete".equals(action)&&order.getStatus()==OrderStatus.PROCESSING) {
-            orders.complete(order);
-        }
-        else if("processing".equals(action)&&order.getStatus()==OrderStatus.PAID) {
-            orders.processing(order);
-        }
-        else throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.CONFLICT,"Trạng thái không cho phép");
-        model.addAttribute("order",orders.owned(id,current.require(auth)));
+        var u=current.require(auth);
+        var order=orders.owned(id,u);
+        // Khách chỉ được xác nhận hoàn thành; "nhận xử lý" là việc của provider.
+        if(!"complete".equals(action)) throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.BAD_REQUEST,"Hành động không hợp lệ");
+        orders.complete(order,u);
+        model.addAttribute("order",orders.owned(id,u));
         return "orders/progress :: details";
     }
     @GetMapping("/orders/{id}/progress") String progress(@PathVariable Long id,Authentication a,Model m) {
         m.addAttribute("order",orders.owned(id,current.require(a)));
         return "orders/progress";
     }
-    @PostMapping("/orders/{id}/processing") String processing(@PathVariable Long id,Authentication a) {
-        orders.processing(orders.owned(id,current.require(a)));
-        return "redirect:/orders/"+id+"/progress";
-    }
     @PostMapping("/orders/{id}/complete") String complete(@PathVariable Long id,Authentication a,RedirectAttributes ra) {
-        orders.complete(orders.owned(id,current.require(a)));
+        var u=current.require(a);
+        orders.complete(orders.owned(id,u),u);
         ra.addFlashAttribute("success","Đã xác nhận hoàn thành.");
         return "redirect:/orders";
     }

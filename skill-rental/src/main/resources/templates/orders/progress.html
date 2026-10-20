@@ -1,108 +1,105 @@
 <!DOCTYPE html>
 <html lang="vi" xmlns:th="http://www.thymeleaf.org">
- <head>
-  <meta charset="utf-8"/>
-  <meta content="width=device-width,initial-scale=1" name="viewport"/>
-  <title>
-   Tiến độ đơn hàng · Skill Rental
-  </title>
-  <th:block th:replace="~{fragments :: customerStyles}"></th:block>
-  <meta name="_csrf" th:content="${_csrf.token}"/>
-  <meta name="_csrf_header" th:content="${_csrf.headerName}"/>
- </head>
- <body>
-  <div th:replace="~{fragments :: icons}">
+<head>
+ <meta charset="utf-8"/>
+ <meta content="width=device-width,initial-scale=1" name="viewport"/>
+ <title>
+  Tiến độ đơn hàng · Skill Rental
+ </title>
+ <th:block th:replace="~{fragments :: customerStyles}"></th:block>
+ <meta name="_csrf" th:content="${_csrf.token}"/>
+ <meta name="_csrf_header" th:content="${_csrf.headerName}"/>
+</head>
+<body>
+<div th:replace="~{fragments :: icons}">
+</div>
+<main class="page">
+ <div class="container layout management-layout">
+  <div th:replace="~{fragments :: sidebar}">
   </div>
-  <main class="page">
-   <div class="container layout management-layout">
-    <div th:replace="~{fragments :: sidebar}">
-    </div>
-    <section class="page-content">
-     <a class="btn btn-secondary" th:href="@{/orders}">
-      ← Quay lại đơn hàng
-     </a>
-     <div class="card" style="margin-top:16px">
-      <div class="order-details" th:fragment="details">
-       <h3 th:text="${'Đơn hàng #SR-'+order.id}">
-       </h3>
-       <p class="muted" th:text="${order.booking.serviceName+' · '+order.provider.fullName}">
-       </p>
-       <p>
-        Thời gian:
-        <strong th:text="${order.booking.bookingDate+' lúc '+order.booking.timeSlot}">
-        </strong>
-       </p>
-       <p>
-        Tổng tiền:
-        <strong class="price" th:text="${#numbers.formatDecimal(order.total,0,'POINT',0,'COMMA')+'đ'}">
-        </strong>
-       </p>
-       <p>
-        Trạng thái:
-        <span class="badge info" th:text="${order.status.name()=='PENDING_PAYMENT'?'Chờ thanh toán':(order.status.name()=='PAID'?'Đã thanh toán':(order.status.name()=='PROCESSING'?'Đang xử lý':(order.status.name()=='COMPLETED'?'Hoàn thành':'Đã hủy')))}">
+  <section class="page-content">
+   <a class="btn btn-secondary" th:href="@{/orders}">
+    ← Quay lại đơn hàng
+   </a>
+   <div class="card" style="margin-top:16px">
+    <div class="order-details" th:fragment="details">
+     <h3 th:text="${'Đơn hàng #SR-'+order.id}">
+     </h3>
+     <p class="muted" th:text="${order.booking.serviceName+' · '+order.provider.fullName}">
+     </p>
+     <p>
+      Thời gian:
+      <strong th:text="${order.booking.bookingDate+' lúc '+order.booking.timeSlot}">
+      </strong>
+     </p>
+     <p>
+      Tổng tiền:
+      <strong class="price" th:text="${#numbers.formatDecimal(order.total,0,'POINT',0,'COMMA')+'đ'}">
+      </strong>
+     </p>
+     <p>
+      Trạng thái:
+      <span class="badge info" th:text="${order.status.name()=='PENDING_PAYMENT'?'Chờ thanh toán':(order.status.name()=='PAID'?'Đã thanh toán':(order.status.name()=='PROCESSING'?'Đang xử lý':(order.status.name()=='COMPLETED'?'Hoàn thành':'Đã hủy')))}">
         </span>
-       </p>
-       <div class="timeline modal-timeline">
-        <div class="step on">
-         <div class="dot">
-          1
-         </div>
-         <strong>
-          Đặt lịch
-         </strong>
-        </div>
-        <div class="step" th:classappend="${order.status.name()!='PENDING_PAYMENT'?'on':''}">
-         <div class="dot">
-          2
-         </div>
-         <strong>
-          Bắt đầu
-         </strong>
-        </div>
-        <div class="step" th:classappend="${order.status.name()=='PROCESSING'||order.status.name()=='COMPLETED'?'on':''}">
-         <div class="dot">
-          3
-         </div>
-         <strong>
-          Thực hiện
-         </strong>
-        </div>
-        <div class="step" th:classappend="${order.status.name()=='COMPLETED'?'on':''}">
-         <div class="dot">
-          4
-         </div>
-         <strong>
-          Hoàn thành
-         </strong>
-        </div>
+     </p>
+     <div class="timeline modal-timeline">
+      <div class="step on">
+       <div class="dot">
+        1
        </div>
-       <div class="modal-actions">
-        <form method="post" th:action="@{/orders/{id}/state(id=${order.id})}" th:if="${order.status.name()=='PAID'}">
-         <input name="action" type="hidden" value="processing"/>
-         <button class="btn btn-secondary" type="submit">
-          Bắt đầu thực hiện (mô phỏng)
-         </button>
-        </form>
-        <form method="post" th:action="@{/orders/{id}/state(id=${order.id})}" th:if="${order.status.name()=='PROCESSING'}">
-         <input name="action" type="hidden" value="complete"/>
-         <button class="btn btn-primary" type="submit">
-          Xác nhận hoàn thành
-         </button>
-        </form>
-        <a class="btn btn-outline" th:href="@{/orders/{id}/review(id=${order.id})}" th:if="${order.status.name()=='COMPLETED'}">
-         Đánh giá
-        </a>
+       <strong>
+        Đặt lịch
+       </strong>
+      </div>
+      <div class="step" th:classappend="${order.status.name()!='PENDING_PAYMENT'?'on':''}">
+       <div class="dot">
+        2
        </div>
+       <strong>
+        Bắt đầu
+       </strong>
+      </div>
+      <div class="step" th:classappend="${order.status.name()=='PROCESSING'||order.status.name()=='COMPLETED'?'on':''}">
+       <div class="dot">
+        3
+       </div>
+       <strong>
+        Thực hiện
+       </strong>
+      </div>
+      <div class="step" th:classappend="${order.status.name()=='COMPLETED'?'on':''}">
+       <div class="dot">
+        4
+       </div>
+       <strong>
+        Hoàn thành
+       </strong>
       </div>
      </div>
-    </section>
+     <div class="modal-actions">
+      <p class="muted" th:if="${order.status.name()=='PAID'}">
+       Đã thanh toán — đang chờ provider nhận xử lý đơn.
+      </p>
+      <form method="post" th:action="@{/orders/{id}/state(id=${order.id})}" th:if="${order.status.name()=='PROCESSING'}">
+       <input name="action" type="hidden" value="complete"/>
+       <button class="btn btn-primary" type="submit">
+        Xác nhận hoàn thành
+       </button>
+      </form>
+      <a class="btn btn-outline" th:href="@{/orders/{id}/review(id=${order.id})}" th:if="${order.status.name()=='COMPLETED'}">
+       Đánh giá
+      </a>
+     </div>
+    </div>
    </div>
-  </main>
-  <div th:replace="~{fragments :: footer}">
-  </div>
-  <div th:replace="~{fragments :: floatingChat}">
-  </div>
-  <script defer="" src="/js/app.js">
-  </script>
- </body>
+  </section>
+ </div>
+</main>
+<div th:replace="~{fragments :: footer}">
+</div>
+<div th:replace="~{fragments :: floatingChat}">
+</div>
+<script defer="" src="/js/app.js">
+</script>
+</body>
 </html>

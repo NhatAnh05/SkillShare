@@ -2,7 +2,10 @@ package com.skillrental.workspace;
 
 import com.skillrental.entity.*;
 import com.skillrental.repository.*;
+import com.skillrental.exception.InvalidOrderTransitionException;
+import com.skillrental.exception.OrderAccessDeniedException;
 import com.skillrental.service.CurrentUserService;
+import com.skillrental.service.OrderStatusService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
@@ -42,6 +45,7 @@ public class WorkspaceController {
     private final ConversationRepository conversations;
     private final MessageRepository messages;
     private final WorkspaceState state;
+    private final OrderStatusService orderStatus;
 
     @GetMapping("/workspace")
     public String workspace(Authentication authentication) {
@@ -300,12 +304,11 @@ public class WorkspaceController {
     public String providerProcessing(@PathVariable Long id, Authentication authentication, RedirectAttributes ra) {
         User u = require(authentication, Role.PROVIDER);
         RentalOrder o = ownedProviderOrder(id, u);
-        if (o.getStatus() == OrderStatus.PAID) {
-            o.setStatus(OrderStatus.PROCESSING);
-            o.getBooking().setStatus(BookingStatus.IN_PROGRESS);
-            orders.save(o);
-            bookings.save(o.getBooking());
+        try {
+            orderStatus.transition(o, OrderStatus.PROCESSING, u, "Provider nhận xử lý");
             ra.addFlashAttribute("success", "Đã nhận xử lý đơn hàng.");
+        } catch (InvalidOrderTransitionException e) {
+            ra.addFlashAttribute("error", e.getMessage());
         }
         return "redirect:/provider/bookings";
     }
@@ -314,13 +317,11 @@ public class WorkspaceController {
     public String providerComplete(@PathVariable Long id, Authentication authentication, RedirectAttributes ra) {
         User u = require(authentication, Role.PROVIDER);
         RentalOrder o = ownedProviderOrder(id, u);
-        if (o.getStatus() == OrderStatus.PROCESSING) {
-            o.setStatus(OrderStatus.COMPLETED);
-            o.setCompletedAt(LocalDateTime.now());
-            o.getBooking().setStatus(BookingStatus.COMPLETED);
-            orders.save(o);
-            bookings.save(o.getBooking());
-            ra.addFlashAttribute("success", "Đã đánh dấu hoàn tất và chờ khách nghiệm thu.");
+        try {
+            orderStatus.transition(o, OrderStatus.COMPLETED, u, "Provider đánh dấu hoàn tất");
+            ra.addFlashAttribute("success", "Đã đánh dấu hoàn tất đơn hàng.");
+        } catch (InvalidOrderTransitionException e) {
+            ra.addFlashAttribute("error", e.getMessage());
         }
         return "redirect:/provider/bookings";
     }
@@ -935,7 +936,7 @@ public class WorkspaceController {
         RentalOrder order = orders.findById(id).orElseThrow();
 
         if (order.getProvider() == null || !Objects.equals(order.getProvider().getId(), user.getId())) {
-            throw new IllegalArgumentException("Không có quyền xử lý đơn này");
+            throw new OrderAccessDeniedException("Không có quyền xử lý đơn này");
         }
 
         return order;
