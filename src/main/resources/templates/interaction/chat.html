@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+ <body>
+  <div class="chat-widget" data-widget="" id="chat-widget" th:fragment="widget">
+   <button aria-controls="chat-popup" aria-expanded="false" aria-label="Mở tin nhắn" class="chat-fab" id="chat-fab" type="button">
+    <svg class="icon">
+     <use href="#i-chat">
+     </use>
+    </svg>
+    <span class="chat-fab-label">
+     Tin nhắn
+    </span>
+   </button>
+   <section aria-label="Tin nhắn với Provider" aria-modal="false" class="chat-popup" hidden="" id="chat-popup" role="dialog">
+    <div class="chat-popup-head">
+     <strong>
+      Tin nhắn
+     </strong>
+     <button aria-label="Đóng tin nhắn" class="icon-button" id="chat-close" type="button">
+      <svg class="icon">
+       <use href="#i-x">
+       </use>
+      </svg>
+     </button>
+    </div>
+    <div class="chat-popup-body">
+     <div aria-label="Cuộc trò chuyện" class="chat-contacts" id="chat-contacts">
+     </div>
+     <div class="chat-pane">
+      <div class="chat-peer" id="chat-peer">
+       Chọn cuộc trò chuyện
+      </div>
+      <div aria-live="polite" class="chat-history" id="chat-history">
+      </div>
+      <form class="chat-compose" id="chat-send-form">
+       <input aria-label="Nội dung tin nhắn" class="input" maxlength="2500" name="content" placeholder="Nhập tin nhắn..." required=""/>
+       <button class="btn btn-primary btn-sm" type="submit">
+        Gửi
+       </button>
+      </form>
+     </div>
+    </div>
+    <p class="chat-feedback" hidden="" id="chat-feedback" role="status">
+    </p>
+   </section>
+  </div>
+ </body>
+</html>

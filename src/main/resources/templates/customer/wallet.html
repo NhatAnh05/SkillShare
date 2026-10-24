@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head>
+  <meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>Ví ký quỹ · SkillShare</title>
+  <th:block th:replace="~{fragments :: customerStyles}"></th:block>
+</head>
+<body>
+  <div th:replace="~{fragments :: icons}"></div>
+  <main class="page"><div class="container layout management-layout">
+    <div th:replace="~{fragments :: sidebar}"></div>
+    <section class="page-content">
+      <a class="btn btn-secondary" href="/orders">← Quay lại đơn hàng</a>
+      <h1 class="title" style="margin-top:16px">Ví SkillShare &amp; tiền ký quỹ</h1>
+      <p class="muted">Ví hiển thị tiền gốc (khả dụng + đang khóa ký quỹ). Nạp từ bên ngoài được xử lý qua VNPay Sandbox khi đã cấu hình merchant kiểm thử; chưa phải giao dịch tiền thật.</p>
+      <div th:replace="~{fragments :: flash}"></div>
+      <div class="grid grid2" style="margin:20px 0">
+        <div class="card"><span class="muted">Ví tiền gốc</span><h2 th:text="${#numbers.formatDecimal(walletOriginalTotal,0,'POINT',0,'COMMA') + 'đ'}">10.000.000đ</h2><span class="muted">Tổng giá trị ví = khả dụng + đang khóa ký quỹ.</span></div>
+        <div class="card"><span class="muted">Ví khả dụng</span><h2 th:text="${#numbers.formatDecimal(wallet.balance,0,'POINT',0,'COMMA') + 'đ'}">10.000.000đ</h2><span class="muted">Khả dụng để đặt dịch vụ mới hoặc tiếp tục giao dịch.</span></div>
+        <div class="card"><span class="muted">Đang khóa ký quỹ</span><h2 th:text="${#numbers.formatDecimal(wallet.lockedAmount,0,'POINT',0,'COMMA') + 'đ'}">0đ</h2><span class="muted">Được giữ trong Escrow, chưa thể sử dụng cho đơn khác.</span></div>
+      </div>
+      <div class="card" style="margin-bottom:16px">
+        <h2>Nạp tiền vào ví qua VNPay Sandbox</h2>
+        <p class="muted">Bạn sẽ được chuyển đến trang thanh toán kiểm thử VNPay. Chỉ cộng tiền khi chữ ký, mã giao dịch và số tiền trả về hợp lệ. Sandbox không trừ tiền thật.</p>
+        <form method="post" th:action="@{/customer/wallet/topup-vnpay}" style="display:flex;gap:10px;align-items:end;flex-wrap:wrap">
+          <div class="form-group" style="min-width:240px;flex:1"><label for="amount">Số tiền nạp (VNĐ)</label><input id="amount" name="amount" type="number" min="10000" max="50000000" step="10000" value="100000" required/></div>
+          <button class="btn btn-primary" type="submit" th:disabled="${!vnpayConfigured}">Nạp qua VNPay Sandbox</button>
+        </form>
+        <p class="muted" th:if="${!vnpayConfigured}">Chưa cấu hình VNPay Sandbox. Hãy đặt biến môi trường VNPAY_TMN_CODE và VNPAY_HASH_SECRET rồi khởi động lại ứng dụng.</p>
+        <details style="margin-top:12px" th:if="${demoTopupEnabled}"><summary>Nạp dữ liệu demo nội bộ (chỉ phát triển)</summary>
+          <p class="muted">Không dùng chức năng này để mô phỏng giao dịch từ bên ngoài khi trình diễn thanh toán.</p>
+          <form method="post" th:action="@{/customer/wallet/topup-demo}" style="display:flex;gap:10px;align-items:end;flex-wrap:wrap">
+            <div class="form-group" style="min-width:200px;flex:1"><label for="demoAmount">Số tiền demo (VNĐ)</label><input id="demoAmount" name="amount" type="number" min="10000" max="50000000" step="10000" value="100000" required/></div>
+            <button class="btn btn-secondary" type="submit">Cộng số dư demo</button>
+          </form>
+        </details>
+      </div>
+      <div class="card"><h2>Lịch sử ví</h2><div class="tablewrap" style="margin-top:12px"><table><thead><tr><th>Thời gian</th><th>Mã đơn</th><th>Loại giao dịch</th><th>Số tiền</th><th>Số dư khả dụng</th><th>Đang khóa</th><th>Diễn giải</th></tr></thead><tbody>
+        <tr th:each="t : ${transactions}"><td th:text="${#temporals.format(t.createdAt,'dd/MM/yyyy HH:mm')}">18/10/2026</td><td th:text="${t.order != null ? '#SR-' + t.order.id : '-'}">-</td><td th:text="${t.type}">HOLD</td><td th:text="${#numbers.formatDecimal(t.amount,0,'POINT',0,'COMMA') + 'đ'}">0đ</td><td th:text="${#numbers.formatDecimal(t.balanceAfter,0,'POINT',0,'COMMA') + 'đ'}">0đ</td><td th:text="${#numbers.formatDecimal(t.lockedAfter,0,'POINT',0,'COMMA') + 'đ'}">0đ</td><td th:text="${t.description}">Diễn giải</td></tr>
+      </tbody></table></div><p class="muted" th:if="${#lists.isEmpty(transactions)}">Chưa phát sinh giao dịch.</p></div>
+    </section>
+  </div></main>
+  <div th:replace="~{fragments :: footer}"></div><div th:replace="~{fragments :: floatingChat}"></div>
+</body>
+</html>

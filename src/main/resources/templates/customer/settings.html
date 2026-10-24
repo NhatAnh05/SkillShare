@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+ <head>
+  <meta charset="utf-8"/>
+  <meta content="width=device-width, initial-scale=1" name="viewport"/>
+  <title>
+   Cài đặt tài khoản · Skill Rental
+  </title>
+  <th:block th:replace="~{fragments :: customerStyles}"></th:block>
+  <meta name="_csrf" th:content="${_csrf.token}"/>
+  <meta name="_csrf_header" th:content="${_csrf.headerName}"/>
+ </head>
+ <body class="management-page">
+  <div th:replace="~{fragments :: icons}">
+  </div>
+  <main class="page">
+   <div class="container layout management-layout">
+    <div th:replace="~{fragments :: sidebar}">
+    </div>
+    <section class="page-content">
+     <section class="profile-meter card">
+      <div class="section-top">
+       <div>
+        <strong>
+         Hoàn thiện hồ sơ
+        </strong>
+        <p th:text="${'Hồ sơ của bạn đã hoàn thành '+completion+'%. Hãy cập nhật để có nhiều cơ hội hơn!'}">
+        </p>
+       </div>
+       <strong class="price" th:text="${completion+'%'}">
+       </strong>
+      </div>
+      <div class="rating-track profile-track">
+       <span th:style="|width:${completion}%|">
+       </span>
+      </div>
+     </section>
+     <h1 class="title settings-title">
+      Cài đặt tài khoản
+     </h1>
+     <p class="muted">
+      Quản lý thông tin đăng nhập và hồ sơ.
+     </p>
+     <div class="settings-grid">
+      <a class="card settings-tile" th:href="@{/profile}">
+       <span class="settings-icon">
+        <svg class="icon"><use href="#i-user"></use></svg>
+       </span>
+       <strong>
+        Trang cá nhân
+       </strong>
+       <p>
+        Họ tên, email, điện thoại, avatar và giới thiệu.
+       </p>
+      </a>
+      <a class="card settings-tile" th:href="@{/change-password}">
+       <span class="settings-icon">
+        <svg class="icon"><use href="#i-user"></use></svg>
+       </span>
+       <strong>
+        Bảo mật
+       </strong>
+       <p>
+        Đổi mật khẩu đăng nhập và xem thiết lập bảo mật.
+       </p>
+      </a>
+      <a class="card settings-tile" th:href="@{/settings/billing}">
+       <span class="settings-icon">
+        <svg class="icon"><use href="#i-bag"></use></svg>
+       </span>
+       <strong>
+        Thanh toán & Bảng kê
+       </strong>
+       <p>
+        Lịch sử thanh toán và giao dịch thực tế của các đơn hàng.
+       </p>
+      </a>
+      <a class="card settings-tile" th:href="@{/settings/notifications}">
+       <span class="settings-icon">
+        <svg class="icon"><use href="#i-bell"></use></svg>
+       </span>
+       <strong>
+        Thông báo
+       </strong>
+       <p>
+        Quản lý tùy chọn thông báo trong ứng dụng và email.
+       </p>
+      </a>
+      <a class="card settings-tile" th:href="@{/settings/kyc}">
+       <span class="settings-icon">
+        <svg class="icon"><use href="#i-check"></use></svg>
+       </span>
+       <strong>
+        Xác thực KYC
+       </strong>
+       <p>
+        Gửi thông tin demo để chờ xét duyệt; chưa phải xác thực danh tính thật.
+       </p>
+      </a>
+      <a class="card settings-tile" th:href="@{/settings/language}">
+       <span class="settings-icon">
+        <svg class="icon"><use href="#i-settings"></use></svg>
+       </span>
+       <strong>
+        Ngôn ngữ
+       </strong>
+       <p>
+        Chọn ngôn ngữ ưu tiên cho phiên làm việc hiện tại.
+       </p>
+      </a>
+     </div>
+    </section>
+   </div>
+  </main>
+  <div th:replace="~{fragments :: footer}">
+  </div>
+  <div th:replace="~{fragments :: floatingChat}">
+  </div>
+  <script defer="" th:src="@{/js/app.js}">
+  </script>
+  <script defer="" th:src="@{/js/figma-ui.js}">
+  </script>
+ </body>
+</html>

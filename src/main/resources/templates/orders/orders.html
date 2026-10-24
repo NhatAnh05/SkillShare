@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+ <head>
+  <meta charset="utf-8"/>
+  <meta content="width=device-width,initial-scale=1" name="viewport"/>
+  <title>
+   Đơn hàng · Skill Rental
+  </title>
+  <th:block th:replace="~{fragments :: customerStyles}"></th:block>
+  <meta name="_csrf" th:content="${_csrf.token}"/>
+  <meta name="_csrf_header" th:content="${_csrf.headerName}"/>
+ </head>
+ <body>
+  <div th:replace="~{fragments :: icons}">
+  </div>
+  <main class="page">
+   <div class="container layout management-layout">
+    <div th:replace="~{fragments :: sidebar}">
+    </div>
+    <section class="page-content">
+     <h1 class="title">
+      Đơn hàng của tôi
+     </h1>
+     <p class="muted">Theo dõi yêu cầu đặt Provider, xác nhận công việc, hủy đơn và quyết toán qua ví ký quỹ trung gian.</p>
+     <div class="card" style="margin:14px 0;display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap">
+      <div><span class="muted">Ví khả dụng</span><h2 style="margin:5px 0" th:text="${#numbers.formatDecimal(wallet.balance,0,'POINT',0,'COMMA') + 'đ'}">10.000.000đ</h2><span class="muted" th:text="${'Đang khóa ký quỹ: ' + #numbers.formatDecimal(wallet.lockedAmount,0,'POINT',0,'COMMA') + 'đ'}">Đang khóa ký quỹ: 0đ</span></div>
+      <a class="btn btn-primary" href="/customer/wallet">Quản lý ví / Nạp thử nghiệm</a>
+     </div>
+     <div th:replace="~{fragments :: flash}">
+     </div>
+     <div class="grid grid3" style="margin:20px 0">
+      <div class="card">
+       <span class="muted">
+        Tổng số đơn
+       </span>
+       <h2 id="total-count" th:text="${#lists.size(orders)}">
+        0
+       </h2>
+      </div>
+      <div class="card">
+       <span class="muted">
+        Đang xử lý
+       </span>
+       <h2 id="processing-count" th:text="${processingCount}">
+        0
+       </h2>
+      </div>
+      <div class="card">
+       <span class="muted">
+        Đã hoàn thành
+       </span>
+       <h2 id="completed-count" th:text="${completedCount}">
+        0
+       </h2>
+      </div>
+     </div>
+     <div class="tablewrap" id="orders-table" th:fragment="orderTable">
+      <table>
+       <thead>
+        <tr>
+         <th>
+          Mã đơn
+         </th>
+         <th>
+          Dịch vụ
+         </th>
+         <th>
+          Provider
+         </th>
+         <th>
+          Tổng tiền
+         </th>
+         <th>
+          Trạng thái
+         </th>
+         <th>
+          Thao tác
+         </th>
+        </tr>
+       </thead>
+       <tbody>
+        <tr th:attr="data-order-id=${o.id}" th:each="o:${orders}">
+         <td><strong th:text="${'#SR-'+o.id}">#SR-1</strong><small style="display:block;color:#64748b" th:text="${o.createdAt != null ? #temporals.format(o.createdAt,'dd/MM/yyyy HH:mm') : '-'}">18/10/2026</small></td>
+         <td><strong th:text="${o.booking != null ? o.booking.serviceName : 'Dịch vụ trong giỏ hàng'}">Dịch vụ</strong></td>
+         <td th:text="${o.provider.fullName}">Provider</td>
+         <td><strong th:text="${#numbers.formatDecimal(o.total,0,'POINT',0,'COMMA')+'đ'}">0đ</strong><small style="display:block;color:#64748b" th:text="${'Đã khóa: ' + #numbers.formatDecimal(o.lockedAmount,0,'POINT',0,'COMMA')+'đ'}">Đã khóa: 0đ</small></td>
+         <td><span class="badge" th:classappend="${o.status.name()=='COMPLETED'?'done':(o.status.name()=='CANCELLED'?'bad':(o.status.name()=='PROCESSING'?'info':'pending'))}" th:text="${o.status.displayName}">Trạng thái</span></td>
+         <td><div class="icon-actions">
+          <a class="action-icon" th:href="@{/orders/{id}/progress(id=${o.id})}" title="Xem tiến độ" aria-label="Xem tiến độ"><svg class="icon"><use href="#i-list"></use></svg></a>
+          <form th:if="${o.status.name()=='PENDING_PROVIDER_ACCEPTANCE' || o.status.name()=='PENDING_START_CONFIRMATION' || o.status.name()=='PROCESSING' || o.status.name()=='PENDING_CUSTOMER_ACCEPTANCE'}" method="post" th:action="@{/orders/{id}/cancel(id=${o.id})}" onsubmit="return confirm('Bạn chắc chắn muốn yêu cầu hủy đơn này?')"><button class="btn btn-outline btn-sm" type="submit">Hủy dịch vụ</button></form>
+          <a class="action-icon" th:if="${o.status.name()=='COMPLETED'}" th:href="@{/orders/{id}/review(id=${o.id})}" title="Đánh giá"><svg class="icon"><use href="#i-check"></use></svg></a>
+          <a class="action-icon" th:href="@{/orders/{id}/complaint(id=${o.id})}" title="Khiếu nại"><svg class="icon"><use href="#i-alert"></use></svg></a>
+         </div></td>
+        </tr>
+       </tbody>
+      </table>
+     </div>
+     <dialog aria-labelledby="order-dialog-title" class="order-modal" id="order-dialog">
+      <div class="modal-head">
+       <h2 id="order-dialog-title">
+        Chi tiết đơn hàng
+       </h2>
+       <button aria-label="Đóng" class="icon-button" id="order-dialog-close" type="button">
+        <svg class="icon">
+         <use href="#i-x">
+         </use>
+        </svg>
+       </button>
+      </div>
+      <div aria-live="polite" class="modal-content" id="order-dialog-content">
+       Đang tải...
+      </div>
+     </dialog>
+    </section>
+   </div>
+  </main>
+  <div th:replace="~{fragments :: footer}">
+  </div>
+  <div th:replace="~{fragments :: floatingChat}">
+  </div>
+  <script defer="" src="/js/app.js">
+  </script>
+ </body>
+</html>

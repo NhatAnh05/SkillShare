@@ -1,0 +1,80 @@
+digraph SkillShareERD {
+ graph [rankdir=LR, splines=polyline, overlap=false, pad="0.3", nodesep="0.35", ranksep="1.0", bgcolor="white", fontname="Arial", labelloc="t", label="SkillShare Database ERD — 26 bảng", fontsize=20];
+ node [shape=box, style="rounded,filled", color="#8a97a6", penwidth=1.1, fontname="Arial", fontsize=10, margin="0.12,0.08"];
+ edge [color="#788697", fontname="Arial", fontsize=8, arrowsize=0.65];
+users [label="USERS\nPK id\nemail UK | role | account_status", fillcolor="#e9f2ff"];
+oauth_identities [label="OAUTH_IDENTITIES\nPK id | FK user_id\nprovider + subject UK", fillcolor="#e9f2ff"];
+customer_profiles [label="CUSTOMER_PROFILES\nPK id | FK user_id UK\nlocation | preferred_skills", fillcolor="#e9f2ff"];
+provider_profiles [label="PROVIDER_PROFILES\nPK id | FK user_id UK\nhourly_rate | rating | is_approved", fillcolor="#e9f2ff"];
+skills [label="SKILLS\nPK id\nname UK", fillcolor="#e3f6e8"];
+provider_skills [label="PROVIDER_SKILLS\nPK/FK provider_profile_id\nPK/FK skill_id", fillcolor="#e3f6e8"];
+services [label="SERVICES\nPK id | FK provider_id\nname | price | pricing_type\nstatus | rating | category", fillcolor="#e3f6e8"];
+service_skills [label="SERVICE_SKILLS\nPK/FK service_id\nPK/FK skill_id", fillcolor="#e3f6e8"];
+service_requests [label="SERVICE_REQUESTS\nPK id | FK customer_id\nbudget | deadline | status", fillcolor="#fff2d6"];
+service_request_skills [label="SERVICE_REQUEST_SKILLS\nPK/FK request_id\nPK/FK skill_id", fillcolor="#fff2d6"];
+applies [label="APPLIES\nPK id | FK request_id\nFK provider_id | proposed_price", fillcolor="#fff2d6"];
+carts [label="CARTS\nPK id | FK customer_id\nstatus | created_at", fillcolor="#f2e8ff"];
+cart_items [label="CART_ITEMS\nPK id | FK cart_id\nFK service_id | quantity\nunit_price_snapshot", fillcolor="#f2e8ff"];
+bookings [label="BOOKINGS\nPK id | FK customer_id\nFK provider_id | FK service_id?\nbooking_date | status | amount", fillcolor="#ffe8e5"];
+rental_orders [label="RENTAL_ORDERS\nPK id | FK customer_id\nbooking_id? UK | provider_id?\nsubtotal | discount | total | status", fillcolor="#ffe8e5"];
+rental_order_items [label="RENTAL_ORDER_ITEMS\nPK id | FK order_id\nFK service_id? | FK provider_id\nbooking_id? UK | line_total", fillcolor="#ffe8e5"];
+rental_order_status_history [label="ORDER_STATUS_HISTORY\nPK id | FK order_id\nprevious_status | new_status\nchanged_by_user_id?", fillcolor="#ffe8e5"];
+payments [label="PAYMENTS\nPK id | FK order_id UK\ngateway_transaction_id?\namount | currency | status", fillcolor="#e0f7f5"];
+payment_attempts [label="PAYMENT_ATTEMPTS\nPK id | FK payment_id\nattempt_number | gateway\nmerchant_reference UK | status", fillcolor="#e0f7f5"];
+refunds [label="REFUNDS\nPK id | FK payment_id\nrequester | admin? | amount\nreason | status", fillcolor="#e0f7f5"];
+reviews [label="REVIEWS\nPK id | FK order_id UK\nFK customer/provider\nFK service_id? | rating", fillcolor="#f5f5f5"];
+complaints [label="COMPLAINTS\nPK id | reporter? | target?\nFK order_id? | type | status", fillcolor="#f5f5f5"];
+conversations [label="CONVERSATIONS\nPK id | FK customer_id\nFK provider_id", fillcolor="#f5f5f5"];
+messages [label="MESSAGES\nPK id | FK conversation_id\nFK sender_id | content | sent_at", fillcolor="#f5f5f5"];
+user_wallets [label="USER_WALLETS\nPK id | FK user_id UK\navailable_balance | locked_balance", fillcolor="#e0f7f5"];
+wallet_transactions [label="WALLET_TRANSACTIONS\nPK id | FK wallet_id\nFK order_id? | type | amount\nstatus | balance_after", fillcolor="#e0f7f5"];
+users -> oauth_identities [label="1:N"];
+users -> customer_profiles [label="1:0..1"];
+users -> provider_profiles [label="1:0..1"];
+provider_profiles -> provider_skills [label="1:N"];
+skills -> provider_skills [label="1:N"];
+users -> services [label="1:N"];
+services -> service_skills [label="1:N"];
+skills -> service_skills [label="1:N"];
+users -> service_requests [label="1:N"];
+service_requests -> service_request_skills [label="1:N"];
+skills -> service_request_skills [label="1:N"];
+service_requests -> applies [label="1:N"];
+users -> applies [label="1:N"];
+users -> carts [label="1:N"];
+carts -> cart_items [label="1:N"];
+services -> cart_items [label="1:N"];
+users -> bookings [label="customer/provider"];
+services -> bookings [label="0..1:N"];
+users -> rental_orders [label="customer/provider?"];
+bookings -> rental_orders [label="0..1:0..1"];
+rental_orders -> rental_order_items [label="1:N"];
+services -> rental_order_items [label="0..1:N"];
+users -> rental_order_items [label="provider 1:N"];
+bookings -> rental_order_items [label="0..1:0..1"];
+rental_orders -> rental_order_status_history [label="1:N"];
+users -> rental_order_status_history [label="0..1:N"];
+rental_orders -> payments [label="1:0..1"];
+payments -> payment_attempts [label="1:N"];
+payments -> refunds [label="1:N"];
+rental_orders -> reviews [label="1:0..1"];
+services -> reviews [label="0..1:N"];
+users -> reviews [label="customer/provider"];
+users -> complaints [label="reporter/target/handler"];
+rental_orders -> complaints [label="0..1:N"];
+users -> conversations [label="customer/provider"];
+conversations -> messages [label="1:N"];
+users -> messages [label="sender 1:N"];
+users -> user_wallets [label="1:0..1"];
+user_wallets -> wallet_transactions [label="1:N"];
+rental_orders -> wallet_transactions [label="0..1:N"];
+{ rank=same; users; oauth_identities; customer_profiles; provider_profiles; }
+{ rank=same; skills; provider_skills; services; service_skills; }
+{ rank=same; service_requests; service_request_skills; applies; }
+{ rank=same; carts; cart_items; }
+{ rank=same; bookings; rental_orders; rental_order_items; rental_order_status_history; }
+{ rank=same; payments; refunds; }
+{ rank=same; reviews; complaints; }
+{ rank=same; conversations; messages; }
+{ rank=same; user_wallets; wallet_transactions; }
+}
