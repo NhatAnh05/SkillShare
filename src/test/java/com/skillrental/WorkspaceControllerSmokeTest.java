@@ -212,7 +212,10 @@ class WorkspaceControllerSmokeTest {
 
         mvc.perform(post("/provider/wallet/withdraw")
                         .with(csrf())
-                        .param("amount", "2000000"))
+                        .param("amount", "2000000")
+                        .param("bankName", "Test Bank")
+                        .param("accountNumber", "TEST-ACCOUNT-001")
+                        .param("accountHolder", "Test Provider"))
                 .andExpect(status().is3xxRedirection())
                 .andExpect(redirectedUrl("/provider/wallet"));
 
