@@ -60,16 +60,14 @@
        <label for="service">
         Dịch vụ
        </label>
-       <select class="select" id="service" required="" th:field="*{serviceName}">
+       <select class="select" id="service" required="" th:field="*{serviceId}">
         <option value="">
          -- Chọn dịch vụ --
         </option>
-        <option th:text="${'Tư vấn '+provider.headline}" th:value="${'Tư vấn '+provider.headline}">
-        </option>
-        <option th:text="${'Hỗ trợ thực hiện '+provider.headline}" th:value="${'Hỗ trợ thực hiện '+provider.headline}">
+        <option th:each="service : ${availableServices}" th:value="${service.id}" th:text="${service.name}">
         </option>
        </select>
-       <small class="error" th:errors="*{serviceName}">
+       <small class="error" th:errors="*{serviceId}">
        </small>
       </div>
       <div class="form-group">

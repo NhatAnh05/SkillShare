@@ -5,10 +5,20 @@ import com.skillrental.repository.*;
 import com.skillrental.service.CommissionPolicy;
 import com.skillrental.service.CurrentUserService;
 import com.skillrental.service.EscrowService;
+import com.skillrental.service.AdminCatalogManagementService;
+import com.skillrental.service.AdminCatalogManagementService.CatalogManagementException;
+import com.skillrental.service.AdminOrderManagementService;
+import com.skillrental.service.AdminOrderManagementService.OrderReviewException;
+import com.skillrental.service.ProviderServiceManagementService;
+import com.skillrental.service.ProviderServiceManagementService.ServiceDetails;
+import com.skillrental.service.ProviderServiceManagementService.ServiceManagementException;
+import com.skillrental.service.UserManagementService;
+import com.skillrental.service.UserManagementService.AccountManagementException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.dao.DataAccessException;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Controller;
@@ -23,23 +33,31 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.*;
 import java.util.stream.Collectors;
+import java.util.function.Consumer;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 @Controller
 @RequiredArgsConstructor
 public class WorkspaceController {
+    private static final Logger log = LoggerFactory.getLogger(WorkspaceController.class);
     private static final BigDecimal MIN_WITHDRAWAL = new BigDecimal("2000000");
     private static final Set<String> PROVIDER_MODES = Set.of("AVAILABLE", "LIMITED", "OFF");
-    private static final Set<String> PACKAGE_CODES = Set.of("BASIC", "PRO", "ELITE");
-
     private final CurrentUserService current;
     private final EscrowService escrowService;
+    private final UserManagementService userManagement;
+    private final AdminCatalogManagementService catalogManagement;
+    private final AdminOrderManagementService adminOrderManagement;
+    private final ProviderServiceManagementService providerServiceManagement;
     private final UserRepository users;
     private final ProviderProfileRepository providers;
+    private final OfferedServiceRepository offeredServices;
     private final SkillRepository skills;
     private final ServiceRequestRepository requests;
     private final ApplyRepository applies;
     private final BookingRepository bookings;
     private final RentalOrderRepository orders;
+    private final RentalOrderStatusHistoryRepository orderHistory;
     private final PaymentRepository payments;
     private final WalletTransactionRepository walletTransactions;
     private final ProviderWithdrawalRepository providerWithdrawalRepository;
@@ -77,9 +95,8 @@ public class WorkspaceController {
                 model.addAttribute("certifications", providerCertifications());
             }
             case "services", "packages" -> {
-                model.addAttribute("packages", providerPackages());
-                model.addAttribute("addons", providerAddons());
-                model.addAttribute("enabledPackageCodes", state.enabledPackageCodes());
+                model.addAttribute("providerServices", offeredServices.findByProviderOrderByCreatedAtDesc(u));
+                model.addAttribute("pricingTypes", ServicePricingType.values());
             }
             case "availability" -> model.addAttribute("schedule", scheduleRows());
             case "offers" -> {
@@ -272,35 +289,68 @@ public class WorkspaceController {
     }
 
     @PostMapping("/provider/services/new")
-    public String newPackage(@RequestParam String name, @RequestParam BigDecimal price,
-                             Authentication authentication, RedirectAttributes ra) {
-        require(authentication, Role.PROVIDER);
-        if (name == null || name.isBlank() || price == null || price.signum() < 0) {
-            ra.addFlashAttribute("error", "Tên gói và giá dịch vụ không hợp lệ.");
-            return "redirect:/provider/services";
+    public String createProviderService(@RequestParam(required = false) String name,
+                                        @RequestParam(required = false) String category,
+                                        @RequestParam(required = false) String description,
+                                        @RequestParam(required = false) String pricingType,
+                                        @RequestParam(required = false) BigDecimal price,
+                                        @RequestParam(required = false) Integer durationMinutes,
+                                        @RequestParam(required = false) String coverImageUrl,
+                                        Authentication authentication, RedirectAttributes ra) {
+        User provider = require(authentication, Role.PROVIDER);
+        try {
+            providerServiceManagement.create(provider,
+                    new ServiceDetails(name, category, description, pricingType, price, durationMinutes, coverImageUrl));
+            ra.addFlashAttribute("success", "Đã lưu dịch vụ ở trạng thái nháp. Dịch vụ cần được Admin duyệt trước khi mở bán.");
+        } catch (ServiceManagementException e) {
+            ra.addFlashAttribute("error", e.getMessage());
+        } catch (DataAccessException e) {
+            log.error("Không thể tạo dịch vụ providerId={}", provider.getId(), e);
+            ra.addFlashAttribute("error", "Không thể lưu dịch vụ. Vui lòng thử lại.");
         }
-        ra.addFlashAttribute("success", "Đã tạo gói dịch vụ demo: " + name.trim() + " - " + money(price) + ".");
         return "redirect:/provider/services";
     }
 
-    @PostMapping("/provider/packages/{code}/toggle")
-    public String togglePackage(@PathVariable String code, Authentication authentication, RedirectAttributes ra) {
-        require(authentication, Role.PROVIDER);
-        String normalized = code == null ? "" : code.trim().toUpperCase(Locale.ROOT);
-        if (!PACKAGE_CODES.contains(normalized)) {
-            ra.addFlashAttribute("error", "Mã gói dịch vụ không hợp lệ.");
-            return "redirect:/provider/services";
+    @PostMapping("/provider/services/{id}/edit")
+    public String updateProviderService(@PathVariable Long id,
+                                        @RequestParam(required = false) String name,
+                                        @RequestParam(required = false) String category,
+                                        @RequestParam(required = false) String description,
+                                        @RequestParam(required = false) String pricingType,
+                                        @RequestParam(required = false) BigDecimal price,
+                                        @RequestParam(required = false) Integer durationMinutes,
+                                        @RequestParam(required = false) String coverImageUrl,
+                                        Authentication authentication, RedirectAttributes ra) {
+        User provider = require(authentication, Role.PROVIDER);
+        try {
+            providerServiceManagement.update(id, provider,
+                    new ServiceDetails(name, category, description, pricingType, price, durationMinutes, coverImageUrl));
+            ra.addFlashAttribute("success", "Đã cập nhật dịch vụ.");
+        } catch (ServiceManagementException e) {
+            ra.addFlashAttribute("error", e.getMessage());
+        } catch (DataAccessException e) {
+            log.error("Không thể cập nhật dịch vụ serviceId={} providerId={}", id, provider.getId(), e);
+            ra.addFlashAttribute("error", "Không thể lưu thay đổi dịch vụ. Vui lòng thử lại.");
         }
-        state.togglePackage(normalized);
-        ra.addFlashAttribute("success", "Đã cập nhật trạng thái gói dịch vụ.");
         return "redirect:/provider/services";
     }
 
-    @PostMapping("/provider/addons")
-    public String addon(@RequestParam String name, Authentication authentication, RedirectAttributes ra) {
-        require(authentication, Role.PROVIDER);
-        ra.addFlashAttribute("success", "Đã thêm dịch vụ gia tăng: " + name + ".");
-        return "redirect:/provider/services";
+    @PostMapping("/provider/services/{id}/pause")
+    public String pauseProviderService(@PathVariable Long id, Authentication authentication, RedirectAttributes ra) {
+        return providerServiceStatusAction(id, authentication, ra,
+                user -> providerServiceManagement.pause(id, user), "Đã tạm ngừng niêm yết dịch vụ.");
+    }
+
+    @PostMapping("/provider/services/{id}/resume")
+    public String resumeProviderService(@PathVariable Long id, Authentication authentication, RedirectAttributes ra) {
+        return providerServiceStatusAction(id, authentication, ra,
+                user -> providerServiceManagement.resume(id, user), "Đã xuất bản lại dịch vụ.");
+    }
+
+    @PostMapping("/provider/services/{id}/archive")
+    public String archiveProviderService(@PathVariable Long id, Authentication authentication, RedirectAttributes ra) {
+        return providerServiceStatusAction(id, authentication, ra,
+                user -> providerServiceManagement.archive(id, user), "Đã lưu trữ dịch vụ.");
     }
 
     @PostMapping("/provider/orders/{id}/accept")
@@ -515,7 +565,7 @@ public class WorkspaceController {
         model.addAttribute("workspaceTitle", adminPageTitle("provider-detail"));
         model.addAttribute("admin", current.require(authentication));
         model.addAttribute("providerDetail", p);
-        model.addAttribute("providerApproved", state.isProviderApproved(id));
+        model.addAttribute("providerApproved", Boolean.TRUE.equals(p.getApproved()));
         model.addAttribute("state", state);
         return "workspace/admin/page";
     }
@@ -542,7 +592,8 @@ public class WorkspaceController {
                 .sorted(Comparator.comparing(RentalOrder::getId).reversed()).toList();
         model.addAttribute("orders", adminOrderSource);
         model.addAttribute("adminOrderRows", adminOrderSource.stream().map(o -> new AdminOrderFinanceRow(
-                o, commissionPolicy.grossSettledAmount(o), commissionPolicy.feeFor(o), commissionPolicy.providerNetFor(o))).toList());
+                o, commissionPolicy.grossSettledAmount(o), commissionPolicy.feeFor(o), commissionPolicy.providerNetFor(o),
+                orderHistory.findByOrderIdOrderByCreatedAtAsc(o.getId()))).toList());
         model.addAttribute("reviews", reviews.findAll().stream().sorted(Comparator.comparing(Review::getId).reversed()).toList());
         model.addAttribute("complaints", complaints.findAll().stream().sorted(Comparator.comparing(Complaint::getId).reversed()).toList());
         model.addAttribute("state", state);
@@ -552,15 +603,20 @@ public class WorkspaceController {
         switch (page) {
             case "dashboard" -> { fillAdminDashboard(model); fillAdminFinance(model, from, to); }
             case "users" -> model.addAttribute("userRows", adminUsers(allUsers.stream().filter(u -> (q == null || q.isBlank()) || u.getFullName().toLowerCase().contains(q.toLowerCase()) || u.getEmail().toLowerCase().contains(q.toLowerCase()) || (u.getPhone() != null && u.getPhone().contains(q))).filter(u -> roleFilter == null || roleFilter.isBlank() || u.getRole().name().equalsIgnoreCase(roleFilter)).toList()));
-            case "locked" -> model.addAttribute("lockedRows", allUsers.stream().filter(u -> state.isBlocked(u.getId())).toList());
-            case "unlock" -> model.addAttribute("unlockRows", allUsers.stream().filter(u -> state.isBlocked(u.getId())).toList());
+            case "locked" -> model.addAttribute("lockedRows", allUsers.stream()
+                    .filter(u -> u.getAccountStatus() == AccountStatus.LOCKED).toList());
+            case "unlock" -> model.addAttribute("unlockRows", allUsers.stream()
+                    .filter(u -> u.getAccountStatus() == AccountStatus.LOCKED).toList());
             case "providers" -> model.addAttribute("providerRows", providers.findAll());
-            case "pending-providers" -> model.addAttribute("pendingProviders", providers.findAll().stream().filter(p -> !state.isProviderApproved(p.getId())).toList());
+            case "pending-providers" -> model.addAttribute("pendingProviders", providers.findAll().stream()
+                    .filter(p -> !Boolean.TRUE.equals(p.getApproved())).toList());
             case "skills" -> model.addAttribute("pendingSkills", skills.findAll().stream().filter(s -> !state.isSkillApproved(s.getId())).limit(5).toList());
-            case "services" -> model.addAttribute("serviceRows", serviceRows());
-            case "pending-services" -> model.addAttribute("pendingServices", serviceRows().stream().filter(s -> !state.isServiceApproved(s.id())).toList());
+            case "services" -> model.addAttribute("serviceRows", offeredServices.findAll());
+            case "pending-services" -> model.addAttribute("pendingServices", offeredServices.findAll().stream()
+                    .filter(service -> service.getStatus() == ServiceStatus.DRAFT).toList());
             case "price-requests" -> model.addAttribute("priceRequests", priceRequests());
-            case "blocked-services" -> model.addAttribute("blockedServices", serviceRows().stream().filter(s -> state.isServiceBlocked(s.id())).toList());
+            case "blocked-services" -> model.addAttribute("blockedServices", offeredServices.findAll().stream()
+                    .filter(service -> service.getStatus() == ServiceStatus.PAUSED).toList());
             case "reviews" -> model.addAttribute("adminReviews", adminReviewRows());
             case "complaints" -> model.addAttribute("complaintRows", adminComplaintRows());
             case "reports" -> model.addAttribute("reportRows", reportRows());
@@ -575,10 +631,18 @@ public class WorkspaceController {
     }
 
     @PostMapping("/admin/orders/{id}/intervene")
-    public String interveneOrder(@PathVariable Long id, Authentication authentication, RedirectAttributes ra) {
-        require(authentication, Role.ADMIN);
-        RentalOrder o = orders.findById(id).orElseThrow();
-        ra.addFlashAttribute("success", "Đã mở hồ sơ can thiệp cho đơn DH" + o.getId() + " trong demo Escrow.");
+    public String interveneOrder(@PathVariable Long id, @RequestParam(required = false) String note,
+                                 Authentication authentication, RedirectAttributes ra) {
+        User admin = require(authentication, Role.ADMIN);
+        try {
+            adminOrderManagement.recordReview(id, admin, note);
+            ra.addFlashAttribute("success", "Đã lưu ghi chú rà soát đơn hàng vào lịch sử.");
+        } catch (OrderReviewException e) {
+            ra.addFlashAttribute("error", e.getMessage());
+        } catch (DataAccessException e) {
+            log.error("Không thể ghi nhận rà soát đơn orderId={}", id, e);
+            ra.addFlashAttribute("error", "Không thể lưu ghi chú rà soát. Vui lòng thử lại.");
+        }
         return "redirect:/admin/orders";
     }
 
@@ -601,25 +665,46 @@ public class WorkspaceController {
 
     @PostMapping("/admin/users/{id}/lock")
     public String lockUser(@PathVariable Long id, Authentication authentication, RedirectAttributes ra) {
-        User admin = require(authentication, Role.ADMIN);
-        if (Objects.equals(admin.getId(), id)) ra.addFlashAttribute("error", "Không thể tự khóa tài khoản Admin hiện tại.");
-        else { state.blockUser(id); ra.addFlashAttribute("success", "Đã khóa tài khoản trong workspace demo."); }
+        require(authentication, Role.ADMIN);
+        try {
+            userManagement.lock(id);
+            ra.addFlashAttribute("success", "Đã khóa tài khoản.");
+        } catch (AccountManagementException e) {
+            ra.addFlashAttribute("error", e.getMessage());
+        } catch (DataAccessException e) {
+            log.error("Không thể khóa tài khoản userId={}", id, e);
+            ra.addFlashAttribute("error", "Không thể lưu trạng thái tài khoản. Vui lòng thử lại.");
+        }
         return "redirect:/admin/users";
     }
 
     @PostMapping("/admin/users/{id}/unlock")
     public String unlockUser(@PathVariable Long id, Authentication authentication, RedirectAttributes ra) {
         require(authentication, Role.ADMIN);
-        state.unblockUser(id);
-        ra.addFlashAttribute("success", "Đã mở khóa tài khoản trong workspace demo.");
+        try {
+            userManagement.unlock(id);
+            ra.addFlashAttribute("success", "Đã mở khóa tài khoản.");
+        } catch (AccountManagementException e) {
+            ra.addFlashAttribute("error", e.getMessage());
+        } catch (DataAccessException e) {
+            log.error("Không thể mở khóa tài khoản userId={}", id, e);
+            ra.addFlashAttribute("error", "Không thể lưu trạng thái tài khoản. Vui lòng thử lại.");
+        }
         return "redirect:/admin/users";
     }
 
     @PostMapping("/admin/providers/{id}/approve")
     public String approveProvider(@PathVariable Long id, Authentication authentication, RedirectAttributes ra) {
         require(authentication, Role.ADMIN);
-        state.approveProvider(id);
-        ra.addFlashAttribute("success", "Đã duyệt Provider và cấp quyền hoạt động trong demo.");
+        try {
+            catalogManagement.approveProvider(id);
+            ra.addFlashAttribute("success", "Đã duyệt hồ sơ Provider.");
+        } catch (CatalogManagementException e) {
+            ra.addFlashAttribute("error", e.getMessage());
+        } catch (DataAccessException e) {
+            log.error("Không thể duyệt Provider profileId={}", id, e);
+            ra.addFlashAttribute("error", "Không thể lưu trạng thái Provider. Vui lòng thử lại.");
+        }
         return "redirect:/admin/pending-providers";
     }
 
@@ -634,10 +719,46 @@ public class WorkspaceController {
     @PostMapping("/admin/services/{id}/approve")
     public String approveService(@PathVariable Long id, Authentication authentication, RedirectAttributes ra) {
         require(authentication, Role.ADMIN);
-        state.approveService(id);
-        state.restoreService(id);
-        ra.addFlashAttribute("success", "Đã duyệt bài đăng dịch vụ trong demo.");
+        try {
+            catalogManagement.approveService(id);
+            ra.addFlashAttribute("success", "Đã duyệt và xuất bản dịch vụ.");
+        } catch (CatalogManagementException e) {
+            ra.addFlashAttribute("error", e.getMessage());
+        } catch (DataAccessException e) {
+            log.error("Không thể duyệt dịch vụ serviceId={}", id, e);
+            ra.addFlashAttribute("error", "Không thể lưu trạng thái dịch vụ. Vui lòng thử lại.");
+        }
         return "redirect:/admin/pending-services";
+    }
+
+    @PostMapping("/admin/providers/{id}/suspend")
+    public String suspendProvider(@PathVariable Long id, Authentication authentication, RedirectAttributes ra) {
+        require(authentication, Role.ADMIN);
+        try {
+            catalogManagement.suspendProvider(id);
+            ra.addFlashAttribute("success", "Đã tạm ngưng Provider.");
+        } catch (CatalogManagementException e) {
+            ra.addFlashAttribute("error", e.getMessage());
+        } catch (DataAccessException e) {
+            log.error("Không thể tạm ngưng Provider profileId={}", id, e);
+            ra.addFlashAttribute("error", "Không thể lưu trạng thái Provider. Vui lòng thử lại.");
+        }
+        return "redirect:/admin/providers";
+    }
+
+    @PostMapping("/admin/providers/{id}/reactivate")
+    public String reactivateProvider(@PathVariable Long id, Authentication authentication, RedirectAttributes ra) {
+        require(authentication, Role.ADMIN);
+        try {
+            catalogManagement.reactivateProvider(id);
+            ra.addFlashAttribute("success", "Đã kích hoạt lại Provider.");
+        } catch (CatalogManagementException e) {
+            ra.addFlashAttribute("error", e.getMessage());
+        } catch (DataAccessException e) {
+            log.error("Không thể kích hoạt lại Provider profileId={}", id, e);
+            ra.addFlashAttribute("error", "Không thể lưu trạng thái Provider. Vui lòng thử lại.");
+        }
+        return "redirect:/admin/providers";
     }
 
     @PostMapping("/admin/services/{id}/price/approve")
@@ -658,16 +779,14 @@ public class WorkspaceController {
     @PostMapping("/admin/services/{id}/block")
     public String blockService(@PathVariable Long id, Authentication authentication, RedirectAttributes ra) {
         require(authentication, Role.ADMIN);
-        state.blockService(id);
-        ra.addFlashAttribute("success", "Đã khóa dịch vụ vi phạm trong demo.");
+        ra.addFlashAttribute("error", "Thao tác khóa dịch vụ đang tạm hoãn.");
         return "redirect:/admin/services";
     }
 
     @PostMapping("/admin/services/{id}/restore")
     public String restoreService(@PathVariable Long id, Authentication authentication, RedirectAttributes ra) {
         require(authentication, Role.ADMIN);
-        state.restoreService(id);
-        ra.addFlashAttribute("success", "Đã khôi phục dịch vụ.");
+        ra.addFlashAttribute("error", "Thao tác mở khóa dịch vụ đang tạm hoãn.");
         return "redirect:/admin/blocked-services";
     }
 
@@ -812,7 +931,7 @@ public class WorkspaceController {
         StringBuilder csv = new StringBuilder("ID,HoTen,Email,VaiTro,TrangThai\n");
         for (User u : users.findAll()) csv.append(u.getId()).append(',').append(csv(u.getFullName())).append(',')
                 .append(csv(u.getEmail())).append(',').append(u.getRole()).append(',')
-                .append(state.isBlocked(u.getId()) ? "BLOCKED" : "ACTIVE").append('\n');
+                .append(u.getAccountStatus()).append('\n');
         return ResponseEntity.ok().header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=skillshare-users.csv")
                 .contentType(new MediaType("text", "csv", StandardCharsets.UTF_8)).body(utf8Bom(csv.toString()));
     }
@@ -822,7 +941,6 @@ public class WorkspaceController {
         model.addAttribute("page", page);
         model.addAttribute("workspaceTitle", providerPageTitle(page));
         model.addAttribute("providerMode", state.providerMode(provider.getId()));
-        model.addAttribute("enabledPackageCodes", state.enabledPackageCodes());
         model.addAttribute("avgRating", provider.getRating() == null ? 0.0 : provider.getRating());
         model.addAttribute("reviewCount", provider.getReviewCount() == null ? 0 : provider.getReviewCount());
         model.addAttribute("commissionRatePercent", commissionPolicy.rate().multiply(new BigDecimal("100")).stripTrailingZeros().toPlainString());
@@ -852,6 +970,22 @@ public class WorkspaceController {
     private ProviderProfile requireProviderProfile(User user) {
         return providers.findByUser(user)
                 .orElseThrow(() -> new IllegalStateException("Chưa có hồ sơ Provider cho tài khoản hiện tại"));
+    }
+
+    private String providerServiceStatusAction(Long serviceId, Authentication authentication,
+                                               RedirectAttributes ra, Consumer<User> operation,
+                                               String successMessage) {
+        User provider = require(authentication, Role.PROVIDER);
+        try {
+            operation.accept(provider);
+            ra.addFlashAttribute("success", successMessage);
+        } catch (ServiceManagementException e) {
+            ra.addFlashAttribute("error", e.getMessage());
+        } catch (DataAccessException e) {
+            log.error("Không thể cập nhật trạng thái dịch vụ serviceId={} providerId={}", serviceId, provider.getId(), e);
+            ra.addFlashAttribute("error", "Không thể cập nhật trạng thái dịch vụ. Vui lòng thử lại.");
+        }
+        return "redirect:/provider/services";
     }
 
     private void fillProviderDashboard(Model model, User user, ProviderProfile provider) {
@@ -942,7 +1076,7 @@ public class WorkspaceController {
         BigDecimal inflow = walletTransactions.findAll().stream().filter(t -> "DEMO_TOPUP".equals(t.getType()))
                 .map(WalletTransaction::getAmount).filter(Objects::nonNull).reduce(BigDecimal.ZERO, BigDecimal::add);
         BigDecimal escrow = orders.findAll().stream().map(RentalOrder::getLockedAmount).filter(Objects::nonNull).reduce(BigDecimal.ZERO, BigDecimal::add);
-        long pendingProviders = providers.findAll().stream().filter(p -> !state.isProviderApproved(p.getId())).count();
+        long pendingProviders = providers.findAll().stream().filter(p -> !Boolean.TRUE.equals(p.getApproved())).count();
         model.addAttribute("userCount", userCount);
         model.addAttribute("providerCount", providerCount);
         model.addAttribute("pendingProviders", pendingProviders);
@@ -1153,13 +1287,17 @@ public class WorkspaceController {
     }
 
     private List<AdminUserRow> adminUsers(List<User> source) {
-        return source.stream().map(u -> new AdminUserRow(u, state.isBlocked(u.getId()), state.isBlocked(u.getId()) ? "Đã khóa" : "Hoạt động")).toList();
-    }
-
-    private List<ServiceRow> serviceRows() {
-        List<ProviderProfile> ps = providers.findAll();
-        List<String> names = List.of("Thiết kế website chuẩn SEO & Tối ưu tốc độ", "Thiết kế Logo & Bộ nhận diện thương hiệu", "Luyện thi IELTS 1 kèm 1 cấp tốc", "Tư vấn Spring Boot & REST API", "Digital Marketing & SEO");
-        return ps.stream().map(p -> new ServiceRow(p.getId(), names.get((p.getId().intValue() - 1) % names.size()), categoryFor(p), p.getUser().getFullName(), p.getHourlyRate(), p.getRating(), state.isServiceBlocked(p.getId()))).toList();
+        return source.stream().map(u -> {
+            boolean locked = u.getAccountStatus() == AccountStatus.LOCKED;
+            String status = switch (u.getAccountStatus()) {
+                case ACTIVE -> "Hoạt động";
+                case PENDING_VERIFICATION -> "Chờ xác minh email";
+                case SUSPENDED -> "Tạm ngưng";
+                case LOCKED -> "Đã khóa";
+                case DELETED -> "Đã xóa";
+            };
+            return new AdminUserRow(u, locked, status);
+        }).toList();
     }
 
     private List<PriceRequest> priceRequests() {
@@ -1218,18 +1356,6 @@ public class WorkspaceController {
                 new FeeInvoice("INV-2026-08", "Gói VIP Partner (Tháng 8)", new BigDecimal("299000"), "VNPay QR", "15/08/2026"),
                 new FeeInvoice("INV-2026-07", "Gói VIP Partner (Tháng 7)", new BigDecimal("299000"), "Ví MoMo", "15/07/2026")
         );
-    }
-
-    private List<PackageRow> providerPackages() {
-        return List.of(
-                new PackageRow("BASIC", "Landing Page Giới Thiệu", new BigDecimal("1500000"), "3 Ngày", "Tiết kiệm - Cơ bản", List.of("Thiết kế 1 Trang Landing Page", "Responsive Mobile", "2 Lần Chỉnh Sửa")),
-                new PackageRow("PRO", "Website Doanh Nghiệp Chuẩn SEO", new BigDecimal("3500000"), "5 Ngày", "Nổi bật - Bán chạy nhất", List.of("5-7 Trang giao diện", "Form báo giá & Chat", "Chuẩn SEO On-page", "5 Lần chỉnh sửa")),
-                new PackageRow("ELITE", "Web/App Nâng Cao & Backend", new BigDecimal("7500000"), "12-14 Ngày", "Cao cấp - Fullstack", List.of("Fullstack Frontend + Backend", "VNPay / MoMo", "Admin phân quyền", "Hỗ trợ 3 tháng"))
-        );
-    }
-
-    private List<Addon> providerAddons() {
-        return List.of(new Addon("Giao Hàng Hỏa Tốc Trong 24 Giờ", new BigDecimal("500000")), new Addon("Thêm 1 Trang Giao Diện Tùy Biến", new BigDecimal("300000")), new Addon("Triển Khai Server & DNS/SSL", new BigDecimal("400000")));
     }
 
     private List<Certification> providerCertifications() {
@@ -1390,16 +1516,15 @@ public class WorkspaceController {
     }
 
     public record AdminUserRow(User user, boolean blocked, String status) {}
-    public record ServiceRow(Long id, String name, String category, String provider, BigDecimal price, Double rating, boolean blocked) {}
     public record PriceRequest(Long id, String service, String provider, BigDecimal currentPrice, BigDecimal proposedPrice, String reason) {}
     public record AdminReviewRow(Long id, String customer, String provider, int rating, String comment, boolean hidden, String date) {}
     public record AdminComplaintRow(Long id, String orderCode, String customer, String provider, String reason, ComplaintStatus status) {}
-    public record AdminOrderFinanceRow(RentalOrder order, BigDecimal settlementBasis, BigDecimal fee, BigDecimal net) {}
+    public record AdminOrderFinanceRow(RentalOrder order, BigDecimal settlementBasis, BigDecimal fee, BigDecimal net,
+                                       List<RentalOrderStatusHistory> history) {}
     public record ReportRow(Long id, String target, String type, String detail, String reporter, String date, ComplaintStatus status) {}
     public record WithdrawalRow(String id, String provider, String bank, String account, BigDecimal amount, String date, String status) {}
     public record FeeInvoice(String code, String name, BigDecimal amount, String method, String date) {}
     public record PackageRow(String code, String name, BigDecimal price, String duration, String label, List<String> benefits) {}
-    public record Addon(String name, BigDecimal price) {}
     public record Certification(String name, String issuer, String issuedDate, String certificateId) {}
     public record ScheduleRow(String shift, String time, boolean[] days) {}
     public record PackageOrder(String code, String provider, String packageName, BigDecimal amount, String activated, String expired) {}

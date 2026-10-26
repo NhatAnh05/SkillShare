@@ -3,7 +3,7 @@ package com.skillrental.controller;
 import com.skillrental.entity.*;
 import com.skillrental.repository.CartItemRepository;
 import com.skillrental.repository.CartRepository;
-import com.skillrental.repository.OfferedServiceRepository;
+import com.skillrental.service.ServiceCatalogService;
 import com.skillrental.service.CurrentUserService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.Authentication;
@@ -21,11 +21,11 @@ public class CartController {
     private final CurrentUserService currentUser;
     private final CartRepository carts;
     private final CartItemRepository items;
-    private final OfferedServiceRepository services;
+    private final ServiceCatalogService services;
 
     @GetMapping("/services")
     public String services(Model model) {
-        model.addAttribute("services", services.findByStatusOrderByRatingDesc(ServiceStatus.PUBLISHED));
+        model.addAttribute("services", services.availablePublishedServices());
         return "marketplace/services";
     }
 
@@ -50,8 +50,10 @@ public class CartController {
             flash.addFlashAttribute("error", "Số lượng phải từ 1 đến 99.");
             return "redirect:/services";
         }
-        ServiceCatalog service = services.findById(serviceId).orElseThrow(() -> new IllegalArgumentException("Không tìm thấy dịch vụ."));
-        if (service.getStatus() != ServiceStatus.PUBLISHED) {
+        ServiceCatalog service;
+        try {
+            service = services.requireAvailablePublishedService(serviceId);
+        } catch (ServiceCatalogService.ServiceUnavailableException e) {
             flash.addFlashAttribute("error", "Dịch vụ hiện không được mở bán.");
             return "redirect:/services";
         }

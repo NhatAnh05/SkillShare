@@ -6,7 +6,7 @@ import org.springframework.format.annotation.DateTimeFormat;
 import java.time.*;
 
 @Data public class BookingForm {
-    @NotBlank private String serviceName;
+    @NotNull private Long serviceId;
     @NotNull @FutureOrPresent @DateTimeFormat(iso=DateTimeFormat.ISO.DATE) private LocalDate bookingDate;
     @NotNull @DateTimeFormat(iso=DateTimeFormat.ISO.TIME) private LocalTime timeSlot;
     @Size(max=1200) private String note;

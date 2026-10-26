@@ -66,12 +66,48 @@
       </section>
 
       <section th:if="${page == 'services' || page == 'packages'}">
-        <div class="wk-page-head"><div><div class="wk-kicker">Hồ sơ &amp; Dịch vụ</div><h1 class="wk-page-title">Quản lý Gói Dịch Vụ Kỹ Năng</h1><p class="wk-page-desc">Thiết lập các gói dịch vụ niêm yết để khách hàng chọn thuê.</p></div><div class="wk-actions"><button class="wk-btn primary" type="button" data-wk-confirm="Bạn có thể dùng biểu mẫu tạo gói phía dưới để thêm gói demo.">+ Tạo Gói Dịch Vụ Mới</button></div></div>
+        <div class="wk-page-head"><div><div class="wk-kicker">Hồ sơ &amp; Dịch vụ</div><h1 class="wk-page-title">Quản lý dịch vụ và gói dịch vụ</h1><p class="wk-page-desc">Dịch vụ được lưu trong catalog; gói được mô tả bằng nội dung và thời lượng. Dịch vụ mới ở trạng thái nháp cần Admin duyệt.</p></div></div>
         <div class="wk-card"><div class="wk-tabs"><a class="wk-tab active" href="/provider/services">Dịch Vụ &amp; Bảng Giá</a><a class="wk-tab" href="/provider/profile">Hồ Sơ Provider</a><a class="wk-tab" href="/provider/skills">Kỹ Năng &amp; Chứng Chỉ</a><a class="wk-tab" href="/provider/availability">Lịch Rảnh</a></div>
-          <div class="wk-grid wk-grid-3 wk-service-grid"><div class="wk-card-tight" th:each="pkg, stat : ${packages}" th:classappend="${stat.index == 1 ? ' wk-service featured' : ' wk-service'}"><div class="tag" th:text="${pkg.label}">PHỔ BIẾN</div><h3 th:text="${pkg.name}">Landing Page</h3><div class="price" th:text="${#numbers.formatDecimal(pkg.price,0,'POINT',0,'COMMA') + 'đ'}">1.500.000đ</div><div class="wk-help" th:text="${'Thời gian: ' + pkg.duration}">3 ngày</div><ul><li th:each="benefit : ${pkg.benefits}" th:text="${benefit}">Responsive Mobile</li></ul><div class="wk-service-actions"><form method="post" th:action="@{'/provider/packages/' + ${pkg.code} + '/toggle'}"><button class="wk-btn small" type="submit" th:text="${enabledPackageCodes.contains(pkg.code) ? 'Đang hiển thị' : 'Đang ẩn'}">Đang hiển thị</button></form><button class="wk-btn small" type="button" data-wk-confirm="Form chỉnh sửa gói sẽ được triển khai từ backend package entity khi có entity tương ứng.">Chỉnh sửa</button></div></div></div><div class="wk-empty" th:if="${#lists.isEmpty(packages)}"><strong>Chưa có gói dịch vụ</strong>Tạo gói dịch vụ đầu tiên để bắt đầu nhận booking trực tiếp.</div>
+          <div class="wk-grid wk-grid-2 wk-service-grid">
+            <article class="wk-card-tight wk-service" th:each="service : ${providerServices}">
+              <div class="tag" th:text="${service.status}">DRAFT</div>
+              <form method="post" th:action="@{'/provider/services/' + ${service.id} + '/edit'}" class="wk-form-grid">
+                <div class="wk-field"><label>Tên dịch vụ/gói</label><input name="name" required maxlength="160" th:value="${service.name}"/></div>
+                <div class="wk-field"><label>Danh mục</label><input name="category" maxlength="80" th:value="${service.category}"/></div>
+                <div class="wk-field"><label>Mô tả / quyền lợi</label><textarea name="description" required maxlength="2500" rows="4" th:text="${service.description}"></textarea></div>
+                <div class="wk-form-grid wk-form-grid-2">
+                  <div class="wk-field"><label>Loại giá</label><select name="pricingType" required><option th:each="type : ${pricingTypes}" th:value="${type}" th:selected="${type == service.pricingType}" th:text="${type.name() == 'HOURLY' ? 'Theo giờ' : 'Trọn gói'}">Trọn gói</option></select></div>
+                  <div class="wk-field"><label>Giá (VNĐ)</label><input name="price" type="number" min="0.01" max="9999999999.99" step="0.01" required th:value="${service.price}"/></div>
+                  <div class="wk-field"><label>Thời lượng (phút)</label><input name="durationMinutes" type="number" min="1" th:value="${service.durationMinutes}"/></div>
+                  <div class="wk-field"><label>Ảnh bìa (URL)</label><input name="coverImageUrl" maxlength="500" th:value="${service.coverImageUrl}"/></div>
+                </div>
+                <div class="wk-form-actions"><button class="wk-btn primary small" type="submit" th:disabled="${service.status.name() == 'ARCHIVED'}">Lưu thay đổi</button></div>
+              </form>
+              <div class="wk-service-actions">
+                <form th:if="${service.status.name() == 'PUBLISHED'}" method="post" th:action="@{'/provider/services/' + ${service.id} + '/pause'}"><button class="wk-btn small" type="submit">Tạm ngừng</button></form>
+                <form th:if="${service.status.name() == 'PAUSED'}" method="post" th:action="@{'/provider/services/' + ${service.id} + '/resume'}"><button class="wk-btn small" type="submit">Xuất bản lại</button></form>
+                <form th:if="${service.status.name() != 'ARCHIVED'}" method="post" th:action="@{'/provider/services/' + ${service.id} + '/archive'}"><button class="wk-btn danger small" type="submit">Lưu trữ</button></form>
+              </div>
+            </article>
+          </div>
+          <div class="wk-empty" th:if="${#lists.isEmpty(providerServices)}"><strong>Chưa có dịch vụ</strong>Tạo dịch vụ hoặc gói đầu tiên để gửi Admin duyệt.</div>
         </div>
-        <div class="wk-grid wk-grid-2" style="margin-top:12px"><div class="wk-card"><div class="wk-card-head"><div><h2 class="wk-card-title">Dịch vụ gia tăng</h2><p class="wk-card-desc">Add-ons &amp; Extras.</p></div></div><div class="wk-list"><div class="wk-list-row" th:each="addon : ${addons}"><div><div class="primary" th:text="${addon.name}">Giao hàng hỏa tốc</div><div class="secondary">Bổ sung cho gói đang thuê</div></div><strong class="amount" th:text="${'+' + #numbers.formatDecimal(addon.price,0,'POINT',0,'COMMA') + 'đ'}">+500.000đ</strong></div></div><form method="post" th:action="@{/provider/addons}" class="wk-form-grid" style="margin-top:10px"><input type="hidden" name="name" value="Dịch vụ gia tăng mới"/><button class="wk-btn primary" type="submit">+ Thêm Dịch Vụ Phụ</button></form></div>
-          <div class="wk-card"><div class="wk-card-title">Tạo gói mới</div><p class="wk-card-desc">Tạo gói ở chế độ demo; dữ liệu hiển thị được phản hồi qua flash message.</p><form method="post" th:action="@{/provider/services/new}" class="wk-form-grid wk-form-grid-2" style="margin-top:10px"><div class="wk-field"><label>Tên gói</label><input name="name" required placeholder="Ví dụ: Website Startup"/></div><div class="wk-field"><label>Giá (VNĐ)</label><input name="price" type="number" min="0" step="1000" required placeholder="3500000"/></div><div class="wk-form-actions" style="grid-column:1/-1"><button class="wk-btn primary" type="submit">Lưu gói demo</button></div></form></div></div>
+        <div class="wk-grid wk-grid-2" style="margin-top:12px">
+          <div class="wk-card">
+            <div class="wk-card-title">Tạo dịch vụ/gói mới</div>
+            <form method="post" th:action="@{/provider/services/new}" class="wk-form-grid wk-form-grid-2" style="margin-top:10px">
+              <div class="wk-field"><label>Tên dịch vụ/gói</label><input name="name" required maxlength="160" placeholder="Ví dụ: Website Startup"/></div>
+              <div class="wk-field"><label>Danh mục</label><input name="category" maxlength="80"/></div>
+              <div class="wk-field" style="grid-column:1/-1"><label>Mô tả / quyền lợi</label><textarea name="description" required maxlength="2500" rows="4"></textarea></div>
+              <div class="wk-field"><label>Loại giá</label><select name="pricingType" required><option value="FIXED">Trọn gói</option><option value="HOURLY">Theo giờ</option></select></div>
+              <div class="wk-field"><label>Giá (VNĐ)</label><input name="price" type="number" min="0.01" max="9999999999.99" step="0.01" required/></div>
+              <div class="wk-field"><label>Thời lượng (phút)</label><input name="durationMinutes" type="number" min="1"/></div>
+              <div class="wk-field"><label>Ảnh bìa (URL)</label><input name="coverImageUrl" maxlength="500"/></div>
+              <div class="wk-form-actions" style="grid-column:1/-1"><button class="wk-btn primary" type="submit">Lưu bản nháp</button></div>
+            </form>
+          </div>
+          <div class="wk-card"><div class="wk-card-title">Tiện ích bổ sung</div><p class="wk-card-desc">Add-on chưa được hỗ trợ trong dữ liệu hiện có; giao diện demo đã được gỡ để tránh báo thành công giả. Không có add-on nào được lưu hoặc bán.</p></div>
+        </div>
       </section>
 
       <section th:if="${page == 'availability'}">

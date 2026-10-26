@@ -2,6 +2,8 @@ package com.skillrental.controller;
 
 import com.skillrental.dto.BookingForm;
 import com.skillrental.service.*;
+import com.skillrental.service.BookingService.BookingUnavailableException;
+import com.skillrental.service.ServiceCatalogService.ServiceUnavailableException;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.Authentication;
@@ -16,25 +18,39 @@ import org.springframework.web.servlet.mvc.support.RedirectAttributes;
     private final MarketplaceService marketplace;
     private final CurrentUserService current;
     private final BookingService bookings;
+    private final ServiceCatalogService services;
     @GetMapping("/booking/provider/{id}") String form(@PathVariable Long id,@RequestParam(defaultValue="false")boolean premium,Authentication authentication,Model m) {
         var user = current.require(authentication);
         if (user.getRole() != Role.CUSTOMER) throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.FORBIDDEN, "Chỉ Customer mới được đặt Provider.");
         var f=new BookingForm();
         f.setPremium(premium);
         f.setDirectBooking(true);
+        var provider = marketplace.get(id);
+        if (!services.providerIsEligible(provider.getUser())) {
+            throw new org.springframework.web.server.ResponseStatusException(
+                    org.springframework.http.HttpStatus.NOT_FOUND, "Provider hiện chưa được duyệt hoặc không hoạt động.");
+        }
+        var availableServices = services.availablePublishedServices(provider.getUser());
+        if (availableServices.isEmpty()) {
+            throw new org.springframework.web.server.ResponseStatusException(
+                    org.springframework.http.HttpStatus.NOT_FOUND, "Provider hiện không có dịch vụ đã duyệt để đặt.");
+        }
         m.addAttribute("form",f);
-        m.addAttribute("provider",marketplace.get(id));
+        m.addAttribute("provider",provider);
+        m.addAttribute("availableServices",availableServices);
         return "booking/booking";
     }
     @PostMapping("/booking/provider/{id}") String submit(@PathVariable Long id,@Valid @ModelAttribute("form")BookingForm f,BindingResult br,Authentication a,Model m,RedirectAttributes ra) {
         if(br.hasErrors()) {
             m.addAttribute("provider",marketplace.get(id));
+            m.addAttribute("availableServices",services.availablePublishedServices(marketplace.get(id).getUser()));
             return "booking/booking";
         }
         if (f.getBookingDate().equals(java.time.LocalDate.now()) &&
             f.getTimeSlot().isBefore(java.time.LocalTime.now())) {
             br.rejectValue("timeSlot", "past", "Khung giờ đã qua");
             m.addAttribute("provider", marketplace.get(id));
+            m.addAttribute("availableServices",services.availablePublishedServices(marketplace.get(id).getUser()));
             return "booking/booking";
         }
         if (!java.util.Set.of(java.time.LocalTime.of(10, 0), java.time.LocalTime.of(12, 0),
@@ -42,6 +58,7 @@ import org.springframework.web.servlet.mvc.support.RedirectAttributes;
                 .contains(f.getTimeSlot())) {
             br.rejectValue("timeSlot", "invalid", "Khung giờ không hợp lệ");
             m.addAttribute("provider", marketplace.get(id));
+            m.addAttribute("availableServices",services.availablePublishedServices(marketplace.get(id).getUser()));
             return "booking/booking";
         }
         try {
@@ -52,6 +69,9 @@ import org.springframework.web.servlet.mvc.support.RedirectAttributes;
             var o=bookings.create(user,id,f);
             ra.addFlashAttribute("success", "Đã gửi yêu cầu đặt dịch vụ. Toàn bộ chi phí đã được giữ trong ví Escrow; Provider cần xác nhận nhận việc.");
             return "redirect:/orders/"+o.getId()+"/progress";
+        } catch (BookingUnavailableException | ServiceUnavailableException e) {
+            ra.addFlashAttribute("error", e.getMessage());
+            return "redirect:/marketplace";
         } catch (IllegalStateException e) {
             ra.addFlashAttribute("error", e.getMessage());
             return "redirect:/customer/wallet";

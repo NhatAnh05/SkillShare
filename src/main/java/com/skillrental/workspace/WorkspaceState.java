@@ -13,24 +13,18 @@ import java.util.concurrent.CopyOnWriteArrayList;
 @Component
 public class WorkspaceState {
 
-    private final Set<Long> blockedUsers = ConcurrentHashMap.newKeySet();
-    private final Set<Long> approvedProviders = ConcurrentHashMap.newKeySet();
     private final Set<Long> approvedSkills = ConcurrentHashMap.newKeySet();
     private final Set<Long> approvedServices = ConcurrentHashMap.newKeySet();
-    private final Set<Long> blockedServices = ConcurrentHashMap.newKeySet();
     private final Set<Long> hiddenReviews = ConcurrentHashMap.newKeySet();
     private final Set<Long> resolvedComplaints = ConcurrentHashMap.newKeySet();
     private final Set<String> approvedWithdrawals = ConcurrentHashMap.newKeySet();
-    private final Set<String> enabledProviderPackages = ConcurrentHashMap.newKeySet();
+    private final Set<String> enabledPackages = ConcurrentHashMap.newKeySet();
     private final Map<Long, String> providerModes = new ConcurrentHashMap<>();
     private final List<Post> posts = new CopyOnWriteArrayList<>();
 
     private volatile boolean demoPrimed;
 
     public WorkspaceState() {
-        enabledProviderPackages.add("BASIC");
-        enabledProviderPackages.add("PRO");
-
         posts.add(new Post(
                 "POST-01",
                 "Quy trình thiết kế Landing Page giúp tối ưu chuyển đổi",
@@ -63,43 +57,14 @@ public class WorkspaceState {
     }
 
     public void reset() {
-        blockedUsers.clear();
-        approvedProviders.clear();
         approvedSkills.clear();
         approvedServices.clear();
-        blockedServices.clear();
         hiddenReviews.clear();
         resolvedComplaints.clear();
         approvedWithdrawals.clear();
         providerModes.clear();
-        enabledProviderPackages.clear();
-        enabledProviderPackages.add("BASIC");
-        enabledProviderPackages.add("PRO");
+        enabledPackages.clear();
         demoPrimed = false;
-    }
-
-    public boolean isBlocked(Long id) {
-        return blockedUsers.contains(id);
-    }
-
-    public void blockUser(Long id) {
-        blockedUsers.add(id);
-    }
-
-    public void unblockUser(Long id) {
-        blockedUsers.remove(id);
-    }
-
-    public Set<Long> blockedUserIds() {
-        return Set.copyOf(blockedUsers);
-    }
-
-    public boolean isProviderApproved(Long id) {
-        return approvedProviders.contains(id);
-    }
-
-    public void approveProvider(Long id) {
-        approvedProviders.add(id);
     }
 
     public boolean isSkillApproved(Long id) {
@@ -116,19 +81,6 @@ public class WorkspaceState {
 
     public void approveService(Long id) {
         approvedServices.add(id);
-    }
-
-    public void blockService(Long id) {
-        blockedServices.add(id);
-        approvedServices.remove(id);
-    }
-
-    public void restoreService(Long id) {
-        blockedServices.remove(id);
-    }
-
-    public boolean isServiceBlocked(Long id) {
-        return blockedServices.contains(id);
     }
 
     public boolean isReviewHidden(Long id) {
@@ -159,19 +111,11 @@ public class WorkspaceState {
         return approvedWithdrawals.contains(id);
     }
 
-    public boolean isPackageEnabled(String code) {
-        return enabledProviderPackages.contains(code);
-    }
-
-    public Set<String> enabledPackageCodes() {
-        return Set.copyOf(enabledProviderPackages);
-    }
-
     public void togglePackage(String code) {
-        if (enabledProviderPackages.contains(code)) {
-            enabledProviderPackages.remove(code);
+        if (enabledPackages.contains(code)) {
+            enabledPackages.remove(code);
         } else {
-            enabledProviderPackages.add(code);
+            enabledPackages.add(code);
         }
     }
 

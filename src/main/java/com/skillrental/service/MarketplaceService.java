@@ -11,9 +11,10 @@ import java.util.List;
 @Service @RequiredArgsConstructor
 public class MarketplaceService {
     private final ProviderProfileRepository providers;
+    private final ProviderEligibilityService eligibility;
     public List<ProviderProfile> search(String q,String skill,BigDecimal min,BigDecimal max,String sort) {
         if(min!=null&&max!=null&&min.compareTo(max)>0)throw new IllegalArgumentException("Khoảng giá không hợp lệ");
-        List<ProviderProfile> result=providers.findAll();
+        List<ProviderProfile> result=providers.findAll().stream().filter(eligibility::isEligible).toList();
         if(q!=null&&!q.isBlank()) {
             String needle=q.strip().toLowerCase();
             result=result.stream().filter(p->p.getUser().getFullName().toLowerCase().contains(needle)||p.getHeadline().toLowerCase().contains(needle)||(p.getIntroduction()!=null&&p.getIntroduction().toLowerCase().contains(needle))).toList();

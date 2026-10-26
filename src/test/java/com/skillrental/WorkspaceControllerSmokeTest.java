@@ -173,17 +173,11 @@ class WorkspaceControllerSmokeTest {
         mvc.perform(post("/provider/services/new")
                         .with(csrf())
                         .param("name", "Gói test")
-                        .param("price", "1500000"))
-                .andExpect(status().is3xxRedirection())
-                .andExpect(redirectedUrl("/provider/services"));
-
-        mvc.perform(post("/provider/packages/ELITE/toggle").with(csrf()))
-                .andExpect(status().is3xxRedirection())
-                .andExpect(redirectedUrl("/provider/services"));
-
-        mvc.perform(post("/provider/addons")
-                        .with(csrf())
-                        .param("name", "Addon test"))
+                        .param("category", "Kiểm thử")
+                        .param("description", "Gói dịch vụ dùng trong kiểm thử hồi quy.")
+                        .param("pricingType", "FIXED")
+                        .param("price", "1500000")
+                        .param("durationMinutes", "60"))
                 .andExpect(status().is3xxRedirection())
                 .andExpect(redirectedUrl("/provider/services"));
 

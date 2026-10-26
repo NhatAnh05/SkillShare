@@ -15,6 +15,8 @@ import com.skillrental.entity.ServiceStatus;
 import com.skillrental.repository.RentalOrderRepository;
 import com.skillrental.repository.SkillRepository;
 import com.skillrental.service.MarketplaceService;
+import com.skillrental.service.ProviderEligibilityService;
+import com.skillrental.service.ServiceCatalogService;
 import com.skillrental.service.RequestService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Controller;
@@ -39,6 +41,8 @@ public class HomeController {
     private final RentalOrderItemRepository orderItems;
     private final CustomerProfileRepository customerProfiles;
     private final CurrentUserService currentUser;
+    private final ProviderEligibilityService providerEligibility;
+    private final ServiceCatalogService serviceCatalog;
 
     @GetMapping("/")
     String root() {
@@ -54,6 +58,7 @@ public class HomeController {
         List<String> preferredSkills = java.util.Arrays.stream((preferred == null ? "" : preferred).split(","))
                 .map(String::trim).filter(value -> !value.isBlank()).map(String::toLowerCase).toList();
         List<ProviderProfile> recommendedProviders = providerProfiles.findAll().stream()
+                .filter(providerEligibility::isEligible)
                 .sorted((left, right) -> {
                     int leftMatches = (int) left.getSkills().stream()
                             .filter(skill -> preferredSkills.contains(skill.getName().toLowerCase())).count();
@@ -73,7 +78,7 @@ public class HomeController {
                 .collect(Collectors.toMap(row -> ((Number) row[0]).longValue(), row -> ((Number) row[1]).longValue()));
         Map<Long, ProviderProfile> profilesByUserId = providerProfiles.findAll().stream()
                 .collect(Collectors.toMap(profile -> profile.getUser().getId(), profile -> profile, (first, ignored) -> first));
-        List<PopularServiceRow> popularServices = offeredServices.findByStatusOrderByRatingDesc(ServiceStatus.PUBLISHED).stream()
+        List<PopularServiceRow> popularServices = serviceCatalog.availablePublishedServices().stream()
                 .filter(service -> profilesByUserId.containsKey(service.getProvider().getId()))
                 .map(service -> {
                     ProviderProfile profile = profilesByUserId.get(service.getProvider().getId());
