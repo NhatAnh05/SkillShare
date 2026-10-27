@@ -17,6 +17,9 @@
 </div>
 <main class="page">
  <div class="container public-content">
+  <div class="alert success" th:if="${param.googleLinked != null}">
+   Tài khoản Google đã được liên kết thành công. Những lần sau, bạn có thể chọn Đăng nhập với Google.
+  </div>
   <!-- =====================================================
      HERO
      ===================================================== -->

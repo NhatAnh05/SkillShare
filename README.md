@@ -50,6 +50,22 @@ These are the three primary usable demo logins. When a database is empty, the se
 - `WELCOME10` giảm 10%
 - `SKILL20` giảm 20%
 
+## Google Login local
+
+Google Login dùng Spring Security OAuth2/OIDC và định danh tài khoản bằng claim `sub`. Trong IntelliJ IDEA, mở Run Configuration của ứng dụng và đặt hai environment variables `GOOGLE_CLIENT_ID` và `GOOGLE_CLIENT_SECRET`; không ghi Client Secret vào source, application properties, hoặc repository. Ứng dụng báo lỗi cấu hình nếu chỉ đặt một trong hai biến. Khi chưa cấu hình, nút Google Login sẽ bị vô hiệu hóa và đăng nhập email/mật khẩu vẫn hoạt động.
+
+Trong cấu hình OAuth Client của Google, thêm authorized redirect URI:
+
+```text
+http://localhost:8080/login/oauth2/code/google
+```
+
+Chạy ứng dụng trên cổng 8080, mở `http://localhost:8080/login` và chọn **Đăng nhập với Google**. Google account mới chỉ được tạo thành Customer khi Google xác nhận `email_verified=true`; lúc tạo mới hệ thống cũng tạo bản ghi `customer_profiles`.
+
+**Nếu email Gmail đã được dùng đăng ký SkillShare:** Google không tự động chiếm quyền tài khoản chỉ vì email trùng. Sau khi chọn Google, trang login sẽ yêu cầu đăng nhập bằng **đúng email và mật khẩu SkillShare hiện có** trong vòng 5 phút. Khi xác thực bằng mật khẩu thành công, Google identity được liên kết với Customer đó; lần sau có thể đăng nhập bằng Google trực tiếp. Việc này chỉ áp dụng Customer đang ACTIVE và email đã xác minh. Provider/Admin không được tự liên kết qua luồng này. Nếu đăng nhập bằng sai tài khoản hoặc hết 5 phút, liên kết bị hủy và có thể bắt đầu lại. Lỗi được phân loại theo mã cố định, và máy chủ chỉ ghi `reasonCode`, không log token/Client Secret.
+
+Lưu ý: Nếu Google Login báo lỗi **trước khi** xác thực bằng mật khẩu, kiểm tra chuỗi truy vấn `oauthError` trên `/login` và `reasonCode` tại console; không cần chia sẻ token hoặc Client Secret. Các tài khoản Customer tạo từ OAuth không có mật khẩu người dùng biết trước; chức năng đổi mật khẩu yêu cầu xác thực theo cách phù hợp. Các bài test OIDC mô phỏng không chứng minh đã kết nối Google thực tế. Không cần migration mới: schema hiện tại đã có bảng `oauth_identities` với unique key theo Provider + subject. Kiểm thử tự động mô phỏng các claim OIDC và không gọi Google bằng credential thật; cần kiểm thử trình duyệt để xác nhận OAuth Client ID/Secret của môi trường.
+
 ## Database-first với MySQL
 
 - SQL schema cập nhật Escrow/ví nội bộ (26 bảng): `src/main/resources/db/schema-mysql.sql`.

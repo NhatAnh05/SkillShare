@@ -1,5 +1,6 @@
 package com.skillrental.controller;
 
+import com.skillrental.config.GoogleOAuthConfiguration.GoogleLoginSettings;
 import com.skillrental.dto.*;
 import com.skillrental.repository.UserRepository;
 import com.skillrental.service.*;
@@ -19,9 +20,11 @@ import org.springframework.web.servlet.mvc.support.RedirectAttributes;
     private final CurrentUserService current;
     private final UserRepository users;
     private final PasswordEncoder encoder;
+    private final GoogleLoginSettings googleLoginSettings;
     @Value("${spring.mail.username:}") private String mailUsername;
     @Value("${app.base-url:http://localhost:8080}") private String appBaseUrl;
-    @GetMapping("/login") String login() {
+    @GetMapping("/login") String login(Model model) {
+        model.addAttribute("googleLoginEnabled", googleLoginSettings.enabled());
         return "auth/login";
     }
     @GetMapping("/register") String register(Model m) {

@@ -72,6 +72,21 @@
      <div class="alert danger" th:if="${param.error}">
       Email hoặc mật khẩu không đúng.
      </div>
+     <div class="alert danger" th:if="${param.oauthError != null and param.oauthError[0] == 'linkRequired'}">
+      Email Google đã có tài khoản SkillShare. Để liên kết an toàn, hãy đăng nhập bằng email và mật khẩu SkillShare của chính tài khoản này ở biểu mẫu bên dưới. Sau khi đăng nhập, bạn có thể dùng Google cho các lần tiếp theo.
+     </div>
+     <div class="alert danger" th:if="${param.oauthError != null and param.oauthError[0] == 'emailUnverified'}">
+      Google chưa xác nhận email của tài khoản này. Vui lòng kiểm tra tài khoản Google.
+     </div>
+     <div class="alert danger" th:if="${param.oauthError != null and param.oauthError[0] == 'accountDisabled'}">
+      Tài khoản SkillShare chưa xác minh hoặc đang bị khóa. Vui lòng liên hệ quản trị viên.
+     </div>
+     <div class="alert danger" th:if="${param.oauthError != null and param.oauthError[0] == 'unsupportedAccount'}">
+      Đăng nhập Google hiện hỗ trợ tài khoản Customer. Hãy sử dụng đăng nhập email/mật khẩu cho tài khoản khác.
+     </div>
+     <div class="alert danger" th:if="${param.oauthError != null and param.oauthError[0] != 'linkRequired' and param.oauthError[0] != 'emailUnverified' and param.oauthError[0] != 'accountDisabled' and param.oauthError[0] != 'unsupportedAccount'}">
+      Đăng nhập Google chưa thành công. Hãy thử lại; nếu vẫn lỗi, kiểm tra log máy chủ (Google OIDC reasonCode) và cấu hình Google Cloud.
+     </div>
      <div class="alert success" th:if="${param.logout}">
       Bạn đã đăng xuất.
      </div>
@@ -109,8 +124,14 @@
       </span>
      </div>
      <div class="login-socials">
-      <button disabled="" title="Chưa tích hợp Google OAuth" type="button">
+      <a class="btn btn-primary" th:if="${googleLoginEnabled}" th:href="@{/oauth2/authorization/google}">
        G
+       <span>Đăng nhập với Google</span>
+      </a>
+      <button disabled="" th:unless="${googleLoginEnabled}"
+              title="Cấu hình GOOGLE_CLIENT_ID và GOOGLE_CLIENT_SECRET để bật Google Login" type="button">
+       G
+       <span>Google Login chưa được cấu hình</span>
       </button>
       <button disabled="" title="Chưa tích hợp Facebook OAuth" type="button">
        f
