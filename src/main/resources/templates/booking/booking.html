@@ -56,6 +56,8 @@
      <form class="card booking-form" id="booking-form" method="post" th:action="@{/booking/provider/{id}(id=${provider.id})}" th:object="${form}">
       <input th:field="*{directBooking}" type="hidden"/>
       <input th:field="*{durationHours}" type="hidden" value="2"/>
+      <input th:field="*{idempotencyKey}" type="hidden"/>
+      <input th:field="*{cartItemId}" type="hidden"/>
       <div class="form-group">
        <label for="service">
         Dịch vụ

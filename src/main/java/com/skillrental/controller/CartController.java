@@ -3,12 +3,15 @@ package com.skillrental.controller;
 import com.skillrental.entity.*;
 import com.skillrental.repository.CartItemRepository;
 import com.skillrental.repository.CartRepository;
+import com.skillrental.repository.ProviderProfileRepository;
 import com.skillrental.service.ServiceCatalogService;
 import com.skillrental.service.CurrentUserService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 import org.springframework.transaction.annotation.Transactional;
@@ -21,6 +24,7 @@ public class CartController {
     private final CurrentUserService currentUser;
     private final CartRepository carts;
     private final CartItemRepository items;
+    private final ProviderProfileRepository providers;
     private final ServiceCatalogService services;
 
     @GetMapping("/services")
@@ -31,7 +35,7 @@ public class CartController {
 
     @GetMapping("/cart")
     public String cart(Authentication auth, Model model) {
-        Cart cart = activeCart(currentUser.require(auth));
+        Cart cart = activeCart(requireCustomer(auth));
         model.addAttribute("cart", cart);
         model.addAttribute("items", cart.getItems());
         java.util.Map<Long, BigDecimal> lineTotals = new java.util.HashMap<>();
@@ -46,6 +50,7 @@ public class CartController {
     @Transactional
     public String add(@RequestParam Long serviceId, @RequestParam(defaultValue = "1") Integer quantity,
                       Authentication auth, RedirectAttributes flash) {
+        requireCustomer(auth);
         if (quantity == null || quantity < 1 || quantity > 99) {
             flash.addFlashAttribute("error", "Số lượng phải từ 1 đến 99.");
             return "redirect:/services";
@@ -81,7 +86,7 @@ public class CartController {
     @Transactional
     public String quantity(@PathVariable Long itemId, @RequestParam Integer quantity, Authentication auth,
                            RedirectAttributes flash) {
-        Cart cart = activeCart(currentUser.require(auth));
+        Cart cart = activeCart(requireCustomer(auth));
         CartItem item = ownedItem(cart, itemId);
         if (quantity == null || quantity < 1 || quantity > 99) {
             flash.addFlashAttribute("error", "Số lượng phải từ 1 đến 99.");
@@ -96,12 +101,34 @@ public class CartController {
     @PostMapping("/cart/items/{itemId}/remove")
     @Transactional
     public String remove(@PathVariable Long itemId, Authentication auth, RedirectAttributes flash) {
-        Cart cart = activeCart(currentUser.require(auth));
+        Cart cart = activeCart(requireCustomer(auth));
         CartItem item = ownedItem(cart, itemId);
         cart.getItems().remove(item);
         carts.save(cart);
         flash.addFlashAttribute("success", "Đã xóa dịch vụ khỏi danh sách đã chọn.");
         return "redirect:/cart";
+    }
+
+    @GetMapping("/cart/items/{itemId}/booking")
+    public String bookCartItem(@PathVariable Long itemId, Authentication auth, RedirectAttributes flash) {
+        User customer = requireCustomer(auth);
+        Cart cart = activeCart(customer);
+        CartItem item = items.findByIdAndCart(itemId, cart)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Không tìm thấy dịch vụ trong giỏ hàng."));
+        if (item.getQuantity() != 1) {
+            flash.addFlashAttribute("error", "Hãy cập nhật số lượng dịch vụ về 1 trước khi đặt booking.");
+            return "redirect:/cart";
+        }
+        try {
+            ServiceCatalog service = services.requireAvailablePublishedService(item.getService().getId());
+            ProviderProfile provider = providers.findByUser(service.getProvider())
+                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Không tìm thấy hồ sơ Provider."));
+            return "redirect:/booking/provider/" + provider.getId()
+                    + "?serviceId=" + service.getId() + "&cartItemId=" + item.getId();
+        } catch (ServiceCatalogService.ServiceUnavailableException e) {
+            flash.addFlashAttribute("error", "Dịch vụ hiện không còn được mở bán.");
+            return "redirect:/cart";
+        }
     }
 
     private Cart activeCart(User customer) {
@@ -112,5 +139,13 @@ public class CartController {
     private CartItem ownedItem(Cart cart, Long itemId) {
         return cart.getItems().stream().filter(item -> item.getId().equals(itemId)).findFirst()
                 .orElseThrow(() -> new IllegalArgumentException("Dịch vụ không nằm trong giỏ của tài khoản hiện tại."));
+    }
+
+    private User requireCustomer(Authentication authentication) {
+        User user = currentUser.require(authentication);
+        if (user.getRole() != Role.CUSTOMER) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Chỉ Customer mới được quản lý giỏ hàng.");
+        }
+        return user;
     }
 }

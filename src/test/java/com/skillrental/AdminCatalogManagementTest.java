@@ -100,6 +100,7 @@ class AdminCatalogManagementTest {
                         .param("serviceId", service.getId().toString())
                         .param("bookingDate", LocalDate.now().plusDays(10).toString())
                         .param("timeSlot", "10:00")
+                        .param("idempotencyKey", java.util.UUID.randomUUID().toString())
                         .param("durationHours", "2"))
                 .andExpect(status().is3xxRedirection())
                 .andExpect(redirectedUrl("/marketplace"));
@@ -114,6 +115,7 @@ class AdminCatalogManagementTest {
                         .param("serviceId", service.getId().toString())
                         .param("bookingDate", LocalDate.now().plusDays(10).toString())
                         .param("timeSlot", "10:00")
+                        .param("idempotencyKey", java.util.UUID.randomUUID().toString())
                         .param("durationHours", "2"))
                 .andExpect(status().is3xxRedirection())
                 .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.redirectedUrlPattern("/orders/*/progress"));
@@ -202,6 +204,7 @@ class AdminCatalogManagementTest {
                         .param("serviceId", service.getId().toString())
                         .param("bookingDate", LocalDate.now().plusDays(10).toString())
                         .param("timeSlot", "10:00")
+                        .param("idempotencyKey", java.util.UUID.randomUUID().toString())
                         .param("durationHours", "2"))
                 .andExpect(status().is3xxRedirection())
                 .andExpect(redirectedUrl("/marketplace"));
@@ -214,6 +217,7 @@ class AdminCatalogManagementTest {
                             .param("serviceId", service.getId().toString())
                             .param("bookingDate", LocalDate.now().plusDays(10).toString())
                             .param("timeSlot", "10:00")
+                            .param("idempotencyKey", java.util.UUID.randomUUID().toString())
                             .param("durationHours", "2"))
                     .andExpect(status().is3xxRedirection())
                     .andExpect(redirectedUrl("/marketplace"));

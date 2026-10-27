@@ -197,6 +197,7 @@ class ProviderServiceManagementTest {
                         .param("serviceId", published.getId().toString())
                         .param("bookingDate", LocalDate.now().plusDays(10).toString())
                         .param("timeSlot", "10:00")
+                        .param("idempotencyKey", java.util.UUID.randomUUID().toString())
                         .param("durationHours", "2"))
                 .andExpect(status().is3xxRedirection())
                 .andExpect(redirectedUrl("/marketplace"));

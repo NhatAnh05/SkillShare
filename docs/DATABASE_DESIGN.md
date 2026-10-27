@@ -1,9 +1,9 @@
 # Thiết kế Database chuẩn — SkillShare / Skill Rental
 
-> Phiên bản: 3.0 — bổ sung ví nội bộ/Escrow cho luồng booking, nghiệm thu và quyết toán.  
+> Phiên bản schema: 6.0 — bổ sung idempotency key bền vững cho form booking.
 > Hệ quản trị đích: MySQL 8.0.16+ (InnoDB, `utf8mb4`).  
 > Script chính: `src/main/resources/db/schema-mysql.sql`  
-> Migration: `src/main/resources/db/migration-v1-to-v2.sql` rồi `src/main/resources/db/migration-v2-to-v3-escrow.sql` cho database v1; database v2 chỉ cần migration v2→v3.
+> Database schema v5 nâng cấp bằng `src/main/resources/db/migration-v5-to-v6-booking-idempotency.sql`; các database cũ phải áp dụng tuần tự những migration còn thiếu.
 
 ## 1. Nguyên tắc thiết kế
 
@@ -43,6 +43,40 @@ Migration chỉ dành cho schema cũ đã tạo từ bộ SQL v1. Kiểm tra tr�
 ### Database đã ở schema v2
 
 Sao lưu database, sau đó chạy `src/main/resources/db/migration-v2-to-v3-escrow.sql` một lần. Migration này thêm các cột quy trình Escrow, tăng độ dài cột trạng thái đơn lên 50 ký tự, và tạo hai bảng `user_wallets`, `wallet_transactions`.
+
+### Database đã ở schema v5
+
+Sao lưu database, sau đó chạy `src/main/resources/db/migration-v5-to-v6-booking-idempotency.sql` một lần. Migration thêm cột `bookings.idempotency_key` nullable và unique; booking cũ tiếp tục hợp lệ, còn booking mới từ form ứng dụng có mã idempotency duy nhất.
+
+#### Xác minh migration và dữ liệu sau khi khởi động lại
+
+Không chạy migration trực tiếp trên database thật nếu chưa có bản sao lưu đã kiểm tra được. Sau khi áp dụng migration v5→v6 trên bản sao hoặc môi trường staging, kiểm tra cột/index và booking cũ:
+
+```sql
+SHOW COLUMNS FROM bookings LIKE 'idempotency_key';
+SHOW INDEX FROM bookings WHERE Key_name = 'uq_bookings_idempotency_key';
+SELECT COUNT(*) AS legacy_bookings
+FROM bookings
+WHERE idempotency_key IS NULL;
+```
+
+Sau đó chạy ứng dụng bằng profile MySQL (`mvn spring-boot:run -Dspring-boot.run.profiles=mysql`), tạo một dịch vụ, duyệt dịch vụ và hoàn tất một booking/order qua giao diện. Ghi lại các ID hiển thị hoặc lấy từ database, dừng ứng dụng bình thường, khởi động lại cùng profile và cùng cấu hình database; không chạy lại schema/seed scripts. Truy vấn các bản ghi tương ứng trước và sau restart:
+
+```sql
+SELECT s.id AS service_id, s.status AS service_status, b.id AS booking_id,
+       b.idempotency_key, b.customer_id, b.provider_id, b.service_id,
+       o.id AS order_id, o.status AS order_status,
+       i.id AS order_item_id, h.id AS history_id, h.new_status, h.changed_by_user_id
+FROM bookings b
+JOIN services s ON s.id = b.service_id
+JOIN rental_orders o ON o.booking_id = b.id
+JOIN rental_order_items i ON i.booking_id = b.id AND i.order_id = o.id
+LEFT JOIN rental_order_status_history h ON h.order_id = o.id
+WHERE b.id = <booking_id>
+ORDER BY h.created_at, h.id;
+```
+
+Các ID, quan hệ và trạng thái phải còn nguyên sau lần khởi động lại. Đây là quy trình kiểm thử thủ công trên database bền vững; Maven test mặc định dùng H2 in-memory (`create-drop`) và không thay thế bước xác minh MySQL này.
 
 ## 3. Danh sách 26 bảng
 

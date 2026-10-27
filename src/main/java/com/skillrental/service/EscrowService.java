@@ -31,6 +31,7 @@ public class EscrowService {
     private final WalletTransactionRepository transactions;
     private final ProviderWithdrawalRepository providerWithdrawals;
     private final CommissionPolicy commissionPolicy;
+    private final RentalOrderStatusHistoryRepository orderHistory;
     private final PasswordEncoder passwordEncoder;
     private final ObjectProvider<JavaMailSender> mailSenderProvider;
     @Value("${skillshare.escrow.show-demo-otp:true}") private boolean showDemoOtp;
@@ -239,6 +240,7 @@ public class EscrowService {
     public void providerAccept(Long orderId, User provider) {
         RentalOrder order = providerOrder(orderId, provider);
         requireStatus(order, OrderStatus.PENDING_PROVIDER_ACCEPTANCE);
+        OrderStatus previousStatus = order.getStatus();
         order.setProviderAccepted(true);
         order.setStatus(OrderStatus.PENDING_START_CONFIRMATION);
         if (order.getBooking() != null) {
@@ -246,6 +248,7 @@ public class EscrowService {
             bookings.save(order.getBooking());
         }
         orders.save(order);
+        recordStatusChange(order, previousStatus, provider, "Provider đã xác nhận nhận yêu cầu.");
     }
 
     @Transactional
@@ -262,6 +265,7 @@ public class EscrowService {
     public void confirmStart(Long orderId, User actor, Role role) {
         RentalOrder order = role == Role.PROVIDER ? providerOrder(orderId, actor) : customerOrder(orderId, actor);
         requireStatus(order, OrderStatus.PENDING_START_CONFIRMATION);
+        OrderStatus previousStatus = order.getStatus();
         if (role == Role.PROVIDER) order.setProviderStarted(true);
         else if (role == Role.CUSTOMER) order.setCustomerStarted(true);
         else throw new IllegalArgumentException("Vai trò không được xác nhận bắt đầu công việc.");
@@ -274,6 +278,9 @@ public class EscrowService {
             }
         }
         orders.save(order);
+        if (order.getStatus() != previousStatus) {
+            recordStatusChange(order, previousStatus, actor, "Hai bên đã xác nhận bắt đầu công việc.");
+        }
     }
 
     @Transactional
@@ -283,9 +290,11 @@ public class EscrowService {
         if (!Boolean.TRUE.equals(order.getCustomerStarted()) || !Boolean.TRUE.equals(order.getProviderStarted())) {
             throw new IllegalStateException("Hai bên phải xác nhận bắt đầu trước khi báo hoàn thành.");
         }
+        OrderStatus previousStatus = order.getStatus();
         order.setProviderCompleted(true);
         order.setStatus(OrderStatus.PENDING_CUSTOMER_ACCEPTANCE);
         orders.save(order);
+        recordStatusChange(order, previousStatus, provider, "Provider báo đã hoàn thành công việc; chờ Customer nghiệm thu.");
     }
 
     @Transactional
@@ -307,12 +316,16 @@ public class EscrowService {
     }
 
     private OtpDispatchResult issueCompletionOtp(RentalOrder order, User customer, boolean firstIssue) {
+        OrderStatus previousStatus = order.getStatus();
         String code = String.format("%06d", RANDOM.nextInt(1_000_000));
         order.setCompletionOtpHash(passwordEncoder.encode(code));
         order.setCompletionOtpExpiresAt(LocalDateTime.now().plusMinutes(10));
         if (firstIssue) order.setCompletionOtpAttempts(0);
         order.setStatus(OrderStatus.PENDING_PAYMENT_OTP);
         orders.save(order);
+        if (order.getStatus() != previousStatus) {
+            recordStatusChange(order, previousStatus, customer, "Customer nghiệm thu và yêu cầu OTP quyết toán.");
+        }
 
         boolean sent = false;
         JavaMailSender sender = mailSenderProvider.getIfAvailable();
@@ -349,7 +362,7 @@ public class EscrowService {
             orders.save(order);
             throw new IllegalArgumentException("Mã OTP không đúng.");
         }
-        settle(order, safe(order.getTotal()), true);
+        settle(order, safe(order.getTotal()), true, customer);
     }
 
     @Transactional
@@ -364,10 +377,12 @@ public class EscrowService {
             throw new IllegalStateException("Yêu cầu hủy đã được ghi nhận. Hãy chờ hoặc xử lý đề xuất chi phí từ Provider.");
         }
         if (order.getStatus() == OrderStatus.PROCESSING || order.getStatus() == OrderStatus.PENDING_CUSTOMER_ACCEPTANCE) {
+            OrderStatus previousStatus = order.getStatus();
             order.setStatus(OrderStatus.CANCELLATION_REQUESTED_BY_CUSTOMER);
             order.setCancellationStartedAt(LocalDateTime.now());
             order.setCancellationReason("Khách hàng yêu cầu hủy sau khi hai bên xác nhận bắt đầu; chờ Provider đề xuất chi phí phần việc đã thực hiện.");
             orders.save(order);
+            recordStatusChange(order, previousStatus, customer, "Customer yêu cầu hủy sau khi công việc bắt đầu.");
             return;
         }
         if (order.getStatus() != OrderStatus.PENDING_PROVIDER_ACCEPTANCE
@@ -398,18 +413,21 @@ public class EscrowService {
         if (proposed.signum() < 0 || proposed.compareTo(safe(order.getLockedAmount())) > 0) {
             throw new IllegalArgumentException("Chi phí đề xuất phải nằm trong khoảng 0 đến số tiền đang ký quỹ.");
         }
+        OrderStatus previousStatus = order.getStatus();
         order.setCancellationCompensation(proposed);
         order.setCancellationReason(note == null || note.isBlank() ? "Provider đề xuất chi phí phần việc đã thực hiện." : note.trim());
         order.setStatus(OrderStatus.CANCELLATION_COMPENSATION_PENDING_CUSTOMER);
         orders.save(order);
+        recordStatusChange(order, previousStatus, provider, "Provider đề xuất chi phí phần việc đã thực hiện.");
     }
 
     @Transactional
     public void customerResolveCompensation(Long orderId, User customer, boolean accept) {
         RentalOrder order = customerOrder(orderId, customer);
         requireStatus(order, OrderStatus.CANCELLATION_COMPENSATION_PENDING_CUSTOMER);
+        OrderStatus previousStatus = order.getStatus();
         if (accept) {
-            settle(order, safe(order.getCancellationCompensation()), false);
+            settle(order, safe(order.getCancellationCompensation()), false, customer);
             order.setStatus(OrderStatus.CANCELLED);
             order.setCancelledBy(customer);
             order.setCancelledAt(LocalDateTime.now());
@@ -421,15 +439,17 @@ public class EscrowService {
                 bookings.save(order.getBooking());
             }
             orders.save(order);
+            recordStatusChange(order, previousStatus, customer, "Customer chấp nhận chi phí hủy; đơn được kết thúc.");
         } else {
             order.setCancellationCompensation(null);
             order.setStatus(OrderStatus.PROCESSING);
             order.setCancellationReason("Khách hàng chưa chấp nhận chi phí hủy; công việc trở lại trạng thái đang thực hiện.");
             orders.save(order);
+            recordStatusChange(order, previousStatus, customer, "Customer từ chối chi phí hủy; công việc tiếp tục.");
         }
     }
 
-    private void settle(RentalOrder order, BigDecimal providerAmount, boolean completed) {
+    private void settle(RentalOrder order, BigDecimal providerAmount, boolean completed, User actor) {
         BigDecimal held = safe(order.getLockedAmount());
         BigDecimal payout = safe(providerAmount);
         if (payout.compareTo(held) > 0) throw new IllegalStateException("Số tiền chi trả vượt khoản ký quỹ.");
@@ -458,17 +478,20 @@ public class EscrowService {
         order.setCompletionOtpHash(null);
         order.setCompletionOtpExpiresAt(null);
         if (completed) {
+            OrderStatus previousStatus = order.getStatus();
             order.setStatus(OrderStatus.COMPLETED);
             order.setCompletedAt(LocalDateTime.now());
             if (order.getBooking() != null) {
                 order.getBooking().setStatus(BookingStatus.COMPLETED);
                 bookings.save(order.getBooking());
             }
+            recordStatusChange(order, previousStatus, actor, "Customer xác nhận OTP; đơn được quyết toán hoàn tất.");
         }
         orders.save(order);
     }
 
     private void cancelAndRelease(RentalOrder order, User actor, String reason) {
+        OrderStatus previousStatus = order.getStatus();
         BigDecimal held = safe(order.getLockedAmount());
         if (held.signum() > 0) {
             UserWallet customerWallet = lockWallet(order.getCustomer());
@@ -491,6 +514,13 @@ public class EscrowService {
             bookings.save(order.getBooking());
         }
         orders.save(order);
+        recordStatusChange(order, previousStatus, actor, reason);
+    }
+
+    private void recordStatusChange(RentalOrder order, OrderStatus previousStatus, User actor, String note) {
+        orderHistory.save(RentalOrderStatusHistory.builder().order(order)
+                .previousStatus(previousStatus == null ? null : previousStatus.name())
+                .newStatus(order.getStatus().name()).changedBy(actor).note(note).build());
     }
 
     private UserWallet lockWallet(User user) {

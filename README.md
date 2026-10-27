@@ -57,6 +57,7 @@ These are the three primary usable demo logins. When a database is empty, the se
 - Dữ liệu bổ sung tự động cho H2/MySQL trống: `src/main/resources/db/seed-expand-demo-data.sql`, được gọi sau khi seed gốc bởi `DemoDataConfig`.
 - Migration từ schema v1 trước đó: `src/main/resources/db/migration-v1-to-v2.sql` (chỉ chạy một lần trên database v1, sau khi backup).
 - Migration từ schema v2 sang v3 (thêm ví nội bộ/Escrow, sổ giao dịch và cập nhật trạng thái đơn): `src/main/resources/db/migration-v2-to-v3-escrow.sql` (chỉ chạy một lần sau khi backup).
+- Migration từ schema v5 sang v6 (thêm idempotency key bền vững cho form booking): `src/main/resources/db/migration-v5-to-v6-booking-idempotency.sql` (chỉ chạy một lần sau khi backup).
 - Tài liệu thiết kế, quan hệ, enum và đối chiếu chức năng nhóm: [`docs/DATABASE_DESIGN.md`](docs/DATABASE_DESIGN.md).
 - Thống kê số bản ghi từng bảng và thông tin đăng nhập: [`docs/DEMO_SEED_DATA_SUMMARY.md`](docs/DEMO_SEED_DATA_SUMMARY.md).
 - Câu SQL kiểm tra số lượng bản ghi: [`docs/verify-seed-counts.sql`](docs/verify-seed-counts.sql).

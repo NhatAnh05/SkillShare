@@ -5,7 +5,9 @@ import lombok.*;
 import java.math.BigDecimal;
 import java.time.*;
 
-@Entity @Table(name="bookings") @Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
+@Entity @Table(name="bookings", uniqueConstraints=
+        @UniqueConstraint(name="uq_bookings_idempotency_key", columnNames="idempotency_key"))
+@Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
 public class Booking {
     @Id @GeneratedValue(strategy=GenerationType.IDENTITY) private Long id;
     @ManyToOne(optional=false) private User customer;
@@ -17,6 +19,7 @@ public class Booking {
     @Column(length=1200) private String note;
     @Column(nullable=false) private Boolean premium;
     @Column(nullable=false) private Boolean directBooking;
+    @Column(name="idempotency_key", length=36) private String idempotencyKey;
     @Column(nullable=false,precision=12,scale=2) private BigDecimal amount;
     @Enumerated(EnumType.STRING) @Column(nullable=false, length=30) private BookingStatus status;
     @Column(name="cancellation_reason", length=1000) private String cancellationReason;

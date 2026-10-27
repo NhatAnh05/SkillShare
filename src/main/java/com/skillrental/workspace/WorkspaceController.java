@@ -1380,12 +1380,7 @@ public class WorkspaceController {
     }
 
     private List<RentalOrder> providerOrders(User user) {
-        return orders.findAll().stream()
-                .filter(Objects::nonNull)
-                .filter(order -> order.getProvider() != null)
-                .filter(order -> Objects.equals(order.getProvider().getId(), user.getId()))
-                .sorted(Comparator.comparing(RentalOrder::getId, Comparator.nullsLast(Long::compareTo)).reversed())
-                .toList();
+        return orders.findByProviderOrderByIdDesc(user);
     }
 
     private List<Complaint> providerComplaints(User user) {
