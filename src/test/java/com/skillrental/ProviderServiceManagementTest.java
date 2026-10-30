@@ -211,7 +211,8 @@ class ProviderServiceManagementTest {
                                         org.hamcrest.Matchers.is(published.getId()))))));
         mvc.perform(post("/cart/items").with(csrf())
                         .with(user("customer@skillrental.vn").roles("CUSTOMER"))
-                        .param("serviceId", published.getId().toString()))
+                        .param("serviceId", published.getId().toString())
+                        .param("requestToken", "suspended-service-add"))
                 .andExpect(status().is3xxRedirection())
                 .andExpect(redirectedUrl("/services"));
         assertEquals(cartItemsBefore, cartItems.count());
@@ -228,7 +229,8 @@ class ProviderServiceManagementTest {
 
         mvc.perform(post("/cart/items").with(csrf())
                         .with(user("customer@skillrental.vn").roles("CUSTOMER"))
-                        .param("serviceId", published.getId().toString()))
+                        .param("serviceId", published.getId().toString())
+                        .param("requestToken", "resumed-service-add"))
                 .andExpect(status().is3xxRedirection())
                 .andExpect(redirectedUrl("/cart"));
         assertEquals(cartItemsBefore + 1, cartItems.count());

@@ -78,6 +78,16 @@ ORDER BY h.created_at, h.id;
 
 Các ID, quan hệ và trạng thái phải còn nguyên sau lần khởi động lại. Đây là quy trình kiểm thử thủ công trên database bền vững; Maven test mặc định dùng H2 in-memory (`create-drop`) và không thay thế bước xác minh MySQL này.
 
+### Database đã ở schema v7
+
+Các bản ghi booking mới lưu thời lượng đã chọn để nhất quán hóa giá theo giờ và kiểm tra idempotency. Sao lưu database, sau đó chạy migration một lần:
+
+```bash
+mysql -u root -p skill_rental < src/main/resources/db/migration-v7-to-v8-booking-duration.sql
+```
+
+Migration thêm `bookings.duration_hours` với giá trị mặc định 2 giờ cho dữ liệu cũ; không xóa hoặc sửa các bản ghi hiện tại. Database mới dùng `schema-mysql.sql`, đã bao gồm cột này. H2 cục bộ tạo schema từ entity JPA.
+
 ## 3. Danh sách 26 bảng
 
 | Nhóm | Bảng | Vai trò |

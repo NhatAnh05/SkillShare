@@ -19,6 +19,8 @@ public class Booking {
     @Column(length=1200) private String note;
     @Column(nullable=false) private Boolean premium;
     @Column(nullable=false) private Boolean directBooking;
+    @Column(name="duration_hours", nullable=false, columnDefinition="INT DEFAULT 2")
+    @Builder.Default private Integer durationHours = 2;
     @Column(name="idempotency_key", length=36) private String idempotencyKey;
     @Column(nullable=false,precision=12,scale=2) private BigDecimal amount;
     @Enumerated(EnumType.STRING) @Column(nullable=false, length=30) private BookingStatus status;

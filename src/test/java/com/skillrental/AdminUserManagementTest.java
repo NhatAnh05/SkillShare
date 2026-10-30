@@ -1,8 +1,14 @@
 package com.skillrental;
 
 import com.skillrental.entity.AccountStatus;
+import com.skillrental.entity.ProviderProfile;
+import com.skillrental.entity.ServiceCatalog;
+import com.skillrental.entity.ServiceStatus;
 import com.skillrental.entity.User;
+import com.skillrental.repository.OfferedServiceRepository;
+import com.skillrental.repository.ProviderProfileRepository;
 import com.skillrental.repository.UserRepository;
+import com.skillrental.workspace.WorkspaceController;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
@@ -32,6 +38,12 @@ class AdminUserManagementTest {
 
     @Autowired
     private UserRepository users;
+
+    @Autowired
+    private ProviderProfileRepository providers;
+
+    @Autowired
+    private OfferedServiceRepository services;
 
     @Test
     @WithMockUser(username = "admin@skillrental.vn", roles = "ADMIN")
@@ -144,6 +156,74 @@ class AdminUserManagementTest {
 
         assertEquals(AccountStatus.PENDING_VERIFICATION, reload(customer.getId()).getAccountStatus());
         assertFalse(reload(customer.getId()).getEmailVerified());
+    }
+
+    @Test
+    @WithMockUser(username = "admin@skillrental.vn", roles = "ADMIN")
+    void providerUnlockRestoresMarketplaceVisibilityWithoutChangingApprovalOrPublishedServices() throws Exception {
+        User provider = users.findByEmailIgnoreCase("provider1@skillrental.vn").orElseThrow();
+        ProviderProfile profile = providers.findByUser(provider).orElseThrow();
+        var publishedBefore = services.findByProviderAndStatusOrderByCreatedAtDesc(provider, ServiceStatus.PUBLISHED)
+                .stream().map(ServiceCatalog::getId).toList();
+        assertFalse(publishedBefore.isEmpty());
+
+        mvc.perform(post("/admin/users/{id}/lock", provider.getId()).with(csrf()))
+                .andExpect(status().is3xxRedirection());
+
+        MvcResult adminPage = mvc.perform(get("/admin/providers"))
+                .andExpect(status().isOk())
+                .andReturn();
+        @SuppressWarnings("unchecked")
+        var rows = (java.util.List<WorkspaceController.AdminProviderRow>)
+                adminPage.getModelAndView().getModel().get("providerRows");
+        var lockedRow = rows.stream().filter(row -> row.profile().getId().equals(profile.getId()))
+                .findFirst().orElseThrow();
+        assertEquals(AccountStatus.LOCKED, lockedRow.profile().getUser().getAccountStatus());
+        assertFalse(lockedRow.marketplaceVisible());
+        assertTrue(lockedRow.marketplaceReason().contains("LOCKED"));
+
+        mvc.perform(post("/admin/users/{id}/unlock", provider.getId()).with(csrf()))
+                .andExpect(status().is3xxRedirection());
+
+        User unlocked = reload(provider.getId());
+        ProviderProfile unchangedProfile = providers.findByUser(unlocked).orElseThrow();
+        assertEquals(AccountStatus.ACTIVE, unlocked.getAccountStatus());
+        assertTrue(unchangedProfile.getApproved());
+        assertEquals("ACTIVE", unchangedProfile.getProfileStatus());
+        assertEquals(publishedBefore,
+                services.findByProviderAndStatusOrderByCreatedAtDesc(unlocked, ServiceStatus.PUBLISHED)
+                        .stream().map(ServiceCatalog::getId).toList());
+
+        MvcResult restoredAdminPage = mvc.perform(get("/admin/providers"))
+                .andExpect(status().isOk())
+                .andReturn();
+        @SuppressWarnings("unchecked")
+        var restoredRows = (java.util.List<WorkspaceController.AdminProviderRow>)
+                restoredAdminPage.getModelAndView().getModel().get("providerRows");
+        var restoredRow = restoredRows.stream().filter(row -> row.profile().getId().equals(profile.getId()))
+                .findFirst().orElseThrow();
+        assertTrue(restoredRow.marketplaceVisible());
+        assertEquals(publishedBefore.size(), restoredRow.publishedServiceCount());
+
+        MvcResult providersPage = mvc.perform(get("/providers"))
+                .andExpect(status().isOk())
+                .andReturn();
+        @SuppressWarnings("unchecked")
+        var publicProviders = (java.util.List<ProviderProfile>)
+                providersPage.getModelAndView().getModel().get("providers");
+        assertTrue(publicProviders.stream().anyMatch(item -> item.getId().equals(profile.getId())));
+
+        MvcResult servicesPage = mvc.perform(get("/services"))
+                .andExpect(status().isOk())
+                .andReturn();
+        @SuppressWarnings("unchecked")
+        var publicServices = (java.util.List<ServiceCatalog>)
+                servicesPage.getModelAndView().getModel().get("services");
+        assertTrue(publicServices.stream().map(ServiceCatalog::getId).toList().containsAll(publishedBefore));
+
+        mvc.perform(post("/admin/users/{id}/lock", provider.getId()).with(csrf()))
+                .andExpect(status().is3xxRedirection());
+        assertEquals(AccountStatus.LOCKED, reload(provider.getId()).getAccountStatus());
     }
 
     private User reload(Long userId) {

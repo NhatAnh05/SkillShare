@@ -1,6 +1,78 @@
 <!DOCTYPE html>
 <html lang="vi" xmlns:th="http://www.thymeleaf.org">
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Danh sách dịch vụ đã chọn · SkillShare</title><th:block th:replace="~{fragments :: customerStyles}"></th:block></head>
-<body class="management-page"><div th:replace="~{fragments :: icons}"></div><main class="page"><div class="container layout management-layout"><div th:replace="~{fragments :: sidebar}"></div><section class="page-content customer-workspace-content"><div class="workspace-topline"><a th:href="@{/marketplace}">Trang chủ</a><span>/</span><span>Danh sách đã chọn</span></div><h1 class="title">Danh sách dịch vụ đã chọn</h1><p class="muted">Điều chỉnh số lượng hoặc xóa dịch vụ trước khi tiếp tục.</p><div th:replace="~{fragments :: flash}"></div>
-<div class="card" th:if="${!#lists.isEmpty(items)}"><div class="table-wrap"><table><thead><tr><th>Dịch vụ</th><th>Provider</th><th>Đơn giá</th><th>Số lượng</th><th>Tạm tính</th><th>Thao tác</th></tr></thead><tbody><tr th:each="item : ${items}"><td th:text="${item.service.name}">Dịch vụ</td><td th:text="${item.service.provider.fullName}">Provider</td><td th:text="${#numbers.formatDecimal(item.unitPriceSnapshot,0,'POINT',0,'COMMA') + 'đ'}">0đ</td><td><form method="post" th:action="@{/cart/items/{id}/quantity(id=${item.id})}" style="display:flex;gap:8px"><input class="input" type="number" name="quantity" min="1" max="99" th:value="${item.quantity}" style="width:85px"><button class="btn btn-outline btn-sm" type="submit">Cập nhật</button></form></td><td th:text="${#numbers.formatDecimal(lineTotals[item.id],0,'POINT',0,'COMMA') + 'đ'}">0đ</td><td><div style="display:flex;gap:6px;flex-wrap:wrap"><a class="btn btn-primary btn-sm" th:href="@{/cart/items/{id}/booking(id=${item.id})}">Chọn lịch &amp; đặt</a><form method="post" th:action="@{/cart/items/{id}/remove(id=${item.id})}"><button class="btn btn-outline btn-sm" type="submit">Xóa</button></form></div></td></tr></tbody></table></div><div class="section-top" style="margin-top:20px"><a class="btn btn-outline" th:href="@{/services}">Tiếp tục chọn dịch vụ</a><strong class="price" th:text="${'Tổng tạm tính: ' + #numbers.formatDecimal(total,0,'POINT',0,'COMMA') + 'đ'}">Tổng tạm tính: 0đ</strong></div><p class="muted small">Đặt từng dịch vụ một. Giá booking tiếp tục theo công thức Provider hourly rate × thời lượng hiện có; số lượng dòng giỏ cần là 1.</p></div>
-<div class="card request-board-empty" th:if="${#lists.isEmpty(items)}"><strong>Danh sách của bạn đang trống</strong><span>Thêm dịch vụ từ danh mục để xem và quản lý tại đây.</span><a class="btn btn-primary" th:href="@{/services}">Khám phá dịch vụ</a></div></section></div></main><div th:replace="~{fragments :: footer}"></div><div th:replace="~{fragments :: floatingChat}"></div><script defer th:src="@{/js/app.js}"></script></body></html>
+<head>
+ <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+ <title>Giỏ hàng dịch vụ · SkillShare</title>
+ <th:block th:replace="~{fragments :: customerStyles}"></th:block>
+</head>
+<body class="public-page cart-page">
+ <div th:replace="~{fragments :: icons}"></div>
+ <div th:replace="~{fragments :: header}"></div>
+ <main class="page">
+  <div class="container public-content">
+   <div class="section-heading">
+    <div><h1 class="title">Giỏ hàng dịch vụ</h1><p class="muted">Kiểm tra số lượng và dự toán trước khi chọn lịch.</p></div>
+    <a class="btn btn-outline" th:href="@{/services}">Tiếp tục chọn dịch vụ</a>
+   </div>
+   <div th:replace="~{fragments :: flash}"></div>
+   <div class="card cart-table-card" th:if="${!#lists.isEmpty(items)}">
+    <div class="table-wrap">
+     <table class="cart-table">
+      <thead><tr><th>Dịch vụ</th><th>Đơn giá</th><th>Số lượng</th><th>Dự toán</th><th>Thao tác</th></tr></thead>
+      <tbody>
+       <tr th:each="item : ${items}">
+        <td>
+         <div class="cart-service-name" th:text="${item.service.name}">Dịch vụ</div>
+         <div class="muted small" th:text="${item.service.provider.fullName}">Provider</div>
+         <div class="muted small" th:if="${item.service.pricingType.name() == 'HOURLY'}">
+          Theo giờ · dự toán 2 giờ mỗi đơn vị
+         </div>
+         <div class="alert danger cart-price-warning" th:if="${priceChanged[item.id]}">
+          Giá đã đổi: dự toán dùng giá hiện tại. Trang đặt lịch sẽ yêu cầu xác nhận trước khi đặt.
+         </div>
+        </td>
+        <td>
+         <strong th:text="${#numbers.formatDecimal(item.service.price,1,2) + 'đ'}">0đ</strong>
+         <span class="muted small" th:text="${item.service.pricingType.name() == 'HOURLY' ? '/ giờ' : ' / dịch vụ'}"></span>
+        </td>
+        <td>
+         <form class="cart-quantity-form" method="post" th:action="@{/cart/items/{id}/quantity(id=${item.id})}">
+          <input class="input" type="number" name="quantity" min="1" max="99"
+                 th:value="${item.quantity}" aria-label="Số lượng dịch vụ">
+          <button class="btn btn-outline btn-sm" type="submit">Cập nhật</button>
+         </form>
+        </td>
+        <td>
+         <strong class="cart-line-total" th:text="${#numbers.formatDecimal(lineTotals[item.id],1,2) + 'đ'}">0đ</strong>
+         <div class="muted small" th:if="${item.service.pricingType.name() == 'HOURLY'}"
+              th:text="${item.quantity + ' × 2 giờ'}">1 × 2 giờ</div>
+        </td>
+        <td>
+         <div class="cart-actions">
+          <a class="btn btn-primary btn-sm" th:href="@{/cart/items/{id}/booking(id=${item.id})}">Chọn lịch</a>
+          <form method="post" th:action="@{/cart/items/{id}/remove(id=${item.id})}">
+           <button class="btn btn-outline btn-sm" type="submit">Xóa</button>
+          </form>
+         </div>
+        </td>
+       </tr>
+      </tbody>
+     </table>
+    </div>
+    <div class="cart-total-row">
+     <span>Tổng dự toán giỏ hàng</span>
+     <strong th:text="${#numbers.formatDecimal(total,1,2) + 'đ'}">0đ</strong>
+    </div>
+    <p class="muted small">Giá theo giờ dùng thời lượng mặc định 2 giờ. Chỉ đặt từng dịch vụ một; giá sẽ được xác nhận lại ở bước đặt lịch.</p>
+   </div>
+   <div class="card request-board-empty" th:if="${#lists.isEmpty(items)}">
+    <strong>Giỏ hàng đang trống</strong><span>Chọn dịch vụ đã xuất bản để bắt đầu.</span>
+    <a class="btn btn-primary" th:href="@{/services}">Khám phá dịch vụ</a>
+   </div>
+  </div>
+ </main>
+ <div th:replace="~{fragments :: footer}"></div>
+ <div th:replace="~{fragments :: floatingChat}"></div>
+ <script defer th:src="@{/js/app.js}"></script>
+</body>
+</html>

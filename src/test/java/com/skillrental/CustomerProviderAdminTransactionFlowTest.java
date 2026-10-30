@@ -13,6 +13,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 
 import java.time.LocalDate;
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
@@ -79,21 +80,20 @@ class CustomerProviderAdminTransactionFlowTest {
                 .andExpect(model().attribute("services",
                         org.hamcrest.Matchers.hasItem(org.hamcrest.Matchers.hasProperty("id",
                                 org.hamcrest.Matchers.is(service.getId())))));
-        mvc.perform(post("/cart/items").with(csrf()).param("serviceId", service.getId().toString()))
+        mvc.perform(post("/cart/items").with(csrf()).param("serviceId", service.getId().toString())
+                        .param("requestToken", "flow-cart-add"))
                 .andExpect(status().is3xxRedirection())
                 .andExpect(redirectedUrl("/cart"));
 
         Cart cart = carts.findFirstByCustomerAndStatusOrderByUpdatedAtDesc(customer, CartStatus.ACTIVE).orElseThrow();
         CartItem cartItem = cartItems.findByCartAndServiceId(cart, service.getId()).orElseThrow();
-        if (cartItem.getQuantity() != 1) {
-            mvc.perform(post("/cart/items/{id}/remove", cartItem.getId()).with(csrf()))
-                    .andExpect(status().is3xxRedirection());
-            mvc.perform(post("/cart/items").with(csrf()).param("serviceId", service.getId().toString()))
-                    .andExpect(status().is3xxRedirection());
-            cartItem = cartItems.findByCartAndServiceId(cart, service.getId()).orElseThrow();
-        }
-        assertEquals(1, cartItem.getQuantity());
+        mvc.perform(post("/cart/items/{id}/quantity", cartItem.getId()).with(csrf()).param("quantity", "2"))
+                .andExpect(status().is3xxRedirection());
+        cartItem = cartItems.findByCartAndServiceId(cart, service.getId()).orElseThrow();
+        assertEquals(2, cartItem.getQuantity());
 
+        service.setPrice(new BigDecimal("1300000.00"));
+        service = services.saveAndFlush(service);
         mvc.perform(get("/cart/items/{id}/booking", cartItem.getId()))
                 .andExpect(status().is3xxRedirection());
 
@@ -101,10 +101,12 @@ class CustomerProviderAdminTransactionFlowTest {
                         .param("serviceId", service.getId().toString())
                         .param("cartItemId", cartItem.getId().toString()))
                 .andExpect(status().isOk())
-                .andExpect(model().attributeExists("form", "availableServices"))
+                .andExpect(model().attributeExists("form", "availableServices", "priceChanged"))
+                .andExpect(model().attribute("priceChanged", true))
                 .andReturn();
         BookingForm form = (BookingForm) formResult.getModelAndView().getModel().get("form");
         String key = form.getIdempotencyKey();
+        assertEquals(2, form.getQuantity());
         String day = LocalDate.now().plusDays(10).toString();
         long bookingCount = bookings.count();
         long orderCount = orders.count();
@@ -116,7 +118,26 @@ class CustomerProviderAdminTransactionFlowTest {
                         .param("bookingDate", day)
                         .param("timeSlot", "10:00")
                         .param("durationHours", "2")
+                        .param("quantity", "2")
                         .param("directBooking", "true")
+                        .param("note", "Yêu cầu trong kiểm thử tích hợp"))
+                .andExpect(status().isOk())
+                .andExpect(model().attribute("priceChanged", true))
+                .andExpect(model().attributeExists("bookingError"));
+        assertEquals(bookingCount, bookings.count());
+        assertEquals(orderCount, orders.count());
+        assertTrue(cartItems.findByCartAndServiceId(cart, service.getId()).isPresent());
+
+        mvc.perform(post("/booking/provider/{id}", providerProfile.getId()).with(csrf())
+                        .param("serviceId", service.getId().toString())
+                        .param("cartItemId", cartItem.getId().toString())
+                        .param("idempotencyKey", key)
+                        .param("bookingDate", day)
+                        .param("timeSlot", "10:00")
+                        .param("durationHours", "2")
+                        .param("quantity", "2")
+                        .param("directBooking", "true")
+                        .param("confirmPriceChange", "true")
                         .param("note", "Yêu cầu trong kiểm thử tích hợp"))
                 .andExpect(status().is3xxRedirection());
 
@@ -133,6 +154,13 @@ class CustomerProviderAdminTransactionFlowTest {
         assertEquals(1, orderItems.findByOrderIdOrderByIdAsc(order.getId()).size());
         RentalOrderItem item = orderItems.findByOrderIdOrderByIdAsc(order.getId()).get(0);
         assertEquals(service.getId(), item.getService().getId());
+        assertEquals(2, item.getQuantity());
+        BigDecimal expectedAmount = new BigDecimal("2600000.00");
+        assertEquals(expectedAmount, booking.getAmount());
+        assertEquals(expectedAmount, order.getSubtotal());
+        assertEquals(expectedAmount, order.getTotal());
+        assertEquals(service.getPrice(), item.getUnitPrice());
+        assertEquals(expectedAmount, item.getLineTotal());
         assertEquals(booking.getId(), item.getBooking().getId());
         assertTrue(cartItems.findByCartAndServiceId(cart, service.getId()).isEmpty());
         assertTrue(history.findByOrderIdOrderByCreatedAtAsc(order.getId()).stream()
@@ -146,7 +174,9 @@ class CustomerProviderAdminTransactionFlowTest {
                         .param("bookingDate", day)
                         .param("timeSlot", "10:00")
                         .param("durationHours", "2")
+                        .param("quantity", "2")
                         .param("directBooking", "true")
+                        .param("confirmPriceChange", "true")
                         .param("note", "Yêu cầu trong kiểm thử tích hợp"))
                 .andExpect(status().is3xxRedirection())
                 .andExpect(redirectedUrl("/orders/" + order.getId() + "/progress"));

@@ -30,7 +30,7 @@ public class SecurityConfig {
                                      GoogleLoginFailureHandler googleFailures,
                                      GooglePasswordLoginSuccessHandler passwordSuccess)throws Exception {
         http.authorizeHttpRequests(a->a
-                .requestMatchers("/","/login","/register","/forgot-password","/reset-password","/css/**","/js/**","/h2-console/**", "/customer/wallet/vnpay/return", "/verify-email").permitAll()
+                .requestMatchers("/","/login","/register","/register/send-otp","/forgot-password","/reset-password","/css/**","/js/**","/h2-console/**", "/customer/wallet/vnpay/return", "/verify-email", "/verify-otp", "/registration-otp/send", "/resend-registration-otp").permitAll()
                 .requestMatchers("/oauth2/**", "/login/oauth2/**").permitAll()
                 .requestMatchers("/admin/**").hasRole("ADMIN")
                 .requestMatchers("/provider/**").hasRole("PROVIDER")

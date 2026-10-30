@@ -149,8 +149,21 @@ Font Inter; button 44px/radius 8px; card radius 12px/padding 20px.
 
 ## Chức năng được bổ sung trong bản hoàn thiện tiếp theo
 
-- Xác nhận email khi đăng ký: token 24 giờ, chỉ đăng nhập sau xác nhận; Gmail SMTP dùng `SKILLSHARE_MAIL_USERNAME` và `SKILLSHARE_MAIL_PASSWORD`.
+- Xác minh email khi đăng ký bằng OTP 6 chữ số; Gmail SMTP dùng `SKILLSHARE_MAIL_USERNAME` và `SKILLSHARE_MAIL_PASSWORD`.
 - Khôi phục mật khẩu qua liên kết email có hạn 30 phút, token dùng một lần.
 - Danh mục dịch vụ đã xuất bản (`/services`) và danh sách đã chọn (`/cart`) hỗ trợ thêm/xóa/cập nhật số lượng và tổng tạm tính. Checkout/thanh toán nhiều dịch vụ không bật theo phạm vi loại trừ thanh toán.
 - Provider gợi ý dựa trên kỹ năng ưu tiên trong hồ sơ Customer; dịch vụ phổ biến thống kê theo đơn không bị hủy từ `rental_order_items`.
 - Chi tiết phạm vi và giới hạn kiểm thử: [`FUNCTIONS_COMPLETION_STATUS.md`](FUNCTIONS_COMPLETION_STATUS.md).
+
+
+## Đăng ký bằng email và xác minh OTP 6 chữ số
+
+Đăng ký thông thường, gửi OTP và hoàn tất xác minh đều diễn ra trên một trang `/register`.
+Người dùng nhập thông tin rồi nhấn **Gửi mã OTP**; mã được xác nhận ngay trên cùng form. OTP hết hạn sau 5 phút,
+khóa mã khi nhập sai 5 lần, gửi lại cách nhau tối thiểu 60 giây.
+Để gửi mail thật, phải cấu hình `SKILLSHARE_MAIL_USERNAME` / `SKILLSHARE_MAIL_PASSWORD` (App Password của Gmail)
+trong Environment Variables của IntelliJ Run Configuration. Nếu SMTP chưa cấu hình hoặc từ chối gửi,
+hệ thống báo lỗi rõ ràng, không tuyên bố đã gửi.
+Nếu sử dụng MySQL v6, áp dụng migration `src/main/resources/db/migration-v6-to-v7-registration-otp.sql`
+trên bản sao database đã sao lưu trước khi chạy ứng dụng mới.
+Hướng dẫn chi tiết: `docs/HUONG_DAN_DANG_KY_OTP_EMAIL.md`. Google Login giữ nguyên.

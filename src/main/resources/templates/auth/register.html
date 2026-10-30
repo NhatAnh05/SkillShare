@@ -3,79 +3,198 @@
  <head>
   <meta charset="utf-8"/>
   <meta content="width=device-width,initial-scale=1" name="viewport"/>
-  <title>
-   Đăng ký · Skill Rental
-  </title>
+  <title>Đăng ký · Skill Rental</title>
   <th:block th:replace="~{fragments :: customerStyles}"></th:block>
+  <style>
+   .otp-row{display:flex;gap:10px;align-items:flex-start}
+   .otp-row .form-group{flex:1;min-width:0;margin-bottom:0}
+   .otp-row button{min-width:140px;min-height:44px}
+   .otp-status{margin:8px 0 0;min-height:20px}
+   .otp-status.error{color:#b42318}
+   .otp-status.success{color:#16803c}
+   .spinner{display:inline-block;width:13px;height:13px;margin-right:6px;border:2px solid currentColor;border-right-color:transparent;border-radius:50%;animation:otp-spin .7s linear infinite;vertical-align:-2px}
+   @keyframes otp-spin{to{transform:rotate(360deg)}}
+   @media(max-width:480px){.otp-row{gap:7px}.otp-row button{min-width:115px;padding-left:9px;padding-right:9px}}
+  </style>
  </head>
  <body>
   <div class="auth">
    <div class="auth-art">
-    <h1>
-     Tạo tài khoản Skill Rental.
-    </h1>
-    <p>
-     Bắt đầu tìm Provider và đăng Service Request.
-    </p>
+    <h1>Tạo tài khoản Skill Rental.</h1>
+    <p>Bắt đầu tìm Provider và đăng Service Request.</p>
    </div>
    <div class="auth-box">
     <div class="auth-card">
-     <div class="logo">
-      <i>
-       S
-      </i>
-      SKILL RENTAL
-     </div>
-     <h1>
-      Đăng ký
-     </h1>
-     <form method="post" th:action="@{/register}" th:object="${form}">
-      <div class="alert danger" th:each="e:${#fields.globalErrors()}" th:if="${#fields.hasGlobalErrors()}" th:text="${e}">
+     <div class="logo"><i>S</i> SKILL RENTAL</div>
+     <h1>Đăng ký</h1>
+     <form id="registerForm" method="post" th:action="@{/register}" th:object="${form}"
+           th:data-send-url="@{/register/send-otp}">
+      <div class="alert danger" th:each="e:${#fields.globalErrors()}" th:if="${#fields.hasGlobalErrors()}" th:text="${e}"></div>
+      <div class="form-group">
+       <label for="fullName">Họ và tên</label>
+       <input class="input" id="fullName" th:field="*{fullName}" maxlength="120" autocomplete="name" required/>
+       <span class="error" th:errors="*{fullName}"></span>
       </div>
       <div class="form-group">
-       <label>
-        Họ tên
-       </label>
-       <input class="input" th:field="*{fullName}"/>
-       <span class="error" th:errors="*{fullName}">
-       </span>
+       <label for="email">Email</label>
+       <input class="input" id="email" th:field="*{email}" type="email" maxlength="160" autocomplete="email" required/>
+       <span class="error" th:errors="*{email}"></span>
       </div>
       <div class="form-group">
-       <label>
-        Email
-       </label>
-       <input class="input" th:field="*{email}" type="email"/>
+       <label for="password">Mật khẩu</label>
+       <input class="input" id="password" th:field="*{password}" type="password" minlength="8" maxlength="72" autocomplete="new-password" required/>
+       <span class="error" th:errors="*{password}"></span>
       </div>
-      <div class="row">
-       <div class="form-group">
-        <label>
-         Mật khẩu
-        </label>
-        <input class="input" th:field="*{password}" type="password"/>
-       </div>
-       <div class="form-group">
-        <label>
-         Xác nhận
-        </label>
-        <input class="input" th:field="*{confirmPassword}" type="password"/>
-       </div>
+      <div class="form-group">
+       <label for="confirmPassword">Xác nhận mật khẩu</label>
+       <input class="input" id="confirmPassword" th:field="*{confirmPassword}" type="password" maxlength="72" autocomplete="new-password" required/>
+       <span class="error" th:errors="*{confirmPassword}"></span>
       </div>
-      <label>
-       <input th:field="*{acceptedTerms}" type="checkbox"/>
+      <div class="otp-row">
+       <div class="form-group">
+        <label for="otp">Mã xác thực OTP 6 chữ số</label>
+        <input class="input" id="otp" name="otp" type="text" inputmode="numeric" pattern="[0-9]{6}"
+               minlength="6" maxlength="6" autocomplete="one-time-code" placeholder="000000"/>
+       </div>
+       <button class="btn" id="sendOtpButton" type="button" aria-live="polite">
+        <span class="spinner" id="sendSpinner" style="display:none" aria-hidden="true"></span>
+        <span id="sendOtpLabel">Gửi mã OTP</span>
+       </button>
+      </div>
+      <p class="otp-status" id="otpStatus" aria-live="polite" role="status"></p>
+      <p class="error" th:if="${otpError}" th:text="${otpError}" role="alert"></p>
+      <p class="muted" id="resendCountdown" style="display:none">Gửi lại mã sau <span id="resendSeconds"></span></p>
+      <label style="display:block;margin-top:12px">
+       <input th:field="*{acceptedTerms}" type="checkbox" required/>
        Đồng ý điều khoản
       </label>
-      <button class="btn btn-primary" style="width:100%;margin-top:14px">
+      <span class="error" th:errors="*{acceptedTerms}"></span>
+      <button class="btn btn-primary" id="registerButton" style="width:100%;margin-top:14px" type="submit">
        Đăng ký
       </button>
      </form>
-     <p class="muted">
-      Đã có tài khoản?
-      <a href="/login" style="color:var(--primary)">
-       Đăng nhập
-      </a>
-     </p>
+     <p class="muted">Đã có tài khoản? <a th:href="@{/login}" style="color:var(--primary)">Đăng nhập</a></p>
     </div>
    </div>
   </div>
+  <script th:inline="javascript">
+   const registerForm = document.getElementById("registerForm");
+   const emailInput = document.getElementById("email");
+   const otpInput = document.getElementById("otp");
+   const sendOtpButton = document.getElementById("sendOtpButton");
+   const sendSpinner = document.getElementById("sendSpinner");
+   const sendOtpLabel = document.getElementById("sendOtpLabel");
+   const otpStatus = document.getElementById("otpStatus");
+   const resendCountdown = document.getElementById("resendCountdown");
+   const resendSeconds = document.getElementById("resendSeconds");
+   const registerButton = document.getElementById("registerButton");
+   const pageHasSentOtp = [[${otpSentForEmail}]];
+   let issuedEmail = pageHasSentOtp ? [[${pendingEmail}]].trim().toLowerCase() : "";
+   let resendAt = [[${resendAvailableAtEpochMillis}]];
+   let clockOffset = [[${serverNowEpochMillis}]] - Date.now();
+   let requestInFlight = false;
+   let countdownTimer;
+
+   function normalizedEmail() {
+     return emailInput.value.trim().toLowerCase();
+   }
+
+   function showStatus(message, kind) {
+     otpStatus.textContent = message || "";
+     otpStatus.className = "otp-status" + (kind ? " " + kind : "");
+   }
+
+   function renderCountdown() {
+     if (!issuedEmail || normalizedEmail() !== issuedEmail || !resendAt) {
+       resendCountdown.style.display = "none";
+       sendOtpLabel.textContent = "Gửi mã OTP";
+       if (!requestInFlight) sendOtpButton.disabled = false;
+       return;
+     }
+     const remaining = Math.max(0, Math.ceil((resendAt - (Date.now() + clockOffset)) / 1000));
+     if (remaining > 0) {
+       resendCountdown.style.display = "";
+       resendSeconds.textContent = remaining + "s";
+       sendOtpLabel.textContent = remaining + "s";
+       sendOtpButton.disabled = true;
+     } else {
+       resendCountdown.style.display = "none";
+       sendOtpLabel.textContent = "Gửi lại mã";
+       if (!requestInFlight) sendOtpButton.disabled = false;
+     }
+   }
+
+   if (pageHasSentOtp && issuedEmail === normalizedEmail()) {
+     showStatus("Đã có mã gửi tới email này. Kiểm tra Inbox/Spam; máy chủ chấp nhận thư không đảm bảo thư đã đến.", "success");
+   }
+   renderCountdown();
+   countdownTimer = window.setInterval(renderCountdown, 1000);
+
+   emailInput.addEventListener("input", () => {
+     if (normalizedEmail() !== issuedEmail) {
+       otpInput.value = "";
+       resendCountdown.style.display = "none";
+       sendOtpLabel.textContent = "Gửi mã OTP";
+       if (!requestInFlight) sendOtpButton.disabled = false;
+       showStatus("", "");
+     } else {
+       renderCountdown();
+     }
+   });
+
+   sendOtpButton.addEventListener("click", async () => {
+     if (requestInFlight) return;
+     const requiredFields = ["fullName", "email", "password", "confirmPassword", "acceptedTerms"];
+     for (const fieldName of requiredFields) {
+       const field = registerForm.elements.namedItem(fieldName);
+       if (field && !field.reportValidity()) return;
+     }
+     if (registerForm.elements.namedItem("password").value !==
+         registerForm.elements.namedItem("confirmPassword").value) {
+       showStatus("Mật khẩu xác nhận không khớp.", "error");
+       return;
+     }
+
+     requestInFlight = true;
+     sendOtpButton.disabled = true;
+     sendSpinner.style.display = "inline-block";
+     sendOtpLabel.textContent = "Đang gửi...";
+     showStatus("", "");
+     try {
+       const response = await fetch(registerForm.dataset.sendUrl, {
+         method: "POST",
+         body: new FormData(registerForm),
+         headers: {"Accept": "application/json"}
+       });
+       const result = await response.json();
+       if (result.serverNowEpochMillis != null) {
+         clockOffset = result.serverNowEpochMillis - Date.now();
+       }
+       if (result.success) {
+         issuedEmail = normalizedEmail();
+         resendAt = result.resendAvailableAtEpochMillis;
+         otpInput.value = "";
+         showStatus(result.message, "success");
+       } else {
+         showStatus(result.message || "Không gửi được mã OTP. Vui lòng thử lại.", "error");
+         if (response.status === 429 && result.resendAvailableAtEpochMillis != null) {
+           issuedEmail = normalizedEmail();
+           resendAt = result.resendAvailableAtEpochMillis;
+         }
+       }
+     } catch (error) {
+       showStatus("Không kết nối được máy chủ. Chưa xác nhận gửi OTP; vui lòng thử lại.", "error");
+     } finally {
+       requestInFlight = false;
+       sendSpinner.style.display = "none";
+       renderCountdown();
+     }
+   });
+
+   registerForm.addEventListener("submit", () => {
+     registerButton.disabled = true;
+     registerButton.textContent = "Đang xác minh...";
+   });
+  </script>
  </body>
 </html>

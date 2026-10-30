@@ -123,7 +123,10 @@ class AdminCatalogManagementTest {
         Booking booking = bookings.findAll().stream()
                 .max(java.util.Comparator.comparing(Booking::getId)).orElseThrow();
         assertEquals(service.getName(), booking.getServiceName());
-        assertEquals(provider.getHourlyRate().multiply(BigDecimal.valueOf(2)), booking.getAmount());
+        BigDecimal expectedAmount = service.getPricingType() == ServicePricingType.HOURLY
+                ? service.getPrice().multiply(BigDecimal.valueOf(2))
+                : service.getPrice();
+        assertEquals(expectedAmount, booking.getAmount());
     }
 
     @Test

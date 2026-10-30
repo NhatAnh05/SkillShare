@@ -1,7 +1,66 @@
 <!DOCTYPE html>
 <html lang="vi" xmlns:th="http://www.thymeleaf.org">
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Danh mục dịch vụ · SkillShare</title><th:block th:replace="~{fragments :: customerStyles}"></th:block></head>
-<body><div th:replace="~{fragments :: icons}"></div><div th:replace="~{fragments :: header}"></div>
-<main class="page"><div class="container"><div class="section-heading"><div><h1 class="title">Danh mục dịch vụ</h1><p class="muted">Chọn các dịch vụ đang được Provider công khai.</p></div><a class="btn btn-outline" th:href="@{/cart}">Danh sách đã chọn</a></div><div th:replace="~{fragments :: flash}"></div>
-<div class="request-grid" th:if="${!#lists.isEmpty(services)}"><article class="request-card" th:each="service : ${services}"><div class="request-top"><h3 th:text="${service.name}">Tên dịch vụ</h3><span class="request-status" th:text="${service.category}">Danh mục</span></div><p th:text="${service.description}">Mô tả</p><div class="request-meta"><span>Provider: <strong th:text="${service.provider.fullName}">Provider</strong></span><span>Đánh giá: <strong th:text="${service.rating + ' ★'}">0 ★</strong></span></div><div class="request-bottom"><strong th:text="${#numbers.formatDecimal(service.price,0,'POINT',0,'COMMA') + 'đ'}">0đ</strong><form method="post" th:action="@{/cart/items}"><input type="hidden" name="serviceId" th:value="${service.id}"><label>Số lượng <input class="input" type="number" name="quantity" min="1" max="99" value="1" style="width:80px"></label><button class="btn btn-primary btn-sm" type="submit">Thêm vào danh sách</button></form></div></article></div>
-<div class="request-board-empty" th:if="${#lists.isEmpty(services)}"><strong>Chưa có dịch vụ công khai</strong><span>Dịch vụ sẽ hiển thị tại đây khi Provider đăng và được xuất bản.</span></div></div></main><div th:replace="~{fragments :: footer}"></div><div th:replace="~{fragments :: floatingChat}"></div><script defer th:src="@{/js/app.js}"></script></body></html>
+<head>
+ <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+ <title>Dịch vụ · SkillShare</title>
+ <th:block th:replace="~{fragments :: customerStyles}"></th:block>
+</head>
+<body class="public-page services-page">
+ <div th:replace="~{fragments :: icons}"></div>
+ <div th:replace="~{fragments :: header}"></div>
+ <main class="page">
+  <div class="container public-content">
+   <section class="services-intro">
+    <div><p class="eyebrow">SKILLSHARE MARKETPLACE</p><h1 class="title">Khám phá dịch vụ</h1>
+     <p class="muted">Chọn dịch vụ đã xuất bản từ các Provider đủ điều kiện. Giá được xác nhận lại trước khi đặt.</p></div>
+    <a class="btn btn-outline" th:href="@{/cart}">Xem giỏ hàng</a>
+   </section>
+   <div th:replace="~{fragments :: flash}"></div>
+   <div class="service-grid" th:if="${!#lists.isEmpty(services)}">
+    <article class="service-card" th:each="service : ${services}">
+     <div class="service-cover">
+      <img th:src="${service.coverImageUrl != null and !#strings.isEmpty(service.coverImageUrl) ? service.coverImageUrl : '/images/service-placeholder.svg'}"
+           th:alt="${'Ảnh dịch vụ ' + service.name}"
+           onerror="this.onerror=null;this.src='/images/service-placeholder.svg'">
+      <span class="service-category" th:text="${service.category != null ? service.category : 'Dịch vụ'}">Danh mục</span>
+     </div>
+     <div class="service-card-body">
+      <div class="service-card-heading">
+       <h2 th:text="${service.name}">Tên dịch vụ</h2>
+       <span class="service-rating"><span aria-hidden="true">★</span>
+        <span th:text="${#numbers.formatDecimal(service.rating,1,1)}">0.0</span>
+        <span class="muted" th:text="${'(' + service.reviewCount + ')'}">(0)</span>
+       </span>
+      </div>
+      <p class="service-provider">Bởi <strong th:text="${service.provider.fullName}">Provider</strong></p>
+      <p class="service-description" th:text="${service.description}">Mô tả dịch vụ</p>
+      <div class="service-card-footer">
+       <div class="service-price">
+        <strong th:text="${#numbers.formatDecimal(prices[service.id].total,1,2) + 'đ'}">0đ</strong>
+        <span th:if="${service.pricingType.name() == 'HOURLY'}"
+              th:text="${#numbers.formatDecimal(service.price,1,2) + 'đ / giờ · dự toán 2 giờ'}">/giờ</span>
+        <span th:if="${service.pricingType.name() == 'FIXED'}">Giá cố định / dịch vụ</span>
+       </div>
+       <form class="service-add-form" method="post" th:action="@{/cart/items}">
+        <input type="hidden" name="serviceId" th:value="${service.id}">
+        <input type="hidden" name="requestToken" th:value="${addRequestToken + '-' + service.id}">
+        <label>Số lượng
+         <input class="input service-quantity" type="number" name="quantity" min="1" max="99" value="1">
+        </label>
+        <button class="btn btn-primary" type="submit">Thêm vào giỏ hàng</button>
+       </form>
+      </div>
+     </div>
+    </article>
+   </div>
+   <div class="card service-empty" th:if="${#lists.isEmpty(services)}">
+    <strong>Chưa có dịch vụ phù hợp</strong>
+    <span>Dịch vụ sẽ xuất hiện khi Provider đủ điều kiện và đã xuất bản dịch vụ.</span>
+   </div>
+  </div>
+ </main>
+ <div th:replace="~{fragments :: footer}"></div>
+ <div th:replace="~{fragments :: floatingChat}"></div>
+ <script defer th:src="@{/js/app.js}"></script>
+</body>
+</html>

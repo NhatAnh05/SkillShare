@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 360" role="img" aria-label="Ảnh dịch vụ mặc định">
+ <rect width="640" height="360" fill="#f1f5f9"/>
+ <path d="M0 280 150 160l100 80 110-120 280 210v30H0z" fill="#dbeafe"/>
+ <circle cx="460" cy="92" r="36" fill="#cbd5e1"/>
+ <path d="M270 218h100v8H270zm-30 20h160v8H240z" fill="#64748b"/>
+ <path d="M291 177h58v32h-58z" fill="#94a3b8"/>
+</svg>

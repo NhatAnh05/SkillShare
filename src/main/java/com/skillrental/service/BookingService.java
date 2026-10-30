@@ -21,6 +21,7 @@ import java.util.Optional;
     private final RentalOrderItemRepository orderItems;
     private final RentalOrderStatusHistoryRepository orderHistory;
     private final EscrowService escrow;
+    private final ServicePriceCalculator priceCalculator;
     @Transactional public RentalOrder create(User customer, Long providerId, BookingForm f) {
         if (customer == null || customer.getRole() != Role.CUSTOMER) {
             throw new BookingUnavailableException("Chỉ Customer mới được tạo booking.");
@@ -34,7 +35,7 @@ import java.util.Optional;
             return existingOrderForReplay(previousBooking.get(), customer, providerId, f);
         }
         CartItem cartItem = f.getCartItemId() == null ? null
-                : validateCartItemForCheckout(f.getCartItemId(), customer, f.getServiceId());
+                : validateCartItemForCheckout(f.getCartItemId(), customer, f.getServiceId(), f.getQuantity());
 
         var p=providers.findById(providerId)
                 .orElseThrow(() -> new BookingUnavailableException("Không tìm thấy Provider."));
@@ -50,18 +51,27 @@ import java.util.Optional;
                 java.time.LocalTime.of(18,0), java.time.LocalTime.of(20,0)).contains(f.getTimeSlot())) {
             throw new IllegalArgumentException("Khung giờ không hợp lệ");
         }
-        BigDecimal rate=p.getHourlyRate().multiply(BigDecimal.valueOf(f.getDurationHours()));
-        if(f.isPremium()) rate=rate.multiply(new BigDecimal("1.25"));
+        if (cartItem != null
+                && cartItem.getUnitPriceSnapshot().compareTo(service.getPrice()) != 0
+                && !f.isConfirmPriceChange()) {
+            throw new PriceChangedException(
+                    "Giá dịch vụ đã thay đổi thành " + service.getPrice().toPlainString()
+                            + "đ. Vui lòng xác nhận giá mới trước khi tiếp tục.");
+        }
+        int quantity = cartItem == null ? f.getQuantity() : cartItem.getQuantity();
+        ServicePriceCalculator.PriceBreakdown price =
+                priceCalculator.calculate(service, quantity, f.getDurationHours(), f.isPremium());
         var b=bookings.saveAndFlush(Booking.builder().customer(customer).provider(p.getUser()).service(service)
                 .serviceName(service.getName()).bookingDate(f.getBookingDate()).timeSlot(f.getTimeSlot())
                 .note(f.getNote()).premium(f.isPremium()).directBooking(f.isDirectBooking())
-                .amount(rate).status(BookingStatus.PENDING).idempotencyKey(f.getIdempotencyKey()).build());
+                .durationHours(f.getDurationHours()).amount(price.total()).status(BookingStatus.PENDING)
+                .idempotencyKey(f.getIdempotencyKey()).build());
         RentalOrder order = orders.saveAndFlush(RentalOrder.builder().booking(b).customer(customer).provider(p.getUser())
-                .subtotal(rate).discount(BigDecimal.ZERO).total(rate)
+                .subtotal(price.total()).discount(BigDecimal.ZERO).total(price.total())
                 .status(OrderStatus.PENDING_PROVIDER_ACCEPTANCE).createdAt(LocalDateTime.now()).build());
         orderItems.saveAndFlush(RentalOrderItem.builder().order(order).service(service).provider(p.getUser())
-                .booking(b).serviceNameSnapshot(service.getName()).quantity(1)
-                .unitPrice(rate).lineTotal(rate).build());
+                .booking(b).serviceNameSnapshot(service.getName()).quantity(quantity)
+                .unitPrice(price.unitPrice()).lineTotal(price.total()).build());
         orderHistory.save(RentalOrderStatusHistory.builder().order(order).previousStatus(null)
                 .newStatus(OrderStatus.PENDING_PROVIDER_ACCEPTANCE.name()).changedBy(customer)
                 .note("Customer tạo booking cho dịch vụ " + service.getName() + ".").build());
@@ -69,6 +79,7 @@ import java.util.Optional;
         if (cartItem != null) {
             cartItem.getCart().setUpdatedAt(LocalDateTime.now());
             cartItems.delete(cartItem);
+            cartItems.flush();
         }
         return order;
     }
@@ -90,7 +101,21 @@ import java.util.Optional;
                 && Objects.equals(booking.getTimeSlot(), form.getTimeSlot())
                 && Objects.equals(booking.getNote(), form.getNote())
                 && Objects.equals(booking.getPremium(), form.isPremium())
-                && Objects.equals(booking.getDirectBooking(), form.isDirectBooking());
+                && Objects.equals(booking.getDirectBooking(), form.isDirectBooking())
+                && Objects.equals(booking.getDurationHours(), form.getDurationHours())
+                && orderItems.findByBookingId(booking.getId()).stream().findFirst()
+                .map(item -> {
+                    if (!Objects.equals(item.getQuantity(), form.getQuantity())
+                            || item.getService() == null || item.getUnitPrice() == null) {
+                        return false;
+                    }
+                    BigDecimal historicalTotal = priceCalculator.calculate(item.getUnitPrice(),
+                            item.getService().getPricingType(), item.getQuantity(),
+                            booking.getDurationHours(), booking.getPremium()).total();
+                    return historicalTotal.compareTo(booking.getAmount()) == 0
+                            && Objects.equals(item.getLineTotal(), booking.getAmount());
+                })
+                .orElse(false);
         if (!matches) {
             throw new BookingUnavailableException("Mã yêu cầu đã được sử dụng cho thông tin đặt dịch vụ khác.");
         }
@@ -98,7 +123,7 @@ import java.util.Optional;
                 .orElseThrow(() -> new BookingUnavailableException("Không tìm thấy đơn hàng của yêu cầu đã xử lý."));
     }
 
-    private CartItem validateCartItemForCheckout(Long cartItemId, User customer, Long serviceId) {
+    private CartItem validateCartItemForCheckout(Long cartItemId, User customer, Long serviceId, int requestedQuantity) {
         CartItem item = cartItems.findByIdForUpdate(cartItemId)
                 .orElseThrow(() -> new BookingUnavailableException("Không tìm thấy dịch vụ trong giỏ hàng."));
         Cart cart = item.getCart();
@@ -106,8 +131,9 @@ import java.util.Optional;
                 || !cart.getCustomer().getId().equals(customer.getId())) {
             throw new BookingUnavailableException("Giỏ hàng không thuộc Customer hiện tại hoặc không còn hoạt động.");
         }
-        if (item.getQuantity() != 1) {
-            throw new BookingUnavailableException("Hãy đặt số lượng của dịch vụ về 1 trước khi chuyển sang booking.");
+        if (requestedQuantity != item.getQuantity()) {
+            throw new BookingUnavailableException(
+                    "Số lượng trong giỏ đã thay đổi. Hãy tải lại trang đặt lịch để xác nhận số lượng hiện tại.");
         }
         if (!item.getService().getId().equals(serviceId)) {
             throw new BookingUnavailableException("Dịch vụ chọn đặt không khớp với dòng trong giỏ hàng.");
@@ -117,6 +143,12 @@ import java.util.Optional;
 
     public static class BookingUnavailableException extends RuntimeException {
         public BookingUnavailableException(String message) {
+            super(message);
+        }
+    }
+
+    public static final class PriceChangedException extends BookingUnavailableException {
+        public PriceChangedException(String message) {
             super(message);
         }
     }

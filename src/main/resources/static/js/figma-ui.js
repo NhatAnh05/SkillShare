@@ -14,8 +14,15 @@
         const next = document.getElementById('calendar-next');
         const premium = document.getElementById('booking-premium');
         const summary = document.querySelector('.booking-summary');
-        const rate = Number(summary?.dataset.rate || 0);
-        const money = amount => Math.round(amount).toLocaleString('vi-VN') + 'đ';
+        const serviceField = document.getElementById('service');
+        const quantityField = document.getElementById('booking-quantity') ||
+            document.getElementById('quantity');
+        const durationField = document.getElementById('durationHours');
+        const money = amount => new Intl.NumberFormat('vi-VN', {
+            maximumFractionDigits: 2, minimumFractionDigits: 0
+        }).format(amount) + 'đ';
+        let selectedPrice = Number(summary?.dataset.unitPrice || 0);
+        let selectedPricingType = summary?.dataset.pricingType || 'FIXED';
         const today = new Date();
         today.setHours(0, 0, 0, 0);
         let shown = new Date(today.getFullYear(), today.getMonth(), 1);
@@ -87,13 +94,37 @@
         });
 
         function updatePrice() {
-            const base = rate * 2;
+            if (serviceField) {
+                const selected = serviceField.options[serviceField.selectedIndex];
+                selectedPrice = Number(selected?.dataset.price || 0);
+                selectedPricingType = selected?.dataset.pricingType || 'FIXED';
+                document.getElementById('summary-service').textContent =
+                    selected?.value ? selected.textContent.trim() : 'Chọn dịch vụ';
+                document.getElementById('summary-provider').textContent =
+                    selected?.dataset.providerName || summary.dataset.serviceProvider;
+                document.getElementById('summary-pricing-type').textContent =
+                    selectedPricingType === 'HOURLY' ? 'Theo giờ' : 'Cố định';
+                document.getElementById('summary-unit-price').textContent =
+                    selected?.value ? money(selectedPrice) + (selectedPricingType === 'HOURLY' ? ' / giờ' : '') : '—';
+            }
+            const quantity = Number(quantityField?.value || summary.dataset.cartQuantity || 1);
+            const duration = Number(durationField?.value || summary.dataset.defaultDuration || 2);
+            const base = selectedPricingType === 'HOURLY'
+                ? selectedPrice * duration * quantity
+                : selectedPrice * quantity;
             const extra = premium?.checked ? base * .25 : 0;
+            document.getElementById('summary-quantity').textContent = String(quantity);
+            document.getElementById('summary-duration').textContent = `${duration} giờ`;
+            document.getElementById('summary-duration-row').hidden = selectedPricingType !== 'HOURLY';
+            document.getElementById('duration-group').hidden = selectedPricingType !== 'HOURLY';
             document.getElementById('booking-base').textContent = money(base);
             document.getElementById('booking-extra').textContent = money(extra);
             document.getElementById('booking-total').textContent = money(base + extra);
         }
         premium?.addEventListener('change', updatePrice);
+        serviceField?.addEventListener('change', updatePrice);
+        quantityField?.addEventListener('input', updatePrice);
+        durationField?.addEventListener('change', updatePrice);
         bookingForm.addEventListener('submit', event => {
             if (!dateField.value || !slotField.value) {
                 event.preventDefault();

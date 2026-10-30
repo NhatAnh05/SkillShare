@@ -4,9 +4,10 @@
 
 1. **Xác nhận email khi đăng ký**
    - Tài khoản đăng ký mới được đặt ở trạng thái `PENDING_VERIFICATION` và không đăng nhập được trước khi xác nhận.
-   - Token xác nhận có thời hạn 24 giờ, được dùng một lần và bị xóa sau khi xác nhận.
-   - Gửi email xác nhận qua Gmail SMTP khi đã cấu hình `SKILLSHARE_MAIL_USERNAME` và `SKILLSHARE_MAIL_PASSWORD`.
-   - Khi chưa cấu hình SMTP, trang đăng nhập hiển thị liên kết xác nhận chỉ phục vụ kiểm thử local.
+   - Đăng ký, gửi mã và hoàn tất xác minh trên một trang `/register`.
+   - OTP có thời hạn 5 phút, tối đa 5 lần nhập sai, chỉ dùng một lần; gửi lại sau ít nhất 60 giây.
+   - Chỉ lưu BCrypt hash. Thiếu cấu hình hoặc SMTP từ chối gửi thì không báo gửi thành công và giữ tài khoản pending để thử lại.
+   - Hỗ trợ liên kết UUID cũ cho tài khoản được phát hành link trước khi chuyển sang OTP.
 2. **Khôi phục mật khẩu**
    - Token có thời hạn 30 phút và bị xóa sau khi đổi mật khẩu.
    - Không tiết lộ email có tồn tại hay không qua thông báo phản hồi.

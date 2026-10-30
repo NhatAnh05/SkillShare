@@ -55,23 +55,55 @@
     <div class="booking-layout">
      <form class="card booking-form" id="booking-form" method="post" th:action="@{/booking/provider/{id}(id=${provider.id})}" th:object="${form}">
       <input th:field="*{directBooking}" type="hidden"/>
-      <input th:field="*{durationHours}" type="hidden" value="2"/>
       <input th:field="*{idempotencyKey}" type="hidden"/>
       <input th:field="*{cartItemId}" type="hidden"/>
+      <input th:if="${form.cartItemId != null}" th:field="*{quantity}" type="hidden"/>
       <div class="form-group">
        <label for="service">
         Dịch vụ
        </label>
-       <select class="select" id="service" required="" th:field="*{serviceId}">
+       <select class="select" id="service" required="" th:field="*{serviceId}"
+               th:if="${form.cartItemId == null}">
         <option value="">
          -- Chọn dịch vụ --
         </option>
-        <option th:each="service : ${availableServices}" th:value="${service.id}" th:text="${service.name}">
+        <option th:each="service : ${availableServices}" th:value="${service.id}"
+                th:text="${service.name}"
+                th:attr="data-price=${service.price},data-pricing-type=${service.pricingType.name()},
+                         data-provider-name=${service.provider.fullName}">
         </option>
        </select>
+       <input th:if="${form.cartItemId != null}" th:field="*{serviceId}" type="hidden"/>
+       <p class="booking-selected-service" th:if="${form.cartItemId != null and selectedService != null}"
+          th:text="${selectedService.name}">Dịch vụ đã chọn</p>
        <small class="error" th:errors="*{serviceId}">
        </small>
       </div>
+      <div class="form-group">
+       <label for="booking-quantity">Số lượng dịch vụ</label>
+       <input th:if="${form.cartItemId == null}" class="input" id="booking-quantity"
+              th:field="*{quantity}" type="number" min="1" max="99">
+       <p th:if="${form.cartItemId != null}" class="booking-selected-service"
+          th:text="${form.quantity}">1</p>
+       <small class="muted" th:if="${form.cartItemId != null}">Số lượng được xác nhận từ giỏ hàng.</small>
+       <small class="error" th:errors="*{quantity}"></small>
+      </div>
+      <div class="form-group" id="duration-group">
+       <label for="durationHours">Thời lượng (giờ)</label>
+       <select class="select" id="durationHours" th:field="*{durationHours}">
+        <option value="1">1 giờ</option><option value="2">2 giờ</option><option value="3">3 giờ</option>
+        <option value="4">4 giờ</option><option value="6">6 giờ</option><option value="8">8 giờ</option>
+       </select>
+       <small class="muted" id="duration-help">Thời lượng chỉ ảnh hưởng đến giá dịch vụ theo giờ.</small>
+      </div>
+      <div class="alert danger" th:if="${bookingError}" th:text="${bookingError}"></div>
+      <div class="alert danger" th:if="${priceChanged}">
+       Giá dịch vụ đã thay đổi kể từ khi được thêm vào giỏ. Hãy xem lại tổng tiền và xác nhận giá mới.
+      </div>
+      <label class="checkbox-label" th:if="${priceChanged}">
+       <input th:field="*{confirmPriceChange}" type="checkbox" required/>
+       Tôi xác nhận tiếp tục với giá mới
+      </label>
       <div class="form-group">
        <label>
         Ngày làm việc
@@ -122,7 +154,7 @@
       </div>
       <div class="form-group">
        <label>
-        Khung giờ (2 giờ)
+        Khung giờ bắt đầu
        </label>
        <input id="booking-time" required="" th:field="*{timeSlot}" type="hidden"/>
        <div aria-label="Chọn khung giờ" class="time-slots" role="group">
@@ -148,7 +180,11 @@
        </label>
        <textarea class="textarea" id="booking-note" placeholder="Mô tả nhu cầu của bạn…" th:field="*{note}"></textarea>
       </div>
-      <label class="checkbox-label">
+      <label class="checkbox-label" th:unless="${priceChanged}">
+       <input id="booking-premium" th:field="*{premium}" type="checkbox"/>
+       Đặt kỹ năng cao (+25%)
+      </label>
+      <label class="checkbox-label" th:if="${priceChanged}">
        <input id="booking-premium" th:field="*{premium}" type="checkbox"/>
        Đặt kỹ năng cao (+25%)
       </label>
@@ -156,7 +192,16 @@
        Tiếp tục thanh toán →
       </button>
      </form>
-     <aside class="card booking-summary" th:attr="data-rate=${provider.hourlyRate}">
+     <aside class="card booking-summary"
+            th:attr="data-unit-price=${selectedService != null ? selectedService.price : 0},
+                     data-pricing-type=${selectedService != null ? selectedService.pricingType.name() : 'FIXED'},
+                     data-service-name=${selectedService != null ? selectedService.name : ''},
+                     data-service-provider=${selectedService != null ? selectedService.provider.fullName : provider.user.fullName},
+                     data-default-duration=${defaultDurationHours},
+                     data-cart-quantity=${form.cartItemId != null ? form.quantity : 1},
+                     data-initial-base=${priceBreakdown != null ? priceBreakdown.baseTotal : 0},
+                     data-initial-premium=${priceBreakdown != null ? priceBreakdown.premiumSurcharge : 0},
+                     data-initial-total=${priceBreakdown != null ? priceBreakdown.total : 0}">
       <h2>
        Tóm tắt đơn hàng
       </h2>
@@ -172,28 +217,31 @@
       <h3>
        Chi tiết chi phí
       </h3>
+      <div class="price-line"><span>Dịch vụ</span><strong id="summary-service"
+          th:text="${selectedService != null ? selectedService.name : 'Chọn dịch vụ'}">Chọn dịch vụ</strong></div>
+      <div class="price-line"><span>Provider</span><strong id="summary-provider"
+          th:text="${selectedService != null ? selectedService.provider.fullName : provider.user.fullName}">Provider</strong></div>
+      <div class="price-line"><span>Loại giá</span><strong id="summary-pricing-type"
+          th:text="${selectedService != null ? (selectedService.pricingType.name() == 'HOURLY' ? 'Theo giờ' : 'Cố định') : '—'}">—</strong></div>
+      <div class="price-line"><span>Đơn giá</span><strong id="summary-unit-price"
+          th:text="${selectedService != null ? (#numbers.formatDecimal(selectedService.price,1,2) + 'đ') : '—'}">—</strong></div>
+      <div class="price-line" id="summary-duration-row"><span>Thời lượng</span><strong id="summary-duration"
+          th:text="${form.durationHours + ' giờ'}">2 giờ</strong></div>
+      <div class="price-line"><span>Số lượng</span><strong id="summary-quantity" th:text="${form.quantity}">1</strong></div>
       <div class="price-line">
-       <span>
-        Dịch vụ cơ bản (2 giờ)
-       </span>
-       <strong id="booking-base">
-       </strong>
+       <span>Tạm tính</span>
+       <strong id="booking-base" th:text="${priceBreakdown != null ? (#numbers.formatDecimal(priceBreakdown.baseTotal,1,2) + 'đ') : '—'}"></strong>
       </div>
       <div class="price-line">
-       <span>
-        Phí kỹ năng cao (+25%)
-       </span>
-       <strong id="booking-extra">
-        0đ
-       </strong>
+       <span>Phụ thu Premium (25%)</span>
+       <strong id="booking-extra" th:text="${priceBreakdown != null ? (#numbers.formatDecimal(priceBreakdown.premiumSurcharge,1,2) + 'đ') : '0đ'}">0đ</strong>
       </div>
       <hr/>
       <div class="price-line total">
        <span>
         Tổng cộng
        </span>
-       <strong id="booking-total">
-       </strong>
+       <strong id="booking-total" th:text="${priceBreakdown != null ? (#numbers.formatDecimal(priceBreakdown.total,1,2) + 'đ') : '—'}"></strong>
       </div>
       <p class="booking-demo-notice">
        Thanh toán ở phiên bản demo, chưa có dịch vụ giữ tiền trung gian thực tế.

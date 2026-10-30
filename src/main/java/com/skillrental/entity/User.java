@@ -19,6 +19,10 @@ public class User {
     @Column(name="email_verified", nullable=false) @Builder.Default private Boolean emailVerified = false;
     @Column(name="email_verification_token", length=120, unique=true) private String emailVerificationToken;
     @Column(name="email_verification_expires_at") private LocalDateTime emailVerificationExpiresAt;
+    // Registration OTP is stored as a BCrypt hash in emailVerificationToken (legacy column).
+    @Column(name="email_verification_attempts", nullable=false)
+    @Builder.Default private Integer emailVerificationAttempts = 0;
+    @Column(name="email_verification_last_sent_at") private LocalDateTime emailVerificationLastSentAt;
     @Enumerated(EnumType.STRING) @Column(name="account_status", nullable=false, length=24)
     @Builder.Default private AccountStatus accountStatus = AccountStatus.ACTIVE;
     @Column(name="last_login_at") private LocalDateTime lastLoginAt;
@@ -30,6 +34,7 @@ public class User {
         if(updatedAt==null) updatedAt=LocalDateTime.now();
         if(accountStatus==null) accountStatus=AccountStatus.ACTIVE;
         if(emailVerified==null) emailVerified=false;
+        if(emailVerificationAttempts==null) emailVerificationAttempts=0;
     }
     @PreUpdate void preUpdate() { updatedAt=LocalDateTime.now(); }
 }

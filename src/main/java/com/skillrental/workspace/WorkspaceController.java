@@ -12,6 +12,7 @@ import com.skillrental.service.AdminOrderManagementService.OrderReviewException;
 import com.skillrental.service.ProviderServiceManagementService;
 import com.skillrental.service.ProviderServiceManagementService.ServiceDetails;
 import com.skillrental.service.ProviderServiceManagementService.ServiceManagementException;
+import com.skillrental.service.ProviderEligibilityService;
 import com.skillrental.service.UserManagementService;
 import com.skillrental.service.UserManagementService.AccountManagementException;
 import lombok.RequiredArgsConstructor;
@@ -49,6 +50,7 @@ public class WorkspaceController {
     private final AdminCatalogManagementService catalogManagement;
     private final AdminOrderManagementService adminOrderManagement;
     private final ProviderServiceManagementService providerServiceManagement;
+    private final ProviderEligibilityService providerEligibility;
     private final UserRepository users;
     private final ProviderProfileRepository providers;
     private final OfferedServiceRepository offeredServices;
@@ -607,7 +609,17 @@ public class WorkspaceController {
                     .filter(u -> u.getAccountStatus() == AccountStatus.LOCKED).toList());
             case "unlock" -> model.addAttribute("unlockRows", allUsers.stream()
                     .filter(u -> u.getAccountStatus() == AccountStatus.LOCKED).toList());
-            case "providers" -> model.addAttribute("providerRows", providers.findAll());
+            case "providers" -> {
+                Map<Long, Long> publishedServiceCounts = offeredServices.findByStatusOrderByRatingDesc(ServiceStatus.PUBLISHED)
+                        .stream()
+                        .collect(Collectors.groupingBy(service -> service.getProvider().getId(), Collectors.counting()));
+                model.addAttribute("providerRows", providers.findAll().stream()
+                        .map(profile -> new AdminProviderRow(profile,
+                                publishedServiceCounts.getOrDefault(profile.getUser().getId(), 0L),
+                                providerEligibility.isEligible(profile),
+                                marketplaceReason(profile, publishedServiceCounts.getOrDefault(profile.getUser().getId(), 0L))))
+                        .toList());
+            }
             case "pending-providers" -> model.addAttribute("pendingProviders", providers.findAll().stream()
                     .filter(p -> !Boolean.TRUE.equals(p.getApproved())).toList());
             case "skills" -> model.addAttribute("pendingSkills", skills.findAll().stream().filter(s -> !state.isSkillApproved(s.getId())).limit(5).toList());
@@ -1510,7 +1522,37 @@ public class WorkspaceController {
         };
     }
 
+    private String marketplaceReason(ProviderProfile profile, long publishedServiceCount) {
+        List<String> reasons = new ArrayList<>();
+        User user = profile.getUser();
+        if (!Boolean.TRUE.equals(profile.getApproved())) {
+            reasons.add("Hồ sơ chưa được Admin duyệt");
+        }
+        if (!"ACTIVE".equals(profile.getProfileStatus())) {
+            reasons.add("Hồ sơ Provider không ACTIVE");
+        }
+        if (user.getRole() != Role.PROVIDER) {
+            reasons.add("Tài khoản không có role PROVIDER");
+        }
+        if (user.getAccountStatus() != AccountStatus.ACTIVE) {
+            reasons.add("Tài khoản " + user.getAccountStatus());
+        }
+        if (!Boolean.TRUE.equals(user.getEmailVerified())) {
+            reasons.add("Email chưa xác minh");
+        }
+        if (reasons.isEmpty()) {
+            if (publishedServiceCount == 0) {
+                return "Provider hiển thị tại /providers; chưa có dịch vụ PUBLISHED để hiển thị tại /services.";
+            }
+            return "Đủ điều kiện hiển thị tại /providers và có " + publishedServiceCount
+                    + " dịch vụ PUBLISHED tại /services.";
+        }
+        return String.join("; ", reasons);
+    }
+
     public record AdminUserRow(User user, boolean blocked, String status) {}
+    public record AdminProviderRow(ProviderProfile profile, long publishedServiceCount,
+                                   boolean marketplaceVisible, String marketplaceReason) {}
     public record PriceRequest(Long id, String service, String provider, BigDecimal currentPrice, BigDecimal proposedPrice, String reason) {}
     public record AdminReviewRow(Long id, String customer, String provider, int rating, String comment, boolean hidden, String date) {}
     public record AdminComplaintRow(Long id, String orderCode, String customer, String provider, String reason, ComplaintStatus status) {}
