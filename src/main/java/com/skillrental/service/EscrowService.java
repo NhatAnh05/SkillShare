@@ -36,6 +36,7 @@ public class EscrowService {
     private final UserWalletRepository wallets;
     private final WalletTransactionRepository transactions;
     private final EscrowSettlementRepository settlements;
+    private final EscrowDisputeDecisionRepository disputeDecisions;
     private final ProviderWithdrawalRepository providerWithdrawals;
     private final CommissionPolicy commissionPolicy;
     private final NotificationService notifications;
@@ -750,6 +751,75 @@ public class EscrowService {
         }
     }
 
+    /** Admin can resolve only a disputed, fully held order. A persisted decision and all wallet
+     *  postings are committed atomically. No OTP is required because this is an adjudication,
+     *  not Customer's ordinary completion approval. */
+    @Transactional
+    public void resolveDisputeByAdmin(Long orderId, User admin, BigDecimal providerAward, String explanation) {
+        if (admin == null || admin.getRole() != Role.ADMIN || admin.getId() == null)
+            throw new IllegalArgumentException("Chỉ Admin được phán quyết tranh chấp ký quỹ.");
+        RentalOrder order = orders.findByIdForUpdate(orderId)
+                .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy đơn hàng."));
+        requireStatus(order, OrderStatus.CANCELLATION_DISPUTED);
+        if (order.getSettledAt() != null || settlements.existsByOrderId(orderId)
+                || disputeDecisions.existsByOrderId(orderId))
+            throw new IllegalStateException("Tranh chấp đã xử lý, không được giải ngân lần nữa.");
+        if (order.getCustomer() == null || order.getProvider() == null
+                || !Boolean.TRUE.equals(order.getCustomerStarted())
+                || !Boolean.TRUE.equals(order.getProviderStarted())
+                || order.getCancellationDisputedAt() == null
+                || order.getCancellationWorkSummary() == null || order.getCancellationEvidence() == null
+                || order.getCancellationDisputeReason() == null)
+            throw new IllegalStateException("Tranh chấp chưa đủ thông tin để phán quyết; cần rà soát thủ công.");
+        if (safe(order.getLockedAmount()).compareTo(validHoldAmount(order.getTotal())) != 0)
+            throw new IllegalStateException("Tiền ký quỹ không khớp hợp đồng; phải đối soát trước khi phán quyết.");
+
+        BigDecimal award = AdminDisputeDecisionPolicy.award(providerAward, order.getLockedAmount());
+        String note = AdminDisputeDecisionPolicy.reason(explanation);
+        BigDecimal held = safe(order.getLockedAmount());
+        OrderStatus previous = order.getStatus();
+        // settle() locks both wallets, creates one immutable accounting snapshot and books
+        // fee/Provider credit/refund; the order lock prevents races with Provider cancellation.
+        settle(order, award, false, admin);
+        LocalDateTime now = LocalDateTime.now();
+        EscrowDisputeDecision decision = EscrowDisputeDecision.builder()
+                .order(order).admin(admin).providerProposed(order.getCancellationCompensation())
+                .providerAwarded(award).customerRefunded(held.subtract(award))
+                .decisionReason(note).decidedAt(now).build();
+        disputeDecisions.save(decision);
+        order.setStatus(OrderStatus.CANCELLED);
+        order.setCancelledBy(admin);
+        order.setCancelledAt(now);
+        order.setCancellationReason("Admin phán quyết tranh chấp chi phí hủy: " + note.substring(0, Math.min(900, note.length())));
+        if (order.getBooking() != null) {
+            order.getBooking().setStatus(BookingStatus.CANCELLED);
+            order.getBooking().setCancelledBy(admin);
+            order.getBooking().setCancelledAt(now);
+            order.getBooking().setCancellationReason(order.getCancellationReason());
+            bookings.save(order.getBooking());
+        }
+        orders.save(order);
+        recordStatusChange(order, previous, admin,
+                "Admin phán quyết: chi phí công việc " + award.toPlainString()
+                + "đ; hoàn Customer " + held.subtract(award).toPlainString()
+                + "đ. Lý do: " + note);
+        notifications.create(order.getCustomer(), admin, "ESCROW_DISPUTE_DECIDED",
+                "Đã giải quyết tranh chấp DH" + orderId,
+                "Admin quyết định chi " + award.toPlainString() + "đ cho công việc và hoàn "
+                + held.subtract(award).toPlainString() + "đ về ví. Xem chi tiết đơn và lý do phán quyết.",
+                "ORDER", orderId, "/orders/" + orderId + "/progress");
+        notifications.create(order.getProvider(), admin, "ESCROW_DISPUTE_DECIDED",
+                "Đã giải quyết tranh chấp DH" + orderId,
+                "Admin phán quyết giá trị công việc " + award.toPlainString()
+                + "đ (chưa trừ phí sàn). Xem chi tiết đơn để biết số tiền thực nhận.",
+                "ORDER", orderId, "/orders/" + orderId + "/progress");
+    }
+
+    @Transactional(readOnly = true)
+    public java.util.Optional<EscrowDisputeDecision> decisionForOrder(Long orderId) {
+        return disputeDecisions.findByOrderId(orderId);
+    }
+
     /**
      * Atomic escrow settlement. The 1/3 starting milestone is an earmark only;
      * it is NOT debited or paid separately here.
@@ -770,8 +840,11 @@ public class EscrowService {
         if (completed && order.getStatus() != OrderStatus.PENDING_PAYMENT_OTP) {
             throw new IllegalStateException("Chỉ quyết toán đơn đã nghiệm thu và xác minh OTP.");
         }
-        if (!completed && order.getStatus() != OrderStatus.CANCELLATION_COMPENSATION_PENDING_CUSTOMER) {
-            throw new IllegalStateException("Chưa có thỏa thuận bồi hoàn được Customer xác nhận.");
+        boolean adminDispute = !completed && order.getStatus() == OrderStatus.CANCELLATION_DISPUTED
+                && actor != null && actor.getRole() == Role.ADMIN;
+        if (!completed && !adminDispute
+                && order.getStatus() != OrderStatus.CANCELLATION_COMPENSATION_PENDING_CUSTOMER) {
+            throw new IllegalStateException("Chưa có thỏa thuận bồi hoàn hoặc phán quyết Admin hợp lệ.");
         }
         EscrowSettlementMath amounts = EscrowSettlementMath.calculate(
                 order.getLockedAmount(), providerAmount, commissionPolicy.rate());
@@ -799,9 +872,11 @@ public class EscrowService {
         wallets.save(customerWallet);
         wallets.save(providerWallet);
         // Ledger quantities deliberately distinguish held funds from spendable balance.
-        record(customerWallet, order, completed ? "SETTLEMENT_OUT" : "CANCELLATION_REFUND",
+        record(customerWallet, order,
+                completed ? "SETTLEMENT_OUT" : (adminDispute ? "ADMIN_DISPUTE_OUT" : "CANCELLATION_REFUND"),
                 amounts.gross().negate(), completed
                 ? "Quyết toán DH" + order.getId() + " sau OTP Customer."
+                : adminDispute ? "Admin phán quyết phần việc tranh chấp DH" + order.getId()
                 : "Chi trả phần việc theo thỏa thuận hủy DH" + order.getId());
         if (amounts.refund().signum() > 0) {
             record(customerWallet, order, "UNHOLD_REFUND", amounts.refund(),
@@ -819,7 +894,7 @@ public class EscrowService {
         LocalDateTime settledTime = LocalDateTime.now();
         EscrowSettlement snapshot = EscrowSettlement.builder()
                 .order(order).settledBy(actor)
-                .kind(completed ? "COMPLETION" : "CUSTOMER_CANCELLATION")
+                .kind(completed ? "COMPLETION" : (adminDispute ? "ADMIN_DISPUTE" : "CUSTOMER_CANCELLATION"))
                 .heldBefore(amounts.held()).grossAmount(amounts.gross())
                 .customerRefundAmount(amounts.refund()).platformFeeAmount(amounts.fee())
                 .providerNetAmount(amounts.providerNet()).commissionRate(amounts.rate())

@@ -67,6 +67,7 @@ public class WorkspaceController {
     private final PaymentRepository payments;
     private final WalletTransactionRepository walletTransactions;
     private final EscrowReconciliationService escrowReconciliation;
+    private final EscrowDisputeDecisionRepository disputeDecisions;
     private final ProviderWithdrawalRepository providerWithdrawalRepository;
     private final CommissionPolicy commissionPolicy;
     private final ReviewRepository reviews;
@@ -659,6 +660,25 @@ public class WorkspaceController {
             }
         }
         return "workspace/admin/page";
+    }
+
+    @PostMapping("/admin/orders/{id}/dispute/resolve")
+    public String resolveEscrowDispute(@PathVariable Long id,
+                                       @RequestParam BigDecimal providerAward,
+                                       @RequestParam String reason,
+                                       Authentication authentication, RedirectAttributes ra) {
+        User admin = require(authentication, Role.ADMIN);
+        try {
+            escrowService.resolveDisputeByAdmin(id, admin, providerAward, reason);
+            ra.addFlashAttribute("success", "Đã phán quyết tranh chấp DH" + id
+                    + "; sổ quyết toán đã cập nhật, hai bên đã nhận thông báo.");
+        } catch (IllegalArgumentException | IllegalStateException e) {
+            ra.addFlashAttribute("error", e.getMessage());
+        } catch (DataAccessException e) {
+            log.error("Lỗi ghi sổ phán quyết escrow orderId={}", id, e);
+            ra.addFlashAttribute("error", "Không thể phán quyết lúc này; giao dịch đã được hoàn tác. Vui lòng rà soát DB.");
+        }
+        return "redirect:/admin/finance#escrow-disputes";
     }
 
     @PostMapping("/admin/orders/{id}/intervene")
@@ -1304,6 +1324,12 @@ public class WorkspaceController {
         model.addAttribute("financePoints", financePoints);
         model.addAttribute("commissionPoints", commissionPoints);
         model.addAttribute("settlementLedgerRows", escrowReconciliation.latest());
+        model.addAttribute("disputedOrders", allOrders.stream()
+                .filter(o -> o.getStatus() == OrderStatus.CANCELLATION_DISPUTED)
+                .sorted(Comparator.comparing(RentalOrder::getId).reversed()).limit(50).toList());
+        model.addAttribute("openDisputeCount", allOrders.stream()
+                .filter(o -> o.getStatus() == OrderStatus.CANCELLATION_DISPUTED).count());
+        model.addAttribute("resolvedEscrowDisputes", disputeDecisions.findTop20ByOrderByDecidedAtDescIdDesc());
         model.addAttribute("withdrawals", adminWithdrawals());
     }
 

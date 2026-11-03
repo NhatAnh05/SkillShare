@@ -33,6 +33,12 @@ public class CommissionPolicy {
 
     public BigDecimal grossSettledAmount(com.skillrental.entity.RentalOrder order) {
         if (order == null) return BigDecimal.ZERO;
+        // Persisted fee + net is the authoritative gross for final settlements,
+        // including Admin awards that differ from the Provider's initial proposal.
+        if (order.getSettledAt() != null && order.getPlatformFeeAmount() != null
+                && order.getProviderNetAmount() != null
+                && order.getPlatformFeeAmount().signum() >= 0 && order.getProviderNetAmount().signum() >= 0)
+            return order.getPlatformFeeAmount().add(order.getProviderNetAmount());
         if (order.getStatus() == com.skillrental.entity.OrderStatus.CANCELLED) {
             return order.getCancellationCompensation() == null ? BigDecimal.ZERO : order.getCancellationCompensation();
         }

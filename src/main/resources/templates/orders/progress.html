@@ -160,6 +160,15 @@
           <p class="muted">Hệ thống giữ nguyên tiền ký quỹ, chưa chi trả hoặc hoàn tiền. Admin đã được thông báo; bạn có thể gửi thêm khiếu nại/bằng chứng qua mục bên dưới.</p>
           <a class="btn btn-outline" th:href="@{/orders/{id}/complaint(id=${order.id})}">Gửi khiếu nại / bổ sung bằng chứng</a>
         </div>
+        <div class="card" th:if="${disputeDecision != null}" style="background:#ecfdf5;border:1px solid #a7f3d0">
+          <strong>Admin đã giải quyết tranh chấp ký quỹ</strong>
+          <p th:text="${'Quyết định ngày ' + #temporals.format(disputeDecision.decidedAt,'dd/MM/yyyy HH:mm')}">Ngày quyết định</p>
+          <p><strong>Giá trị công việc được duyệt:</strong> <span th:text="${#numbers.formatDecimal(disputeDecision.providerAwarded,0,'POINT',0,'COMMA')+'đ'}">0đ</span></p>
+          <p><strong>Tiền hoàn về Customer:</strong> <span th:text="${#numbers.formatDecimal(disputeDecision.customerRefunded,0,'POINT',0,'COMMA')+'đ'}">0đ</span></p>
+          <p><strong>Provider thực nhận sau phí:</strong> <span th:text="${#numbers.formatDecimal(order.providerNetAmount,0,'POINT',0,'COMMA')+'đ'}">0đ</span></p>
+          <p><strong>Lý do phán quyết:</strong> <span th:text="${disputeDecision.decisionReason}">Căn cứ</span></p>
+          <p class="muted">Tiền đã được xử lý từ khoản ký quỹ theo quyết định Admin; không phải lệnh chuyển ngân hàng thật.</p>
+        </div>
         <a class="btn btn-outline" th:href="@{/orders/{id}/review(id=${order.id})}" th:if="${currentUser.role.name() == 'CUSTOMER' && order.status.name()=='COMPLETED'}">Đánh giá</a>
        </div>
      </div>

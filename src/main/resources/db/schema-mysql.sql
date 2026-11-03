@@ -374,7 +374,7 @@ CREATE TABLE IF NOT EXISTS escrow_settlements (
         ON UPDATE CASCADE ON DELETE RESTRICT,
     CONSTRAINT fk_escrow_settlement_actor FOREIGN KEY (settled_by_user_id) REFERENCES users(id)
         ON UPDATE CASCADE ON DELETE RESTRICT,
-    CONSTRAINT ck_escrow_settlement_kind CHECK (kind IN ('COMPLETION','CUSTOMER_CANCELLATION','PROVIDER_CANCELLATION')),
+    CONSTRAINT ck_escrow_settlement_kind CHECK (kind IN ('COMPLETION','CUSTOMER_CANCELLATION','PROVIDER_CANCELLATION','ADMIN_DISPUTE')),
     CONSTRAINT ck_escrow_settlement_nonnegative CHECK (held_before >= 0 AND gross_amount >= 0
         AND customer_refund_amount >= 0 AND platform_fee_amount >= 0 AND provider_net_amount >= 0),
     CONSTRAINT ck_escrow_settlement_balance CHECK (held_before = gross_amount + customer_refund_amount
@@ -382,6 +382,26 @@ CREATE TABLE IF NOT EXISTS escrow_settlements (
     CONSTRAINT ck_escrow_settlement_rate CHECK (commission_rate >= 0 AND commission_rate <= 1),
     INDEX idx_escrow_settlement_time (settled_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- One immutable Admin adjudication per disputed order. No historical decision is inferred.
+CREATE TABLE IF NOT EXISTS escrow_dispute_decisions (
+    id BIGINT NOT NULL AUTO_INCREMENT,
+    order_id BIGINT NOT NULL,
+    admin_id BIGINT NOT NULL,
+    provider_proposed DECIMAL(14,2) NULL,
+    provider_awarded DECIMAL(14,2) NOT NULL,
+    customer_refunded DECIMAL(14,2) NOT NULL,
+    decision_reason VARCHAR(2000) NOT NULL,
+    decided_at DATETIME(6) NOT NULL,
+    PRIMARY KEY (id),
+    CONSTRAINT uq_escrow_dispute_order UNIQUE (order_id),
+    CONSTRAINT fk_escrow_dispute_order FOREIGN KEY (order_id) REFERENCES rental_orders(id),
+    CONSTRAINT fk_escrow_dispute_admin FOREIGN KEY (admin_id) REFERENCES users(id),
+    CONSTRAINT ck_escrow_dispute_amounts CHECK (provider_awarded >= 0 AND customer_refunded >= 0),
+    INDEX idx_escrow_dispute_decided_at (decided_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+
 
 CREATE TABLE IF NOT EXISTS provider_withdrawals (
     id BIGINT NOT NULL AUTO_INCREMENT,

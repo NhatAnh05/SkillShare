@@ -81,6 +81,7 @@ public class OrderController {
     String details(@PathVariable Long id, Authentication auth, Model model) {
         var user=current.require(auth);
         model.addAttribute("order", visibleOrder(id,user));
+        model.addAttribute("disputeDecision", escrow.decisionForOrder(id).orElse(null));
         model.addAttribute("deliveries",deliveries.history(id,user));
         model.addAttribute("deliveryRevisions",deliveries.revisionHistory(id,user));
         model.addAttribute("workUpdates", work.history(id,user));
@@ -92,6 +93,7 @@ public class OrderController {
         var user = current.require(auth);
         var order = visibleOrder(id,user);
         model.addAttribute("order", order);
+        model.addAttribute("disputeDecision", escrow.decisionForOrder(id).orElse(null));
         model.addAttribute("wallet", escrow.wallet(user));
         model.addAttribute("deliveries", deliveries.history(id, user));
         model.addAttribute("deliveryRevisions", deliveries.revisionHistory(id, user));

@@ -16,6 +16,7 @@ import java.util.Objects;
 @RequiredArgsConstructor
 public class EscrowReconciliationService {
     private final EscrowSettlementRepository settlements;
+    private final com.skillrental.repository.EscrowDisputeDecisionRepository disputeDecisions;
     private final WalletTransactionRepository transactions;
 
     public record AuditRow(EscrowSettlement settlement, boolean reconciled) {}
@@ -41,7 +42,8 @@ public class EscrowReconciliationService {
         boolean completion = "COMPLETION".equals(entry.getKind());
         boolean customerCancellation = "CUSTOMER_CANCELLATION".equals(entry.getKind());
         boolean providerCancellation = "PROVIDER_CANCELLATION".equals(entry.getKind());
-        if (!completion && !customerCancellation && !providerCancellation) return false;
+        boolean adminDispute = "ADMIN_DISPUTE".equals(entry.getKind());
+        if (!completion && !customerCancellation && !providerCancellation && !adminDispute) return false;
         if (completion && order.getStatus() != OrderStatus.COMPLETED) return false;
         if (!completion && order.getStatus() != OrderStatus.CANCELLED) return false;
 
@@ -62,7 +64,18 @@ public class EscrowReconciliationService {
                     && expectedCount(rows, "CANCELLATION_REFUND", customerId, BigDecimal.ZERO)
                     && expectedCount(rows, "SETTLEMENT_IN", providerId, BigDecimal.ZERO);
         }
-        String debitType = completion ? "SETTLEMENT_OUT" : "CANCELLATION_REFUND";
+        if (adminDispute) {
+            var decision = disputeDecisions.findByOrderId(order.getId());
+            if (decision.isEmpty() || entry.getSettledBy() == null || entry.getSettledBy().getRole() != Role.ADMIN
+                    || order.getCancelledBy() == null
+                    || !Objects.equals(entry.getSettledBy().getId(), order.getCancelledBy().getId())
+                    || !Objects.equals(decision.get().getAdmin().getId(), entry.getSettledBy().getId())
+                    || !sameAmount(decision.get().getProviderAwarded(), entry.getGrossAmount())
+                    || !sameAmount(decision.get().getCustomerRefunded(), entry.getCustomerRefundAmount())) return false;
+        }
+        if (adminDispute && (!expectedCount(rows, "SETTLEMENT_OUT", customerId, BigDecimal.ZERO)
+                || !expectedCount(rows, "CANCELLATION_REFUND", customerId, BigDecimal.ZERO))) return false;
+        String debitType = completion ? "SETTLEMENT_OUT" : adminDispute ? "ADMIN_DISPUTE_OUT" : "CANCELLATION_REFUND";
         BigDecimal grossDebit = entry.getGrossAmount().negate();
         return exactlyOne(rows, debitType, customerId, grossDebit)
                 && expectedCount(rows, "UNHOLD_REFUND", customerId, entry.getCustomerRefundAmount())
