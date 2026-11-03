@@ -42,6 +42,9 @@ public class RentalOrder {
     @Column(name="customer_accepted_completion", nullable=false, columnDefinition="BOOLEAN DEFAULT FALSE") @Builder.Default private Boolean customerAcceptedCompletion = false;
     @Column(name="completion_otp_hash", length=100) private String completionOtpHash;
     @Column(name="completion_otp_expires_at") private LocalDateTime completionOtpExpiresAt;
+    @Column(name="completion_otp_last_sent_at") private LocalDateTime completionOtpLastSentAt;
+    @Column(name="completion_otp_resend_count", nullable=false, columnDefinition="INT DEFAULT 0")
+    @Builder.Default private Integer completionOtpResendCount = 0;
     @Column(name="completion_otp_attempts", nullable=false, columnDefinition="INT DEFAULT 0") @Builder.Default private Integer completionOtpAttempts = 0;
     @Column(name="cancellation_compensation", precision=12, scale=2) private BigDecimal cancellationCompensation;
     @Column(name="cancellation_started_at") private LocalDateTime cancellationStartedAt;

@@ -178,14 +178,8 @@ public class OrderController {
     String acceptCompletion(@PathVariable Long id, Authentication auth, RedirectAttributes ra) {
         var user = current.require(auth);
         try {
-            EscrowService.OtpDispatchResult result = deliveries.acceptLatest(id, user);
-            if (result.emailSent()) ra.addFlashAttribute("success", "Đã xác nhận nghiệm thu. Mã OTP đã gửi tới email " + user.getEmail() + ".");
-            else if (result.demoCode() != null) {
-                ra.addFlashAttribute("info", "Chưa cấu hình SMTP gửi email. Đây là chế độ demo: mã OTP sẽ hiển thị một lần trên trang tiếp theo.");
-                ra.addFlashAttribute("demoOtp", result.demoCode());
-            } else {
-                ra.addFlashAttribute("error", "Không gửi được OTP qua email. Hãy kiểm tra cấu hình SMTP trước khi quyết toán.");
-            }
+            deliveries.acceptLatest(id, user);
+            ra.addFlashAttribute("success", "Đã nghiệm thu. Mã OTP được gửi tới email của bạn; chưa có khoản tiền nào được giải ngân.");
         } catch (RuntimeException e) { ra.addFlashAttribute("error", e.getMessage()); }
         return "redirect:/orders/" + id + "/progress";
     }
@@ -194,14 +188,8 @@ public class OrderController {
     String resendOtp(@PathVariable Long id, Authentication auth, RedirectAttributes ra) {
         var user = current.require(auth);
         try {
-            EscrowService.OtpDispatchResult result = escrow.resendCompletionOtp(id, user);
-            if (result.emailSent()) ra.addFlashAttribute("success", "Đã gửi lại OTP tới email " + user.getEmail() + ".");
-            else if (result.demoCode() != null) {
-                ra.addFlashAttribute("info", "Chế độ demo chưa cấu hình SMTP; mã OTP thử nghiệm mới được hiển thị bên dưới.");
-                ra.addFlashAttribute("demoOtp", result.demoCode());
-            } else {
-                ra.addFlashAttribute("error", "Không gửi được OTP qua email. Hãy kiểm tra cấu hình SMTP trước khi quyết toán.");
-            }
+            escrow.resendCompletionOtp(id, user);
+            ra.addFlashAttribute("success", "Đã gửi lại mã OTP mới đến email; mã trước đó không còn hiệu lực.");
         } catch (RuntimeException e) { ra.addFlashAttribute("error", e.getMessage()); }
         return "redirect:/orders/" + id + "/progress";
     }

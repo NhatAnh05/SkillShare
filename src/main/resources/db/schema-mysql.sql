@@ -298,6 +298,8 @@ CREATE TABLE IF NOT EXISTS rental_orders (
     customer_accepted_completion BOOLEAN NOT NULL DEFAULT FALSE,
     completion_otp_hash VARCHAR(100) NULL,
     completion_otp_expires_at DATETIME(6) NULL,
+    completion_otp_last_sent_at DATETIME(6) NULL,
+    completion_otp_resend_count INT NOT NULL DEFAULT 0,
     completion_otp_attempts INT NOT NULL DEFAULT 0,
     cancellation_compensation DECIMAL(12,2) NULL,
     cancellation_started_at DATETIME(6) NULL,

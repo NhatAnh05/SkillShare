@@ -27,6 +27,9 @@ public class EscrowService {
     private static final Logger log = LoggerFactory.getLogger(EscrowService.class);
     private static final SecureRandom RANDOM = new SecureRandom();
     private static final BigDecimal ZERO = BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
+    private static final int COMPLETION_OTP_MAX_ATTEMPTS = 5;
+    private static final int COMPLETION_OTP_MAX_RESENDS = 3;
+    private static final int COMPLETION_OTP_RESEND_WAIT_SECONDS = 60;
     private final RentalOrderRepository orders;
     private final BookingRepository bookings;
     private final DeliverySubmissionRepository deliveries;
@@ -40,6 +43,7 @@ public class EscrowService {
     private final ObjectProvider<JavaMailSender> mailSenderProvider;
     @Value("${skillshare.escrow.show-demo-otp:true}") private boolean showDemoOtp;
     @Value("${skillshare.wallet.demo-topup-enabled:true}") private boolean demoTopupEnabled;
+    @Value("${spring.mail.username:}") private String smtpFromAddress;
 
     public boolean isDemoTopupEnabled() { return demoTopupEnabled; }
 
@@ -390,7 +394,7 @@ public class EscrowService {
 
     @Transactional
     public void providerComplete(Long orderId, User provider) {
-        RentalOrder order = providerOrder(orderId, provider);
+        RentalOrder order = providerOrderForUpdate(orderId, provider);
         requireStatus(order, OrderStatus.PROCESSING);
         if (!Boolean.TRUE.equals(order.getCustomerStarted()) || !Boolean.TRUE.equals(order.getProviderStarted())) {
             throw new IllegalStateException("Hai bên phải xác nhận bắt đầu trước khi báo hoàn thành.");
@@ -410,7 +414,7 @@ public class EscrowService {
 
     @Transactional
     public void requestDeliveryRevision(Long orderId, User customer) {
-        RentalOrder order = customerOrder(orderId, customer);
+        RentalOrder order = customerOrderForUpdate(orderId, customer);
         requireStatus(order, OrderStatus.PENDING_CUSTOMER_ACCEPTANCE);
         OrderStatus previousStatus = order.getStatus();
         order.setStatus(OrderStatus.PROCESSING);
@@ -424,66 +428,117 @@ public class EscrowService {
 
     @Transactional
     public OtpDispatchResult customerAcceptCompletion(Long orderId, User customer) {
-        RentalOrder order = customerOrder(orderId, customer);
+        RentalOrder order = customerOrderForUpdate(orderId, customer);
         requireStatus(order, OrderStatus.PENDING_CUSTOMER_ACCEPTANCE);
-        order.setCustomerAcceptedCompletion(true);
+        if (!Boolean.TRUE.equals(order.getProviderCompleted())) {
+            throw new IllegalStateException("Provider chưa gửi bàn giao hoàn chỉnh để Customer nghiệm thu.");
+        }
+        DeliverySubmission latest = deliveries.findFirstByOrderIdOrderByVersionDesc(orderId)
+                .orElseThrow(() -> new IllegalStateException("Chưa có bản bàn giao để nghiệm thu."));
+        if (!"SUBMITTED".equals(latest.getStatus())
+                || (latest.getFiles().isEmpty() && latest.getLinks().isEmpty())) {
+            throw new IllegalStateException("Chỉ có thể nghiệm thu bản bàn giao mới nhất có sản phẩm hợp lệ.");
+        }
+        // The email must be deliverable before acceptance can move to OTP waiting.
         return issueCompletionOtp(order, customer, true);
     }
 
     @Transactional
     public OtpDispatchResult resendCompletionOtp(Long orderId, User customer) {
-        RentalOrder order = customerOrder(orderId, customer);
+        RentalOrder order = customerOrderForUpdate(orderId, customer);
         requireStatus(order, OrderStatus.PENDING_PAYMENT_OTP);
-        if (order.getCompletionOtpAttempts() != null && order.getCompletionOtpAttempts() >= 5) {
+        if (!Boolean.TRUE.equals(order.getCustomerAcceptedCompletion())) {
+            throw new IllegalStateException("Customer chưa nghiệm thu đơn hàng.");
+        }
+        if (order.getCompletionOtpAttempts() != null
+                && order.getCompletionOtpAttempts() >= COMPLETION_OTP_MAX_ATTEMPTS) {
             throw new IllegalStateException("Đã nhập sai OTP quá 5 lần. Hãy liên hệ hỗ trợ để xác minh lại.");
+        }
+        if (order.getCompletionOtpResendCount() != null
+                && order.getCompletionOtpResendCount() >= COMPLETION_OTP_MAX_RESENDS) {
+            throw new IllegalStateException("Đã đạt giới hạn gửi lại OTP. Hãy liên hệ hỗ trợ.");
+        }
+        LocalDateTime lastSent = order.getCompletionOtpLastSentAt();
+        if (lastSent != null && LocalDateTime.now().isBefore(lastSent.plusSeconds(COMPLETION_OTP_RESEND_WAIT_SECONDS))) {
+            throw new IllegalStateException("Vui lòng đợi ít nhất 60 giây trước khi gửi lại OTP.");
         }
         return issueCompletionOtp(order, customer, false);
     }
 
+    /**
+     * OTP is always delivered to Customer's email; no OTP code is exposed in logs or HTML.
+     * If SMTP fails, throw and roll back the status/hash change, keeping escrow locked.
+     */
     private OtpDispatchResult issueCompletionOtp(RentalOrder order, User customer, boolean firstIssue) {
-        OrderStatus previousStatus = order.getStatus();
-        String code = String.format("%06d", RANDOM.nextInt(1_000_000));
-        order.setCompletionOtpHash(passwordEncoder.encode(code));
-        order.setCompletionOtpExpiresAt(LocalDateTime.now().plusMinutes(10));
-        if (firstIssue) order.setCompletionOtpAttempts(0);
-        order.setStatus(OrderStatus.PENDING_PAYMENT_OTP);
-        orders.save(order);
-        if (order.getStatus() != previousStatus) {
-            recordStatusChange(order, previousStatus, customer, "Customer nghiệm thu và yêu cầu OTP quyết toán.");
-        }
-
-        boolean sent = false;
         JavaMailSender sender = mailSenderProvider.getIfAvailable();
-        if (sender != null) {
-            try {
-                SimpleMailMessage mail = new SimpleMailMessage();
-                mail.setTo(customer.getEmail());
-                mail.setSubject("Mã OTP xác nhận quyết toán SkillShare - DH" + order.getId());
-                mail.setText("Mã OTP xác nhận hoàn thành và giải ngân đơn DH" + order.getId() + " là: " + code
-                        + "\nMã có hiệu lực trong 10 phút. Nếu bạn không thực hiện thao tác này, hãy bỏ qua email.");
-                sender.send(mail);
-                sent = true;
-            } catch (Exception e) {
-                log.warn("Không gửi được email OTP cho DH{}: {}", order.getId(), e.getMessage());
-            }
+        if (sender == null || smtpFromAddress == null || smtpFromAddress.isBlank()) {
+            throw new IllegalStateException("Chưa cấu hình tài khoản SMTP. Không thể gửi OTP quyết toán qua email.");
         }
-        if (!sent && showDemoOtp) log.warn("DEMO OTP cho DH{} / {}: {} (chưa cấu hình SMTP gửi email thật)", order.getId(), customer.getEmail(), code);
-        else if (!sent) log.error("Không thể gửi OTP quyết toán DH{} vì SMTP chưa được cấu hình hoặc gửi thất bại.", order.getId());
-        return new OtpDispatchResult(sent, sent || !showDemoOtp ? null : code);
+        LocalDateTime now = LocalDateTime.now();
+        String code;
+        do {
+            code = String.format("%06d", RANDOM.nextInt(1_000_000));
+        } while (!firstIssue && order.getCompletionOtpHash() != null
+                && passwordEncoder.matches(code, order.getCompletionOtpHash()));
+        SimpleMailMessage mail = new SimpleMailMessage();
+        mail.setFrom(smtpFromAddress.trim());
+        mail.setTo(customer.getEmail());
+        mail.setSubject("Mã OTP xác nhận quyết toán SkillShare - DH" + order.getId());
+        mail.setText("Mã OTP quyết toán đơn DH" + order.getId() + " là: " + code
+                + "\nMã có hiệu lực trong 10 phút. Chỉ nhập mã khi bạn đã nghiệm thu sản phẩm."
+                + "\nNếu bạn không yêu cầu quyết toán, hãy bỏ qua email này.");
+        try {
+            sender.send(mail);
+        } catch (Exception e) {
+            log.warn("Không gửi được email OTP quyết toán cho DH{}: {}", order.getId(), e.getClass().getSimpleName());
+            throw new IllegalStateException("Không gửi được OTP tới email của Customer. Vui lòng kiểm tra SMTP và thử lại.", e);
+        }
+        OrderStatus previousStatus = order.getStatus();
+        order.setCompletionOtpHash(passwordEncoder.encode(code));
+        order.setCompletionOtpExpiresAt(now.plusMinutes(10));
+        order.setCompletionOtpLastSentAt(now);
+        if (firstIssue) {
+            order.setCompletionOtpAttempts(0);
+            order.setCompletionOtpResendCount(0);
+            order.setCustomerAcceptedCompletion(true);
+            order.setStatus(OrderStatus.PENDING_PAYMENT_OTP);
+        } else {
+            order.setCompletionOtpResendCount((order.getCompletionOtpResendCount() == null
+                    ? 0 : order.getCompletionOtpResendCount()) + 1);
+        }
+        orders.save(order);
+        if (firstIssue) {
+            recordStatusChange(order, previousStatus, customer,
+                    "Customer nghiệm thu; OTP đã gửi tới email. Chờ xác minh mới giải ngân.");
+        }
+        return new OtpDispatchResult(true, null);
     }
 
     @Transactional(noRollbackFor = IllegalArgumentException.class)
     public void verifyOtpAndSettle(Long orderId, User customer, String otp) {
-        RentalOrder order = customerOrder(orderId, customer);
+        RentalOrder order = customerOrderForUpdate(orderId, customer);
         requireStatus(order, OrderStatus.PENDING_PAYMENT_OTP);
-        if (order.getCompletionOtpAttempts() != null && order.getCompletionOtpAttempts() >= 5) {
+        if (!Boolean.TRUE.equals(order.getCustomerAcceptedCompletion())
+                || !Boolean.TRUE.equals(order.getProviderCompleted())) {
+            throw new IllegalStateException("Đơn chưa có đủ xác nhận bàn giao và nghiệm thu.");
+        }
+        DeliverySubmission latest = deliveries.findFirstByOrderIdOrderByVersionDesc(orderId)
+                .orElseThrow(() -> new IllegalStateException("Chưa có bản bàn giao để quyết toán."));
+        if (!"ACCEPTED".equals(latest.getStatus())) {
+            throw new IllegalStateException("Chưa có bản bàn giao mới nhất được Customer nghiệm thu.");
+        }
+        if (order.getCompletionOtpAttempts() != null
+                && order.getCompletionOtpAttempts() >= COMPLETION_OTP_MAX_ATTEMPTS) {
             throw new IllegalStateException("Đã nhập sai OTP quá 5 lần. Hãy liên hệ hỗ trợ để xác minh lại.");
         }
-        if (order.getCompletionOtpExpiresAt() == null || order.getCompletionOtpExpiresAt().isBefore(LocalDateTime.now())) {
-            throw new IllegalStateException("OTP đã hết hạn. Hãy dùng nút “Gửi lại mã OTP” để nhận mã mới.");
+        if (order.getCompletionOtpHash() == null || order.getCompletionOtpExpiresAt() == null
+                || !order.getCompletionOtpExpiresAt().isAfter(LocalDateTime.now())) {
+            throw new IllegalStateException("OTP đã hết hạn hoặc chưa được phát hành. Hãy yêu cầu mã mới.");
         }
-        if (otp == null || !passwordEncoder.matches(otp.trim(), order.getCompletionOtpHash())) {
-            order.setCompletionOtpAttempts((order.getCompletionOtpAttempts() == null ? 0 : order.getCompletionOtpAttempts()) + 1);
+        if (otp == null || !otp.trim().matches("[0-9]{6}")
+                || !passwordEncoder.matches(otp.trim(), order.getCompletionOtpHash())) {
+            order.setCompletionOtpAttempts((order.getCompletionOtpAttempts() == null
+                    ? 0 : order.getCompletionOtpAttempts()) + 1);
             orders.save(order);
             throw new IllegalArgumentException("Mã OTP không đúng.");
         }
@@ -603,6 +658,7 @@ public class EscrowService {
         order.setSettledAt(LocalDateTime.now());
         order.setCompletionOtpHash(null);
         order.setCompletionOtpExpiresAt(null);
+        order.setCompletionOtpLastSentAt(null);
         if (completed) {
             OrderStatus previousStatus = order.getStatus();
             order.setStatus(OrderStatus.COMPLETED);

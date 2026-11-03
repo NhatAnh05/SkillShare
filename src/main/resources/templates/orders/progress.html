@@ -23,7 +23,6 @@
       ← Quay lại đơn hàng
      </a>
      <div th:replace="~{fragments :: flash}"></div>
-     <div class="card" th:if="${demoOtp != null}" style="margin-top:12px;border:1px dashed #d97706;background:#fffbeb"><strong>OTP demo (chỉ xuất hiện khi chưa cấu hình SMTP)</strong><h2 style="letter-spacing:6px" th:text="${demoOtp}">123456</h2><p class="muted">Dùng mã này để kiểm thử. Khi cấu hình email SMTP, mã sẽ được gửi tới hộp thư và không hiển thị tại đây.</p></div>
      <div class="card" style="margin-top:16px">
       <div class="order-details" th:fragment="details" th:attr="data-order-status=${order.status.name()}">
        <h3 th:text="${'Đơn hàng #SR-'+order.id}">Đơn hàng</h3>
@@ -117,7 +116,13 @@
        <div class="modal-actions" style="display:flex;gap:10px;flex-wrap:wrap">
         <form method="post" th:action="@{/orders/{id}/start-confirmation(id=${order.id})}" th:if="${order.status.name()=='PENDING_START_CONFIRMATION' && (currentUser.role.name() == 'CUSTOMER' ? !order.customerStarted : !order.providerStarted)}" onsubmit="return confirm('Xác nhận bắt đầu công việc? Mốc 1/3 chỉ được ghi nhận trong tiền ký quỹ sau khi cả hai bên xác nhận, chưa giải ngân cho Provider.')"><button class="btn btn-primary" type="submit">Tôi xác nhận bắt đầu</button></form>
         <span class="muted" th:if="${order.status.name()=='PENDING_START_CONFIRMATION' && (currentUser.role.name() == 'CUSTOMER' ? order.customerStarted : order.providerStarted)}">Bạn đã xác nhận. Đang chờ bên còn lại xác nhận bắt đầu.</span>
+        <span class="muted" th:if="${currentUser.role.name() == 'PROVIDER' && order.status.name()=='PENDING_CUSTOMER_ACCEPTANCE'}">Đã gửi sản phẩm. Chờ Customer nghiệm thu; chưa phát sinh thanh toán.</span>
         <form method="post" th:action="@{/orders/{id}/accept-completion(id=${order.id})}" th:if="${currentUser.role.name() == 'CUSTOMER' && order.status.name()=='PENDING_CUSTOMER_ACCEPTANCE'}" onsubmit="return confirm('Bạn đã kiểm tra và chấp nhận kết quả công việc?')"><button class="btn btn-primary" type="submit">Nghiệm thu và nhận OTP</button></form>
+        <div class="card" th:if="${currentUser.role.name() == 'CUSTOMER' && order.status.name()=='PENDING_PAYMENT_OTP'}" style="background:#f0f9ff;border:1px solid #bfdbfe">
+         <strong>Đã nghiệm thu — chờ OTP quyết toán</strong>
+         <p class="muted">Mã gồm 6 chữ số đã được gửi đến email tài khoản Customer, có hiệu lực 10 phút. Hãy đợi 60 giây trước khi gửi lại mã; tối đa 3 lần gửi lại. Tiền vẫn nằm trong ký quỹ cho đến khi xác thực thành công.</p>
+         <p class="muted" th:if="${order.completionOtpLastSentAt != null}" th:text="${'Gửi OTP gần nhất: ' + #temporals.format(order.completionOtpLastSentAt,'dd/MM/yyyy HH:mm:ss') + ' · Đã gửi lại: ' + (order.completionOtpResendCount != null ? order.completionOtpResendCount : 0) + '/3'}">Thời điểm OTP</p>
+        </div>
         <form method="post" th:action="@{/orders/{id}/verify-otp(id=${order.id})}" th:if="${currentUser.role.name() == 'CUSTOMER' && order.status.name()=='PENDING_PAYMENT_OTP'}" style="display:flex;gap:8px;align-items:end;flex-wrap:wrap"><div><label for="otp-code">OTP xác nhận quyết toán</label><input id="otp-code" name="otp" pattern="[0-9]{6}" maxlength="6" inputmode="numeric" required placeholder="Nhập 6 chữ số"/></div><button class="btn btn-primary" type="submit">Xác nhận &amp; quyết toán</button></form>
         <form method="post" th:action="@{/orders/{id}/resend-otp(id=${order.id})}" th:if="${currentUser.role.name() == 'CUSTOMER' && order.status.name()=='PENDING_PAYMENT_OTP'}"><button class="btn btn-outline" type="submit">Gửi lại mã OTP</button></form>
         <form method="post" th:action="@{/orders/{id}/cancel(id=${order.id})}" th:if="${currentUser.role.name() == 'CUSTOMER' && (order.status.name()=='PENDING_PROVIDER_ACCEPTANCE' || order.status.name()=='PENDING_START_CONFIRMATION' || order.status.name()=='PROCESSING' || order.status.name()=='PENDING_CUSTOMER_ACCEPTANCE')}" onsubmit="return confirm('Bạn chắc chắn muốn yêu cầu hủy đơn?')"><button class="btn btn-outline" type="submit">Yêu cầu hủy dịch vụ</button></form>

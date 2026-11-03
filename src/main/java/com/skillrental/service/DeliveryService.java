@@ -108,9 +108,14 @@ public class DeliveryService {
 
     @Transactional
     public DeliveryRevisionRequest requestRevision(Long orderId, User customer, Long deliveryId, String reason) {
-        RentalOrder order = orderAccess.involved(orderId, customer);
-        if (customer.getRole() != Role.CUSTOMER || order.getStatus() != OrderStatus.PENDING_CUSTOMER_ACCEPTANCE) {
-            throw new IllegalStateException("Chỉ Customer mới được yêu cầu chỉnh sửa khi đang nghiệm thu.");
+        RentalOrder order = orders.findByIdForUpdate(orderId)
+                .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy đơn hàng."));
+        if (customer == null || customer.getRole() != Role.CUSTOMER || customer.getId() == null
+                || !order.getCustomer().getId().equals(customer.getId())) {
+            throw new IllegalArgumentException("Chỉ Customer của đơn mới được yêu cầu chỉnh sửa.");
+        }
+        if (order.getStatus() != OrderStatus.PENDING_CUSTOMER_ACCEPTANCE) {
+            throw new IllegalStateException("Đơn hiện không chờ nghiệm thu.");
         }
         DeliverySubmission delivery = deliveries.findByIdAndOrderId(deliveryId, orderId)
                 .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy bản bàn giao của đơn hàng."));
@@ -131,12 +136,22 @@ public class DeliveryService {
 
     @Transactional
     public EscrowService.OtpDispatchResult acceptLatest(Long orderId, User customer) {
-        RentalOrder order = orderAccess.involved(orderId, customer);
-        if (customer.getRole() != Role.CUSTOMER || order.getStatus() != OrderStatus.PENDING_CUSTOMER_ACCEPTANCE) {
-            throw new IllegalStateException("Chỉ Customer mới được nghiệm thu khi đơn đang chờ xác nhận.");
+        RentalOrder order = orders.findByIdForUpdate(orderId)
+                .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy đơn hàng."));
+        if (customer == null || customer.getRole() != Role.CUSTOMER || customer.getId() == null
+                || !order.getCustomer().getId().equals(customer.getId())) {
+            throw new IllegalArgumentException("Chỉ Customer của đơn mới được nghiệm thu.");
+        }
+        if (order.getStatus() != OrderStatus.PENDING_CUSTOMER_ACCEPTANCE
+                || !Boolean.TRUE.equals(order.getProviderCompleted())) {
+            throw new IllegalStateException("Provider chưa bàn giao hoặc đơn hiện không chờ nghiệm thu.");
         }
         DeliverySubmission latest = deliveries.findFirstByOrderIdOrderByVersionDesc(orderId)
                 .orElseThrow(() -> new IllegalStateException("Chưa có sản phẩm bàn giao để nghiệm thu."));
+        if (!"SUBMITTED".equals(latest.getStatus())
+                || (latest.getFiles().isEmpty() && latest.getLinks().isEmpty())) {
+            throw new IllegalStateException("Bản bàn giao mới nhất không hợp lệ hoặc đã được xử lý.");
+        }
         EscrowService.OtpDispatchResult result = escrow.customerAcceptCompletion(orderId, customer);
         latest.setStatus("ACCEPTED");
         deliveries.save(latest);
