@@ -5,8 +5,12 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title th:text="${workspaceTitle + ' | SkillRental'}">Provider Workspace | SkillRental</title>
   <th:block th:replace="~{workspace/fragments :: workspaceStyles}"></th:block>
+  <link rel="stylesheet" th:href="@{/css/app.css}"/>
+  <meta name="_csrf" th:content="${_csrf.token}"/>
+  <meta name="_csrf_header" th:content="${_csrf.headerName}"/>
 </head>
 <body class="wk-body">
+<div th:replace="~{fragments :: icons}"></div>
 <div class="wk-app">
   <div th:replace="~{workspace/fragments :: providerSidebar(${page}, false)}"></div>
   <main class="wk-main">
@@ -28,7 +32,7 @@
               <a class="wk-link-card" href="/provider/profile"><strong>Hồ sơ &amp; Dịch vụ</strong><span>Kỹ năng, bảng giá, lịch rảnh và trạng thái.</span></a>
               <a class="wk-link-card" href="/provider/reviews"><strong>Đánh giá &amp; Uy tín</strong><span>Đọc phản hồi và trả lời khách hàng.</span></a>
               <a class="wk-link-card" href="/provider/bookings"><strong>Đặt lịch &amp; Đơn hàng</strong><span>Theo dõi dự án đang thực hiện.</span></a>
-              <a class="wk-link-card" href="/provider/chat"><strong>Tin nhắn khách hàng</strong><span>Trao đổi, bàn giao và hỗ trợ sau bán.</span></a>
+              <a class="wk-link-card" href="/messages"><strong>Tin nhắn khách hàng</strong><span>Trao đổi và hỗ trợ; bàn giao tại đơn hàng.</span></a>
               <a class="wk-link-card" href="/provider/wallet"><strong>Ví &amp; Thu nhập</strong><span>Xem số dư và yêu cầu rút tiền.</span></a>
               <a class="wk-link-card" href="/provider/fees"><strong>Thanh toán &amp; Phí sàn</strong><span>Gia hạn gói và xem lịch sử thanh toán.</span></a>
               <a class="wk-link-card" href="/provider/posts"><strong>Bài viết &amp; Portfolio</strong><span>Quảng bá năng lực và dự án tiêu biểu.</span></a>
@@ -71,7 +75,7 @@
           <div class="wk-grid wk-grid-2 wk-service-grid">
             <article class="wk-card-tight wk-service" th:each="service : ${providerServices}">
               <div class="tag" th:text="${service.status}">DRAFT</div>
-              <form method="post" th:action="@{'/provider/services/' + ${service.id} + '/edit'}" class="wk-form-grid">
+              <form method="post" th:action="@{'/provider/services/' + ${service.id} + '/edit'}" class="wk-form-grid"><th:block th:replace="~{fragments :: policyConsent(${providerPolicyRequired}, 'provider')}"></th:block>
                 <div class="wk-field"><label>Tên dịch vụ/gói</label><input name="name" required maxlength="160" th:value="${service.name}"/></div>
                 <div class="wk-field"><label>Danh mục</label><input name="category" maxlength="80" th:value="${service.category}"/></div>
                 <div class="wk-field"><label>Mô tả / quyền lợi</label><textarea name="description" required maxlength="2500" rows="4" th:text="${service.description}"></textarea></div>
@@ -85,7 +89,7 @@
               </form>
               <div class="wk-service-actions">
                 <form th:if="${service.status.name() == 'PUBLISHED'}" method="post" th:action="@{'/provider/services/' + ${service.id} + '/pause'}"><button class="wk-btn small" type="submit">Tạm ngừng</button></form>
-                <form th:if="${service.status.name() == 'PAUSED'}" method="post" th:action="@{'/provider/services/' + ${service.id} + '/resume'}"><button class="wk-btn small" type="submit">Xuất bản lại</button></form>
+                <form th:if="${service.status.name() == 'PAUSED'}" method="post" th:action="@{'/provider/services/' + ${service.id} + '/resume'}"><th:block th:replace="~{fragments :: policyConsent(${providerPolicyRequired}, 'provider')}"></th:block><button class="wk-btn small" type="submit">Xuất bản lại</button></form>
                 <form th:if="${service.status.name() != 'ARCHIVED'}" method="post" th:action="@{'/provider/services/' + ${service.id} + '/archive'}"><button class="wk-btn danger small" type="submit">Lưu trữ</button></form>
               </div>
             </article>
@@ -95,7 +99,7 @@
         <div class="wk-grid wk-grid-2" style="margin-top:12px">
           <div class="wk-card">
             <div class="wk-card-title">Tạo dịch vụ/gói mới</div>
-            <form method="post" th:action="@{/provider/services/new}" class="wk-form-grid wk-form-grid-2" style="margin-top:10px">
+            <form method="post" th:action="@{/provider/services/new}" class="wk-form-grid wk-form-grid-2" style="margin-top:10px"><th:block th:replace="~{fragments :: policyConsent(${providerPolicyRequired}, 'provider')}"></th:block>
               <div class="wk-field"><label>Tên dịch vụ/gói</label><input name="name" required maxlength="160" placeholder="Ví dụ: Website Startup"/></div>
               <div class="wk-field"><label>Danh mục</label><input name="category" maxlength="80"/></div>
               <div class="wk-field" style="grid-column:1/-1"><label>Mô tả / quyền lợi</label><textarea name="description" required maxlength="2500" rows="4"></textarea></div>
@@ -145,15 +149,16 @@
         <div class="wk-card"><div class="wk-table-wrap"><table class="wk-table"><thead><tr><th>Mã đơn / Ngày</th><th>Customer / Dự án</th><th>Giá trị hợp đồng</th><th>Đang ký quỹ</th><th>Trạng thái</th><th>Thao tác của Provider</th></tr></thead><tbody>
         <tr th:each="o : ${providerOrders}">
           <td><strong th:text="${'DH' + o.id}">DH1</strong><span class="sub" th:text="${o.createdAt != null ? #temporals.format(o.createdAt,'dd/MM/yyyy HH:mm') : '-'}">18/10/2026</span></td>
-          <td><strong th:text="${o.customer.fullName}">Customer</strong><span class="sub" th:text="${o.booking != null ? o.booking.serviceName : 'Dịch vụ trong giỏ hàng'}">Dự án</span><span class="sub" th:text="${o.booking != null ? o.booking.bookingDate + ' · ' + o.booking.timeSlot : '-'}">Lịch</span></td>
+          <td><strong th:text="${o.customer.fullName}">Customer</strong><span class="sub" th:text="${o.booking != null ? o.booking.serviceName : 'Dịch vụ trong giỏ hàng'}">Dự án</span><span class="sub" th:text="${o.booking != null ? (o.booking.scheduleMode.name() == 'DEADLINE' ? 'Hạn giao: ' : 'Lịch hẹn: ') + #temporals.format(o.booking.bookingDate,'dd/MM/yyyy') + ' · ' + #temporals.format(o.booking.timeSlot,'HH:mm') : '-'}">Lịch</span></td>
           <td><strong th:text="${#numbers.formatDecimal(o.total,0,'POINT',0,'COMMA') + 'đ'}">0đ</strong></td>
           <td th:text="${#numbers.formatDecimal(o.lockedAmount,0,'POINT',0,'COMMA') + 'đ'}">0đ</td>
           <td><span class="wk-chip" th:classappend="${o.status.name() == 'COMPLETED' ? ' green' : o.status.name() == 'CANCELLED' ? ' red' : o.status.name() == 'PROCESSING' ? ' blue' : ' yellow'}" th:text="${o.status.displayName}">Chờ Provider xác nhận</span><span class="sub" th:if="${o.customerStarted and !o.providerStarted}">Customer đã xác nhận bắt đầu</span><span class="sub" th:if="${o.providerStarted and !o.customerStarted}">Bạn đã xác nhận bắt đầu</span></td>
           <td class="actions">
+            <a class="wk-btn small" th:href="@{'/orders/' + ${o.id} + '/progress'}">Chi tiết &amp; tiến độ</a>
             <form th:if="${o.status.name() == 'PENDING_PROVIDER_ACCEPTANCE'}" method="post" th:action="@{'/provider/orders/' + ${o.id} + '/accept'}"><button class="wk-btn small primary" type="submit">Nhận yêu cầu</button></form>
             <form th:if="${o.status.name() == 'PENDING_PROVIDER_ACCEPTANCE'}" method="post" th:action="@{'/provider/orders/' + ${o.id} + '/decline'}"><input name="reason" type="hidden" value="Provider từ chối yêu cầu trước khi nhận việc."/><button class="wk-btn small danger" type="submit" onclick="return confirm('Từ chối yêu cầu này? Toàn bộ tiền ký quỹ sẽ được hoàn lại cho Customer.')">Từ chối &amp; hoàn tiền</button></form>
             <form th:if="${o.status.name() == 'PENDING_START_CONFIRMATION' and !o.providerStarted}" method="post" th:action="@{'/provider/orders/' + ${o.id} + '/start-confirmation'}"><button class="wk-btn small primary" type="submit">Xác nhận bắt đầu</button></form>
-            <form th:if="${o.status.name() == 'PROCESSING'}" method="post" th:action="@{'/provider/orders/' + ${o.id} + '/complete'}"><button class="wk-btn small primary" type="submit">Báo hoàn thành</button></form>
+            <a th:if="${o.status.name() == 'PROCESSING'}" class="wk-btn small primary" th:href="@{'/orders/' + ${o.id} + '/progress'}">Cập nhật tiến độ / Nộp sản phẩm</a>
             <form th:if="${o.status.name() == 'CANCELLATION_REQUESTED_BY_CUSTOMER'}" method="post" th:action="@{'/provider/orders/' + ${o.id} + '/cancellation-compensation'}" class="wk-form-grid"><label>Chi phí phần việc đã làm (VNĐ)<input type="number" name="amount" min="0" th:max="${o.lockedAmount}" step="1000" value="0" required/></label><label>Giải thích<textarea name="note" placeholder="Mô tả phần việc đã thực hiện và cơ sở tính phí"></textarea></label><button class="wk-btn small primary" type="submit">Gửi đề xuất</button></form>
             <form th:if="${o.status.name() != 'PENDING_PROVIDER_ACCEPTANCE' and o.status.name() != 'COMPLETED' and o.status.name() != 'CANCELLED' and o.status.name() != 'PENDING_PAYMENT_OTP'}" method="post" th:action="@{'/provider/orders/' + ${o.id} + '/cancel'}"><input name="reason" type="hidden" value="Provider hủy việc; hoàn toàn bộ số dư ký quỹ cho Customer."/><button class="wk-btn small danger" type="submit" onclick="return confirm('Provider xác nhận hủy? Tiền ký quỹ sẽ được hoàn lại cho Customer.')">Hủy việc / hoàn tiền</button></form>
             <a class="wk-btn small" th:if="${o.status.name() != 'CANCELLED'}" th:href="@{'/orders/' + ${o.id} + '/complaint'}">Báo cáo Customer</a>
@@ -185,8 +190,8 @@
       </section>
 
       <section th:if="${page == 'chat'}">
-        <div class="wk-page-head"><div><div class="wk-kicker">Kinh doanh &amp; Khách hàng</div><h1 class="wk-page-title">Tin Nhắn &amp; Trao Đổi Với Khách Hàng</h1><p class="wk-page-desc">Trao đổi trực tuyến, gửi tài liệu và bàn giao sản phẩm.</p></div></div>
-        <div class="wk-card wk-chat"><aside class="wk-chat-list"><div class="wk-card-head" style="padding:12px;margin:0"><div><h2 class="wk-card-title">Hội thoại</h2><p class="wk-card-desc">Khách hàng đang trao đổi</p></div></div><div class="wk-chat-contact" th:each="c : ${providerConversations}" th:classappend="${selectedConversation != null && c.id == selectedConversation.id ? ' active' : ''}"><div class="wk-chat-avatar" th:text="${#strings.substring(c.customer.fullName,0,1)}">A</div><div><strong class="wk-inline-sm" th:text="${c.customer.fullName}">Nguyễn Văn An</strong><div class="wk-help">Đơn hàng đang xử lý</div></div></div></aside><div class="wk-chat-body"><div class="wk-chat-messages" th:if="${selectedConversation != null}"><div class="wk-msg" th:classappend="${m.sender.id == currentUser.id ? ' own' : ''}" th:each="m : ${selectedMessages}" th:text="${m.content}">Xin chào</div></div><div class="wk-empty" th:if="${selectedConversation == null}"><strong>Chưa có hội thoại</strong>Conversation sẽ xuất hiện khi khách bắt đầu nhắn tin.</div><form class="wk-chat-input" th:if="${selectedConversation != null}" method="post" th:action="@{'/provider/chat/' + ${selectedConversation.id} + '/send'}"><input name="content" required placeholder="Nhập tin nhắn trao đổi với khách hàng..."/><button class="wk-btn primary" type="submit">Gửi</button></form></div></div>
+        <div class="wk-page-head"><div><div class="wk-kicker">Kinh doanh &amp; Khách hàng</div><h1 class="wk-page-title">Tin Nhắn &amp; Trao Đổi Với Khách Hàng</h1><p class="wk-page-desc">Trao đổi trực tuyến; gửi tài liệu và bàn giao tại chi tiết đơn hàng.</p></div></div>
+        <div class="wk-card"><h2 class="wk-card-title">Hội thoại với Customer</h2><p class="wk-card-desc">Chỉ các Customer đã tạo hội thoại với Provider mới xuất hiện. Tin nhắn và badge được cập nhật trực tiếp.</p><a class="wk-btn primary" href="/messages">Mở danh sách hội thoại</a></div>
       </section>
 
       <section th:if="${page == 'fees'}">
@@ -202,8 +207,13 @@
 
       <section th:if="${page == 'dashboard'}" style="margin-top:12px"><div class="wk-note wk-success-box">Màu thương hiệu và bố cục workspace được triển khai theo Design System trong tài liệu: Primary #16A34A, Secondary #0F172A, Background #F8FAFC, Border #E2E8F0.</div></section>
     </div>
+  <div th:replace="~{fragments :: footer}"></div>
   </main>
 </div>
+<div th:replace="~{fragments :: icons}"></div>
+<div th:replace="~{fragments :: floatingChat}"></div>
 <script th:src="@{/js/workspace.js}"></script>
+<script th:src="@{/js/app.js}"></script>
+<script defer src="/js/workflow.js"></script>
 </body>
 </html>

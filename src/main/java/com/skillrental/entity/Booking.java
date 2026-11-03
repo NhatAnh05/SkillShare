@@ -16,6 +16,9 @@ public class Booking {
     @Column(name="service_name", nullable=false, length=255) private String serviceName;
     @Column(nullable=false) private LocalDate bookingDate;
     @Column(nullable=false) private LocalTime timeSlot;
+    @Enumerated(EnumType.STRING) @Column(name="schedule_mode", nullable=false, length=24, columnDefinition="VARCHAR(24) DEFAULT 'APPOINTMENT'")
+    @Builder.Default private ScheduleMode scheduleMode = ScheduleMode.APPOINTMENT;
+    @Column(name="delivery_due_at") private LocalDateTime deliveryDueAt;
     @Column(length=1200) private String note;
     @Column(nullable=false) private Boolean premium;
     @Column(nullable=false) private Boolean directBooking;

@@ -18,6 +18,10 @@ public class RentalOrder {
     @Column(nullable=false,precision=12,scale=2) private BigDecimal total;
     @Enumerated(EnumType.STRING) @Column(nullable=false, length=50) private OrderStatus status;
     @Column(name="created_at") private LocalDateTime createdAt;
+    @Column(name="work_started_at") private LocalDateTime workStartedAt;
+    @Column(name="delivered_at") private LocalDateTime deliveredAt;
+    @Column(name="estimated_completion_at") private LocalDateTime estimatedCompletionAt;
+    @Column(name="progress_percent", nullable=false, columnDefinition="INT DEFAULT 0") @Builder.Default private Integer progressPercent = 0;
     @Column(name="completed_at") private LocalDateTime completedAt;
     @Column(name="cancelled_at") private LocalDateTime cancelledAt;
     @Column(name="cancellation_reason", length=1000) private String cancellationReason;

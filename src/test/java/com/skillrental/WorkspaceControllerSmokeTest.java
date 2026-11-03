@@ -171,7 +171,7 @@ class WorkspaceControllerSmokeTest {
                 .andExpect(redirectedUrl("/provider/skills"));
 
         mvc.perform(post("/provider/services/new")
-                        .with(csrf())
+                        .with(csrf()).param("acceptedPolicy","true")
                         .param("name", "Gói test")
                         .param("category", "Kiểm thử")
                         .param("description", "Gói dịch vụ dùng trong kiểm thử hồi quy.")

@@ -44,7 +44,7 @@ class ProviderServiceManagementTest {
     @WithMockUser(username = "provider1@skillrental.vn", roles = "PROVIDER")
     void providerCreatesDraftServiceAndReadsItFromRepositoryAndWorkspace() throws Exception {
         User provider = provider();
-        mvc.perform(post("/provider/services/new").with(csrf())
+        mvc.perform(post("/provider/services/new").with(csrf()).param("acceptedPolicy","true")
                         .param("name", "Gói kiểm thử mới")
                         .param("category", "Thiết kế")
                         .param("description", "Quyền lợi và phạm vi gói dịch vụ.")
@@ -82,7 +82,7 @@ class ProviderServiceManagementTest {
         User provider = provider();
         ServiceCatalog service = saveService(provider, ServiceStatus.PUBLISHED);
 
-        mvc.perform(post("/provider/services/{id}/edit", service.getId()).with(csrf())
+        mvc.perform(post("/provider/services/{id}/edit", service.getId()).with(csrf()).param("acceptedPolicy","true")
                         .param("name", "Dịch vụ đã cập nhật")
                         .param("category", "Lập trình")
                         .param("description", "Mô tả quyền lợi đã được cập nhật.")
@@ -110,7 +110,7 @@ class ProviderServiceManagementTest {
         ServiceCatalog existing = saveService(provider, ServiceStatus.DRAFT);
         long countBefore = services.count();
 
-        mvc.perform(post("/provider/services/new").with(csrf())
+        mvc.perform(post("/provider/services/new").with(csrf()).param("acceptedPolicy","true")
                         .param("name", " ")
                         .param("description", "Mô tả")
                         .param("pricingType", "FIXED")
@@ -118,7 +118,7 @@ class ProviderServiceManagementTest {
                 .andExpect(status().is3xxRedirection())
                 .andExpect(flash().attributeExists("error"));
 
-        mvc.perform(post("/provider/services/{id}/edit", 999999L).with(csrf())
+        mvc.perform(post("/provider/services/{id}/edit", 999999L).with(csrf()).param("acceptedPolicy","true")
                         .param("name", "Không tồn tại")
                         .param("description", "Mô tả")
                         .param("pricingType", "FIXED")
@@ -130,7 +130,7 @@ class ProviderServiceManagementTest {
                 .andExpect(status().is3xxRedirection())
                 .andExpect(flash().attributeExists("success"));
         assertEquals(ServiceStatus.ARCHIVED, services.findById(existing.getId()).orElseThrow().getStatus());
-        mvc.perform(post("/provider/services/{id}/edit", existing.getId()).with(csrf())
+        mvc.perform(post("/provider/services/{id}/edit", existing.getId()).with(csrf()).param("acceptedPolicy","true")
                         .param("name", "Không được thay đổi")
                         .param("description", "Mô tả")
                         .param("pricingType", "FIXED")
@@ -156,7 +156,7 @@ class ProviderServiceManagementTest {
                 .build());
         ServiceCatalog service = saveService(otherProvider, ServiceStatus.DRAFT);
 
-        mvc.perform(post("/provider/services/{id}/edit", service.getId()).with(csrf())
+        mvc.perform(post("/provider/services/{id}/edit", service.getId()).with(csrf()).param("acceptedPolicy","true")
                         .param("name", "Unauthorized change")
                         .param("description", "Mô tả không được lưu.")
                         .param("pricingType", "FIXED")
@@ -192,7 +192,7 @@ class ProviderServiceManagementTest {
                 .andExpect(flash().attributeExists("success"));
         assertEquals(ServiceStatus.PAUSED, services.findById(published.getId()).orElseThrow().getStatus());
         ProviderProfile providerProfile = providers.findByUser(provider).orElseThrow();
-        mvc.perform(post("/booking/provider/{id}", providerProfile.getId()).with(csrf())
+        mvc.perform(post("/booking/provider/{id}", providerProfile.getId()).with(csrf()).param("acceptedPolicy","true")
                         .with(user("customer@skillrental.vn").roles("CUSTOMER"))
                         .param("serviceId", published.getId().toString())
                         .param("bookingDate", LocalDate.now().plusDays(10).toString())
@@ -217,12 +217,12 @@ class ProviderServiceManagementTest {
                 .andExpect(redirectedUrl("/services"));
         assertEquals(cartItemsBefore, cartItems.count());
 
-        mvc.perform(post("/provider/services/{id}/resume", published.getId()).with(csrf()))
+        mvc.perform(post("/provider/services/{id}/resume", published.getId()).with(csrf()).param("acceptedPolicy","true"))
                 .andExpect(status().is3xxRedirection())
                 .andExpect(flash().attributeExists("success"));
         assertEquals(ServiceStatus.PUBLISHED, services.findById(published.getId()).orElseThrow().getStatus());
 
-        mvc.perform(post("/provider/services/{id}/resume", published.getId()).with(csrf()))
+        mvc.perform(post("/provider/services/{id}/resume", published.getId()).with(csrf()).param("acceptedPolicy","true"))
                 .andExpect(status().is3xxRedirection())
                 .andExpect(flash().attributeExists("error"));
         assertEquals(ServiceStatus.PUBLISHED, services.findById(published.getId()).orElseThrow().getStatus());
@@ -239,7 +239,7 @@ class ProviderServiceManagementTest {
     @Test
     @WithMockUser(username = "customer@skillrental.vn", roles = "CUSTOMER")
     void nonProviderCannotCreateOrManageProviderServices() throws Exception {
-        mvc.perform(post("/provider/services/new").with(csrf())
+        mvc.perform(post("/provider/services/new").with(csrf()).param("acceptedPolicy","true")
                         .param("name", "Không được tạo")
                         .param("description", "Mô tả")
                         .param("pricingType", "FIXED")

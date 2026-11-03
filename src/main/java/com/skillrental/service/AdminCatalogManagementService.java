@@ -19,6 +19,7 @@ public class AdminCatalogManagementService {
     private final OfferedServiceRepository services;
     private final ProviderProfileRepository providers;
     private final ProviderEligibilityService eligibility;
+    private final NotificationService notifications;
 
     @Transactional
     public void approveService(Long serviceId) {
@@ -35,6 +36,9 @@ public class AdminCatalogManagementService {
         service.setStatus(ServiceStatus.PUBLISHED);
         service.setPublishedAt(LocalDateTime.now());
         services.save(service);
+        notifications.create(service.getProvider(), "SERVICE_APPROVED", "Dịch vụ đã được duyệt",
+                "Dịch vụ \"" + service.getName() + "\" đã được Admin phê duyệt và xuất bản.",
+                "SERVICE", service.getId(), "/provider/services");
     }
 
     @Transactional
@@ -53,6 +57,9 @@ public class AdminCatalogManagementService {
         }
         provider.setApproved(true);
         providers.save(provider);
+        notifications.create(provider.getUser(), "PROVIDER_APPROVED", "Hồ sơ Provider đã được duyệt",
+                "Admin đã phê duyệt hồ sơ Provider của bạn.",
+                "PROVIDER", provider.getId(), "/provider/dashboard");
     }
 
     @Transactional
@@ -64,6 +71,9 @@ public class AdminCatalogManagementService {
         }
         provider.setProfileStatus("SUSPENDED");
         providers.save(provider);
+        notifications.create(provider.getUser(), "PROVIDER_SUSPENDED", "Hồ sơ Provider tạm ngưng",
+                "Admin đã tạm ngưng hồ sơ Provider của bạn.",
+                "PROVIDER", provider.getId(), "/provider/dashboard");
     }
 
     @Transactional
@@ -75,6 +85,9 @@ public class AdminCatalogManagementService {
         }
         provider.setProfileStatus("ACTIVE");
         providers.save(provider);
+        notifications.create(provider.getUser(), "PROVIDER_REACTIVATED", "Hồ sơ Provider được kích hoạt",
+                "Admin đã kích hoạt lại hồ sơ Provider của bạn.",
+                "PROVIDER", provider.getId(), "/provider/dashboard");
     }
 
     private ProviderProfile findProvider(Long providerId) {

@@ -1,0 +1,530 @@
+# SKILLSHARE — SỬA VÀ HOÀN THIỆN CHAT, THÔNG BÁO, ADMIN, BÀN GIAO VÀ ĐIỀU KHOẢN
+
+## A. MỤC TIÊU VÀ NGUYÊN TẮC
+
+Dựa trên mã nguồn SkillShare hiện tại, hãy kiểm tra, sửa lỗi và hoàn thiện:
+
+1. Chat realtime hai chiều trên mọi giao diện.
+2. Hệ thống thông báo thực tế cho Customer, Provider và Admin.
+3. Giao diện Chat và thông báo thống nhất, không cần tải lại trang.
+4. Hai chức năng nhắn tin riêng cho Admin.
+5. Bàn giao và trao đổi file/link giữa Customer và Provider.
+6. Các trang điều khoản, chính sách và cơ chế chấp nhận điều khoản.
+7. Footer chứa các liên kết chính sách và điều khoản.
+
+**Đây là nhiệm vụ sửa lỗi và hoàn thiện chức năng đang có, không phải xây dựng lại toàn bộ ứng dụng.**
+
+Trước khi sửa, phải đối chiếu mã nguồn hiện tại với các vấn đề thực tế được liệt kê dưới đây.
+
+Không coi việc Maven test Pass là bằng chứng đầy đủ cho chức năng giao diện.
+
+Không làm thay đổi không cần thiết Google Login, OTP, thanh toán, Escrow, hoàn tiền hoặc các quy tắc chuyển trạng thái đơn hàng.
+
+## B. GIAI ĐOẠN 1 — SỬA CHAT REALTIME HAI CHIỀU
+
+### B1. Lỗi Customer gửi tin nhưng Provider phải tải lại trang
+
+Hiện trạng kiểm thử thực tế:
+
+- Provider gửi tin cho Customer: Customer nhận được mà không cần tải lại trang.
+- Customer gửi tin cho Provider: Provider phải tải lại trang mới thấy.
+
+Đây là lỗi realtime bất đối xứng.
+
+Hãy kiểm tra:
+
+- ChatWebSocketHandler và ChatWebSocketConfig.
+- Cơ chế đăng ký nhận sự kiện của từng phiên đăng nhập.
+- ChatService và event phát sau transaction commit.
+- JavaScript của Marketplace, Customer Profile và Provider Workspace.
+- Cách ánh xạ User ID, Conversation ID và WebSocket session.
+- Cơ chế cập nhật danh sách hội thoại khi có tin nhắn mới.
+- Trường hợp Provider đang mở đúng hội thoại và trường hợp đang xem danh sách hội thoại.
+- Việc cùng một tài khoản mở nhiều tab.
+- Polling dự phòng và reconnect.
+
+Cần xác định nguyên nhân gốc, không sửa bằng cách tự động reload trang.
+
+**Kết quả bắt buộc:**
+
+Customer gửi → Provider nhận ngay.
+
+Provider gửi → Customer nhận ngay.
+
+Admin gửi trong hội thoại hỗ trợ → người nhận cập nhật ngay.
+
+Khi có tin nhắn mới trong hội thoại chưa mở, danh sách hội thoại và badge chưa đọc phải cập nhật ngay.
+
+Một sự kiện không được làm tin nhắn xuất hiện hai lần.
+
+### B2. Khung chat Marketplace bị lỗi cuộn
+
+Hiện trạng:
+
+- Khi có nhiều tin nhắn, nội dung vượt khỏi khung.
+- Giao diện không đẩy và giữ vị trí tin nhắn hợp lý.
+- Không thể cuộn xem lại tin cũ thuận tiện.
+
+Yêu cầu:
+
+- Header chat cố định trong popup.
+- Phần danh sách tin nhắn là vùng cuộn riêng.
+- Ô nhập và nút gửi luôn nằm ở cuối khung chat.
+- Tin nhắn không đẩy ô nhập ra ngoài.
+- CSS xử lý đúng overflow-y, flex layout và min-height.
+- Không cuộn toàn bộ website khi chỉ cần cuộn nội dung chat.
+- Khi mở hội thoại lần đầu, hiển thị các tin nhắn mới nhất.
+- Khi người dùng đang ở gần cuối, tin nhắn mới tự cuộn xuống.
+- Khi người dùng cuộn lên đọc tin cũ, không tự giật xuống cuối.
+- Nếu tải thêm lịch sử, giữ vị trí đang đọc.
+- Tự động ngắt dòng tin nhắn dài, URL và nội dung không có khoảng trắng.
+- Hoạt động đúng trên desktop và mobile.
+
+Áp dụng cách xử lý nhất quán cho Marketplace, Customer Profile, Provider Chat và Admin Chat.
+
+### B3. Chat trong trang cá nhân Customer
+
+Hiện trạng:
+
+Khi Customer vào trang cá nhân và nhấn Tin nhắn, hệ thống mở widget chat nổi ở góc màn hình thay vì giao diện quản lý hội thoại phù hợp.
+
+Yêu cầu:
+
+- Xác định rõ nút nào mở popup chat nhanh, nút nào mở trang Tin nhắn đầy đủ.
+- Trong Customer Portal, nút Tin nhắn phải mở giao diện danh sách hội thoại và nội dung chat như Provider.
+- Không tự động chuyển về widget nổi trừ khi người dùng chủ động chọn chat nhanh.
+- Nếu sử dụng một UI chung thì tái sử dụng component, không duy trì nhiều cơ chế chat khác nhau.
+- Không tạo các bản ghi Conversation trùng nhau khi chuyển giữa các giao diện.
+- Đồng bộ tin nhắn, unread count và trạng thái đã đọc giữa popup và trang đầy đủ.
+
+### B4. Liên hệ Admin
+
+Bổ sung cho Customer và Provider:
+
+- Nút "Liên hệ hỗ trợ" hoặc "Liên hệ Admin".
+- Cho phép mở hoặc tiếp tục hội thoại hỗ trợ đã có.
+- Hiển thị đúng loại hội thoại hỗ trợ, không nhầm với Customer–Provider.
+- Gửi và nhận realtime.
+- Có danh sách hỗ trợ và lịch sử tin nhắn.
+- Nếu hỗ trợ được nhiều Admin xử lý, phải có cơ chế phân công hoặc tiếp quản rõ ràng.
+
+Không tạo tài khoản Provider giả để đại diện Admin.
+
+## C. GIAI ĐOẠN 2 — SỬA THÔNG BÁO REALTIME THỰC TẾ
+
+### C1. Hiện trạng cần sửa
+
+Ở Customer, Provider và Admin, icon thông báo chưa thực sự hiển thị các sự kiện xảy ra trong hệ thống.
+
+Một số badge ở sidebar Provider/Admin có vẻ đang là số hoặc giao diện được viết sẵn.
+
+Hãy kiểm tra toàn bộ notification flow từ nghiệp vụ đến giao diện:
+
+1. Sự kiện nghiệp vụ xảy ra.
+2. Notification được lưu vào database.
+3. Transaction thành công.
+4. Notification event được gửi đến đúng người nhận.
+5. WebSocket /ws/notifications cập nhật giao diện.
+6. Badge và danh sách thông báo hiển thị đúng.
+7. Người dùng nhấn vào thông báo và được dẫn đến chức năng tương ứng.
+
+Không tạo thông báo mô phỏng trên frontend.
+
+### C2. Customer nhận thông báo
+
+Bổ sung và kiểm tra các sự kiện thực tế:
+
+- Provider gửi tin nhắn.
+- Provider xác nhận hoặc cập nhật việc tiếp nhận đơn.
+- Provider bắt đầu thực hiện công việc.
+- Đơn hàng thay đổi trạng thái hợp lệ.
+- Provider gửi sản phẩm bàn giao.
+- Provider gửi bản sửa đổi.
+- Admin gửi thông báo cá nhân.
+- Admin phản hồi yêu cầu hỗ trợ hoặc khiếu nại.
+
+Chỉ phát thông báo đối với nghiệp vụ thật sự tồn tại và đã phát sinh thành công.
+
+### C3. Provider nhận thông báo
+
+- Customer gửi tin nhắn.
+- Customer tạo đơn hàng mới.
+- Customer gửi tài liệu cho đơn hàng.
+- Customer xác nhận hoặc cập nhật trạng thái hợp lệ.
+- Customer yêu cầu chỉnh sửa sản phẩm.
+- Customer nghiệm thu kết quả.
+- Admin phê duyệt hoặc từ chối dịch vụ.
+- Admin gửi thông báo.
+- Có tin nhắn hỗ trợ từ Admin.
+
+### C4. Admin nhận thông báo
+
+- Dịch vụ hoặc hồ sơ cần phê duyệt.
+- Có yêu cầu hỗ trợ mới.
+- Có khiếu nại hoặc tranh chấp mới.
+- Có nghiệp vụ cần Admin xử lý.
+- Có phản hồi trong hội thoại hỗ trợ Admin đang phụ trách.
+
+Không bắt Admin nhận mọi tin nhắn riêng tư Customer–Provider.
+
+### C5. Thông báo phải điều hướng được
+
+Mỗi thông báo cần lưu loại đối tượng liên quan và ID tương ứng.
+
+Ví dụ:
+
+- Tin nhắn mới → mở đúng hội thoại.
+- Đơn hàng mới → mở chi tiết đơn hàng.
+- Dịch vụ chờ duyệt → mở trang xét duyệt dịch vụ.
+- Sản phẩm đã bàn giao → mở mục bàn giao của đơn hàng.
+- Yêu cầu hỗ trợ → mở đúng hội thoại hỗ trợ.
+- Khiếu nại → mở hồ sơ xử lý khiếu nại.
+- Thông báo chung → mở trang chi tiết thông báo.
+
+Đường dẫn phải được tạo từ route hợp lệ phía server và kiểm tra phân quyền khi truy cập.
+
+Không sử dụng liên kết giả như "#" hoặc mở trang không liên quan.
+
+Không tin tưởng URL do người dùng tự nhập trong nội dung thông báo.
+
+### C6. Nút "Đánh dấu tất cả đã đọc"
+
+Trong dropdown chuông thông báo, bổ sung:
+
+- Danh sách thông báo mới nhất.
+- Badge số chưa đọc.
+- Nút "Đánh dấu tất cả đã đọc".
+- Liên kết "Xem tất cả thông báo".
+- Trạng thái đã đọc/chưa đọc rõ ràng.
+
+Khi nhấn "Đánh dấu tất cả đã đọc":
+
+- Chỉ cập nhật thông báo thuộc tài khoản hiện tại.
+- Lưu thời điểm đã đọc vào database.
+- Badge cập nhật ngay, không tải lại trang.
+- Giao diện các tab khác của cùng tài khoản được đồng bộ.
+- Thao tác gọi lặp không tạo lỗi.
+
+**Phân biệt:** Đánh dấu tất cả thông báo đã đọc không được tự động đánh dấu mọi tin nhắn trong mọi hội thoại là đã đọc.
+
+Tin nhắn chỉ được đánh dấu đã đọc theo cơ chế riêng khi người dùng thực sự mở và xem hội thoại.
+
+### C7. Badge sidebar Provider và Admin
+
+Kiểm tra các mục sidebar hiện có.
+
+- Loại bỏ các số thông báo viết cứng.
+- Chỉ hiển thị badge khi số chưa đọc lớn hơn 0.
+- Badge lấy dữ liệu thật theo quyền của người dùng.
+- Cập nhật realtime khi có sự kiện.
+- Giảm khi xử lý/đánh dấu đã đọc theo đúng loại nghiệp vụ.
+- Đồng bộ badge ở sidebar, Header và trang chi tiết.
+- Không hiển thị số giả sau khi refresh.
+
+Không hiển thị một badge không có chức năng hoặc không có nguồn dữ liệu thực tế.
+
+## D. GIAI ĐOẠN 3 — TIN NHẮN ADMIN
+
+Bổ sung phần quản lý tin nhắn trong Admin Sidebar.
+
+Chia thành hai chức năng rõ ràng.
+
+### D1. Hộp thư hỗ trợ
+
+Đây là nơi tiếp nhận yêu cầu hỗ trợ của Customer và Provider.
+
+Yêu cầu:
+
+- Danh sách các hội thoại hỗ trợ.
+- Hiển thị người liên hệ, vai trò, thời gian và tin nhắn gần nhất.
+- Badge chưa đọc.
+- Bộ lọc theo trạng thái và người phụ trách nếu có.
+- Cho phép Admin phản hồi realtime.
+- Cho phép phân công hoặc tiếp quản hội thoại.
+- Lưu lịch sử người xử lý.
+- Không mất dữ liệu khi đổi người phụ trách.
+
+### D2. Liên hệ người dùng
+
+Đây là nơi Admin chủ động liên hệ Customer hoặc Provider từ danh sách người dùng.
+
+Yêu cầu:
+
+- Tích hợp với danh sách User có trong database.
+- Tìm kiếm người dùng theo tên/email/ID phù hợp.
+- Cho phép Admin được phân quyền gửi tin cho Customer hoặc Provider.
+- Gửi tin trực tiếp mà không cần hai bên có đơn hàng.
+- Người nhận thấy hội thoại Admin trên giao diện của mình.
+- Tin nhắn được lưu và hiển thị realtime.
+- Không tạo hội thoại trùng khi Admin liên hệ lại cùng một người dùng.
+
+Admin không cần phụ thuộc vào điều kiện "đã đặt dịch vụ" để chủ động liên hệ.
+
+Tuy nhiên, vẫn phải kiểm soát quyền Admin, giới hạn gửi hàng loạt và ghi nhật ký để tránh lạm dụng tính năng.
+
+### D3. Lịch sử chat và xử lý tranh chấp
+
+Admin được xem đầy đủ lịch sử các hội thoại hỗ trợ mà mình có quyền xử lý.
+
+Cho phép:
+
+- Tìm kiếm lịch sử theo người dùng, thời gian, mã hội thoại và đơn hàng liên quan.
+- Xem tin nhắn, tệp, liên kết và thời điểm gửi.
+- Xem lịch sử phân công hoặc tiếp quản ca hỗ trợ.
+- Thêm ghi chú nội bộ, không hiển thị cho Customer/Provider.
+- Liên kết hội thoại hỗ trợ với hồ sơ tranh chấp hoặc khiếu nại.
+
+Đối với hội thoại riêng Customer–Provider:
+
+- Không cho Admin xem tùy ý chỉ vì có role ADMIN.
+- Chỉ cho phép truy cập theo quy trình tranh chấp/kiểm tra được phê duyệt, với quyền riêng.
+- Ghi lại người truy cập, thời điểm, lý do và phạm vi dữ liệu.
+- Không cho sửa hoặc xóa nội dung lịch sử để thay đổi bằng chứng.
+- Có chính sách lưu giữ và kiểm soát xuất dữ liệu.
+
+Không biến tính năng quản lý chat thành quyền giám sát không giới hạn.
+
+## E. GIAI ĐOẠN 4 — BÀN GIAO VÀ TRAO ĐỔI FILE/LINK HAI CHIỀU
+
+### E1. Phân biệt hai loại tài liệu
+
+**Tài liệu trao đổi:**
+
+Customer và Provider đều có thể gửi file hoặc liên kết cho nhau để trao đổi yêu cầu, ví dụ:
+
+- Customer gửi ảnh mẫu hoặc tài liệu đặc tả.
+- Provider gửi bản nháp.
+- Customer gửi phản hồi hoặc tài liệu bổ sung.
+- Provider gửi liên kết bản demo.
+
+**Bản bàn giao chính thức:**
+
+Là kết quả Provider nộp cho một RentalOrder cụ thể, có phiên bản, thời điểm, trạng thái nghiệm thu và lịch sử chỉnh sửa.
+
+Không coi mọi file được gửi qua chat là sản phẩm bàn giao hoàn tất.
+
+### E2. Customer gửi file và link
+
+Trong chat của đơn hàng hoặc khu vực tài liệu đơn hàng, Customer được:
+
+- Đính kèm file.
+- Gửi liên kết.
+- Ghi mô tả.
+- Xem và tải lại tài liệu đã gửi.
+- Xem tài liệu Provider gửi.
+- Nhận thông báo khi có tài liệu mới.
+
+Customer không được tự tạo bản bàn giao chính thức thay Provider.
+
+### E3. Provider gửi file và link
+
+Provider được:
+
+- Nhận file và liên kết của Customer.
+- Gửi file hoặc liên kết trao đổi trong quá trình làm việc.
+- Tạo bản bàn giao chính thức theo đơn.
+- Gửi phiên bản bàn giao mới khi Customer yêu cầu chỉnh sửa.
+- Xem lịch sử gửi và phản hồi.
+
+### E4. Giao diện bàn giao
+
+Trong chi tiết đơn hàng, bố trí các khu vực:
+
+1. Thông tin đơn hàng.
+2. Trao đổi và tài liệu giữa hai bên.
+3. Sản phẩm bàn giao.
+4. Lịch sử phiên bản.
+5. Yêu cầu chỉnh sửa.
+6. Nghiệm thu kết quả.
+
+Mỗi tệp hiển thị tên file, kích thước, người gửi, ngày gửi và nút tải.
+
+Mỗi liên kết hiển thị mô tả và đường dẫn được kiểm tra an toàn.
+
+### E5. Lưu trữ và bảo mật
+
+- Metadata lưu vào database.
+- File lưu vào kho lưu trữ riêng tư bền vững.
+- Không đặt file riêng tư dưới static/public.
+- Chỉ thành viên đơn hàng hoặc người có quyền nghiệp vụ mới được tải.
+- Xác thực quyền trên từng request tải file.
+- Giới hạn dung lượng, loại file và số lượng tệp.
+- Chặn path traversal và tên file không an toàn.
+- Có biện pháp kiểm tra file nguy hiểm trước khi mở/tải khi triển khai thực tế.
+- Không lấy tên file từ client làm đường dẫn lưu trữ trực tiếp.
+- Không sử dụng đường dẫn file cục bộ làm URL tải công khai.
+- Không tự xóa bản bàn giao cũ khi gửi phiên bản mới.
+
+Các thao tác gửi tệp phải có thông báo thành công/thất bại rõ ràng, không làm mất file khi lỗi mạng.
+
+### E6. Liên kết trạng thái đơn
+
+Kiểm tra state machine hiện tại trước khi sửa.
+
+- Customer có thể gửi bổ sung yêu cầu theo trạng thái đơn được phép.
+- Provider bàn giao khi đơn ở trạng thái hợp lệ.
+- Customer yêu cầu chỉnh sửa hoặc nghiệm thu.
+- Không tự chuyển COMPLETED chỉ vì file được gửi.
+- Không bỏ qua OTP nghiệm thu nếu nghiệp vụ hiện tại yêu cầu.
+- Không làm thay đổi tiền, Escrow hoặc thanh toán ngoài quy trình hiện có.
+
+## F. GIAI ĐOẠN 5 — ĐIỀU KHOẢN VÀ CHÍNH SÁCH
+
+### F1. Tạo các trang chính sách
+
+Kiểm tra các trang điều khoản đã tồn tại trước khi tạo mới.
+
+Bổ sung hoặc hoàn thiện:
+
+- Điều khoản sử dụng.
+- Chính sách quyền riêng tư.
+- Quy định dành cho Provider.
+- Chính sách đặt và thực hiện dịch vụ.
+- Chính sách hủy đơn, hoàn tiền và khiếu nại.
+- Quy định sử dụng tin nhắn, tài liệu và bàn giao sản phẩm.
+- Chính sách thanh toán và ví, phản ánh đúng tính năng thực tế đã triển khai.
+- Chính sách cookie nếu hệ thống sử dụng cookie hoặc công cụ theo dõi cần công bố.
+
+Các trang phải có nội dung cụ thể, không phải giao diện placeholder.
+
+Không viết cam kết hoàn tiền, thời hạn thanh toán hoặc cơ chế bảo vệ tài chính chưa tồn tại trong hệ thống.
+
+### F2. Chấp nhận điều khoản
+
+Tại những thao tác phù hợp, bổ sung hoặc kiểm tra checkbox chấp nhận điều khoản, ví dụ:
+
+- Đăng ký tài khoản.
+- Đăng ký trở thành Provider.
+- Tạo hoặc xuất bản dịch vụ khi cần cam kết riêng.
+- Xác nhận đặt dịch vụ.
+- Các thao tác cần chấp thuận điều khoản giao dịch cụ thể.
+
+Yêu cầu:
+
+- Người dùng có thể nhấn vào tên điều khoản để đọc nội dung đầy đủ.
+- Liên kết mở được và dễ quay lại thao tác đang thực hiện.
+- Checkbox không được tích sẵn.
+- Backend kiểm tra điều kiện chấp nhận khi bắt buộc.
+- Lưu version điều khoản, người đồng ý và thời điểm đồng ý.
+- Có thể xem lại điều khoản đã chấp nhận.
+- Phân biệt chấp nhận điều khoản bắt buộc với lựa chọn nhận quảng cáo/marketing.
+- Không yêu cầu người dùng đồng ý lại nếu điều khoản không có thay đổi liên quan.
+
+### F3. Footer
+
+Giữ nguyên thiết kế chung và bổ sung khu vực "Chính sách & Điều khoản".
+
+Mỗi liên kết phải dẫn đến một trang có nội dung thực.
+
+Footer cần hiển thị phù hợp trên desktop, tablet và mobile.
+
+Không tự ý sao chép nguyên văn chính sách của website khác.
+
+Nội dung phải được xây dựng phù hợp với phạm vi hoạt động thực tế của SkillShare và cần được rà soát trước khi công bố chính thức.
+
+## G. GIAI ĐOẠN 6 — KIỂM THỬ NGHIỆM THU
+
+### G1. Test realtime trên hai trình duyệt
+
+Tạo ít nhất ba phiên độc lập:
+
+- Trình duyệt A: Customer.
+- Trình duyệt B: Provider.
+- Trình duyệt C: Admin.
+
+Kiểm tra cùng lúc:
+
+1. Customer gửi tin, Provider nhận ngay.
+2. Provider gửi tin, Customer nhận ngay.
+3. Customer liên hệ Admin, Admin nhận ngay.
+4. Admin trả lời, Customer nhận ngay.
+5. Provider liên hệ Admin, Admin nhận ngay.
+6. Admin chủ động liên hệ Provider, Provider nhận ngay.
+7. Badge cập nhật khi người nhận chưa mở hội thoại.
+8. Không cần F5 ở bất kỳ bước nào.
+9. Lịch sử còn nguyên sau khi đăng xuất và đăng nhập lại.
+10. Tin nhắn không bị trùng sau reconnect.
+
+### G2. Test cuộn và bố cục
+
+- Gửi từ 30 đến 50 tin nhắn trong một hội thoại thử nghiệm.
+- Kiểm tra khung không bị tràn.
+- Ô nhập luôn hiển thị.
+- Cuộn lên xem tin cũ được.
+- Khi đọc tin cũ, tin mới không kéo người dùng xuống cuối.
+- Cuộn về cuối hoạt động đúng.
+- Kiểm thử Marketplace, Customer Profile, Provider Chat và Admin Chat.
+- Kiểm thử trên desktop và màn hình mobile.
+
+### G3. Test thông báo
+
+- Tạo đơn, kiểm tra Provider nhận thông báo.
+- Cập nhật đơn, kiểm tra Customer nhận thông báo.
+- Gửi tin, kiểm tra badge.
+- Admin duyệt dịch vụ, Provider nhận thông báo.
+- Nhấn từng thông báo, kiểm tra đúng trang đích.
+- Đánh dấu tất cả đã đọc, badge trở về 0.
+- Đăng nhập lại, trạng thái đã đọc vẫn được lưu.
+- Tài khoản khác không thấy hoặc không đánh dấu được thông báo của người khác.
+
+### G4. Test Admin
+
+- Hộp thư hỗ trợ hiển thị hội thoại Customer/Provider đã liên hệ.
+- Admin chủ động nhắn cho người dùng từ danh sách User.
+- Người nhận thấy tin ngay.
+- Không tạo hội thoại trùng.
+- Admin tiếp quản hội thoại hỗ trợ.
+- Nhật ký tiếp quản được lưu.
+- Không thể truy cập tùy ý hội thoại riêng Customer–Provider.
+
+### G5. Test bàn giao
+
+- Customer gửi file và link cho Provider.
+- Provider nhận được và tải đúng file.
+- Provider gửi tài liệu ngược lại.
+- Provider tạo bản bàn giao chính thức.
+- Customer nhận thông báo.
+- Customer tải file và yêu cầu chỉnh sửa.
+- Provider gửi bản bàn giao mới.
+- Customer nghiệm thu theo quy trình hiện tại.
+- Tài khoản thứ ba không thể tải tệp riêng tư.
+- Lịch sử và phiên bản được lưu đầy đủ.
+
+### G6. Test điều khoản
+
+- Người chưa đăng nhập đọc được các chính sách công khai.
+- Checkbox có liên kết đến đúng trang.
+- Không thể gửi biểu mẫu khi thiếu đồng ý bắt buộc.
+- Database lưu thông tin đồng ý.
+- Footer không có liên kết lỗi.
+- Điều khoản đã đồng ý có thể xem lại.
+
+### G7. Test tự động và kiểm thử thực tế
+
+Chạy:
+
+- Maven unit tests.
+- Integration tests.
+- Security tests.
+- JavaScript syntax check.
+- Kiểm tra WebSocket trong Developer Tools.
+- Kiểm tra dữ liệu thật trong database.
+- Kiểm thử giao diện bằng các tài khoản thực tế.
+
+Nếu không có khả năng chạy trình duyệt để kiểm thử trực tiếp, phải ghi rõ "Chưa xác minh thủ công" và cung cấp checklist; không được tự tuyên bố tất cả chức năng đã hoạt động.
+
+## H. BÁO CÁO SAU KHI HOÀN THÀNH
+
+Báo cáo theo mẫu:
+
+1. Danh sách lỗi thực tế đã phát hiện.
+2. Nguyên nhân của từng lỗi.
+3. File đã chỉnh sửa.
+4. Database và migration có thay đổi.
+5. Kết quả kiểm thử tự động.
+6. Kết quả kiểm thử thủ công nếu có.
+7. Những chức năng đã hoàn thiện.
+8. Những phần chưa hoàn thiện.
+9. Hướng dẫn tôi kiểm tra trên IntelliJ và trình duyệt.
+
+**Điều kiện hoàn thành quan trọng nhất: Chat và thông báo phải hoạt động thật trên hai tài khoản đang online mà không cần tải lại trang. Không dùng dữ liệu giả, badge giả hoặc thông báo chỉ để hiển thị giao diện.**

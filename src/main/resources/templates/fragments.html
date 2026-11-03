@@ -2,10 +2,13 @@
 <html lang="vi" xmlns:th="http://www.thymeleaf.org">
 
  <th:block th:fragment="customerStyles">
+  <meta name="_csrf" th:content="${_csrf.token}"/>
+  <meta name="_csrf_header" th:content="${_csrf.headerName}"/>
   <link href="https://fonts.googleapis.com" rel="preconnect"/>
   <link href="https://fonts.gstatic.com" rel="preconnect" crossorigin="anonymous"/>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
   <link rel="stylesheet" th:href="@{/css/tokens.css}"/>
+  <link rel="stylesheet" th:if="${currentUser != null and currentUser.role.name() != 'CUSTOMER'}" th:href="@{/css/workspace.css}"/>
   <link rel="stylesheet" th:href="@{/css/app.css}"/>
  </th:block>
  <body>
@@ -99,64 +102,7 @@
      </span>
     </a>
     <nav aria-label="Điều hướng chính" class="nav">
-     <a class="nav-item" th:href="@{/marketplace}">
-      <svg class="icon">
-       <use href="#i-home">
-       </use>
-      </svg>
-      <span>
-       Trang chủ
-      </span>
-     </a>
-     <a class="nav-item" th:href="@{/providers}">
-      <svg class="icon">
-       <use href="#i-search">
-       </use>
-      </svg>
-      <span>
-       Tìm Provider
-      </span>
-     </a>
-     <a class="nav-item" th:classappend="${requestURI == '/services' ? ' active' : ''}"
-        th:href="@{/services}">
-      <svg class="icon"><use href="#i-list"></use></svg><span>Dịch vụ</span>
-     </a>
-     <a class="nav-item" th:href="@{/requests}">
-      <svg class="icon">
-       <use href="#i-list">
-       </use>
-      </svg>
-      <span>
-       Request của tôi
-      </span>
-     </a>
-     <a class="nav-item" th:href="@{/requests/browse}">
-      <svg class="icon">
-       <use href="#i-search">
-       </use>
-      </svg>
-      <span>
-       Tìm Request
-      </span>
-     </a>
-     <a class="nav-item" th:href="@{/orders}">
-      <svg class="icon">
-       <use href="#i-bag">
-       </use>
-      </svg>
-      <span>
-       Đơn hàng
-      </span>
-     </a>
-     <button class="nav-item nav-button" data-open-chat="" type="button">
-      <svg class="icon">
-       <use href="#i-chat">
-       </use>
-      </svg>
-      <span>
-       Tin nhắn
-      </span>
-     </button>
+     <th:block th:replace="~{fragments :: primaryLinks('nav-item')}"></th:block>
     </nav>
     <form class="header-quick-search" th:action="@{/providers}" method="get" role="search"><label class="sr-only" for="header-search">Tìm kiếm nhanh</label><input id="header-search" name="q" placeholder="Tìm chuyên gia…" aria-label="Tìm kiếm nhanh"><button type="submit" aria-label="Tìm">⌕</button></form>
     <div class="header-actions" th:if="${currentUser!=null}">
@@ -167,17 +113,18 @@
       <span>Giỏ hàng</span>
       <span class="cart-count" th:if="${cartItemCount > 0}" th:text="${cartItemCount}">0</span>
      </a>
-     <details class="menu-wrap">
+     <details class="menu-wrap notification-menu" id="notification-menu">
       <summary aria-label="Thông báo" class="icon-button">
        <svg class="icon">
         <use href="#i-bell">
         </use>
        </svg>
+       <span class="notification-count" id="notification-count" hidden>0</span>
       </summary>
-      <div class="menu-panel">
-       <p class="muted">
-        Chưa có thông báo mới.
-       </p>
+      <div class="menu-panel notification-panel">
+       <div class="notification-panel-head"><strong>Thông báo</strong><button class="link-button" id="notification-read-all" type="button">Đánh dấu tất cả đã đọc</button></div>
+       <div id="notification-list" aria-live="polite"><p class="muted">Đang tải thông báo…</p></div>
+       <div class="notification-panel-foot"><a href="/notifications/all">Xem tất cả thông báo</a></div>
       </div>
      </details>
      <details class="menu-wrap">
@@ -231,104 +178,46 @@
     </div>
    </div>
   </header>
-  <aside aria-label="Điều hướng quản lý" class="sidebar" th:fragment="sidebar">
-   <a class="logo sidebar-logo" th:href="@{/marketplace}">
-    <span class="logo-mark">
-     S
-    </span>
-    <span>
-     SKILL RENTAL
-    </span>
-   </a>
-   <p class="sidebar-caption">
-    QUẢN LÝ
-   </p>
-   <a class="side-item" th:href="@{/marketplace}">
-    <svg class="icon">
-     <use href="#i-home">
-     </use>
-    </svg>
-    <span>
-     Trang chủ
-    </span>
-   </a>
-   <a class="side-item" th:href="@{/providers}">
-    <svg class="icon">
-     <use href="#i-search">
-     </use>
-    </svg>
-    <span>
-     Tìm Provider
-    </span>
-   </a>
-   <a class="side-item" th:href="@{/services}">Danh mục dịch vụ</a>
-   <a class="side-item" th:href="@{/cart}">Dịch vụ đã chọn</a>
-   <a class="side-item" th:href="@{/profile}">
-    <svg class="icon">
-     <use href="#i-user">
-     </use>
-    </svg>
-    <span>
-     Hồ sơ
-    </span>
-   </a>
-   <a class="side-item" th:href="@{/requests}">
-    <svg class="icon">
-     <use href="#i-list">
-     </use>
-    </svg>
-    <span>
-     Request của tôi
-    </span>
-   </a>
-   <a class="side-item" th:href="@{/orders}">
-    <svg class="icon">
-     <use href="#i-bag">
-     </use>
-    </svg>
-    <span>
-     Đơn hàng
-    </span>
-   </a>
-   <button class="side-item side-button" data-open-chat="" type="button">
-    <svg class="icon">
-     <use href="#i-chat">
-     </use>
-    </svg>
-    <span>
-     Tin nhắn
-    </span>
-   </button>
-   <a class="side-item" th:href="@{/settings}">
-    <svg class="icon">
-     <use href="#i-settings">
-     </use>
-    </svg>
-    <span>
-     Cài đặt
-    </span>
-   </a>
-   <a class="side-item" th:href="@{/change-password}">
-    <svg class="icon">
-     <use href="#i-lock">
-     </use>
-    </svg>
-    <span>
-     Đổi mật khẩu
-    </span>
-   </a>
-   <form method="post" th:action="@{/logout}">
-    <button class="side-item side-button" type="submit">
-     <svg class="icon">
-      <use href="#i-logout">
-      </use>
-     </svg>
-     <span>
-      Đăng xuất
-     </span>
-    </button>
-   </form>
-  </aside>
+  <th:block th:fragment="primaryLinks(itemClass)">
+   <th:block th:if="${currentUser == null or currentUser.role.name() == 'CUSTOMER'}">
+    <a th:class="${itemClass}" th:href="@{/marketplace}"><svg class="icon"><use href="#i-home"></use></svg><span>Trang chủ</span></a>
+    <a th:class="${itemClass}" th:href="@{/providers}"><svg class="icon"><use href="#i-search"></use></svg><span>Tìm Provider</span></a>
+    <a th:class="${itemClass}" th:href="@{/services}"><svg class="icon"><use href="#i-list"></use></svg><span>Dịch vụ</span></a>
+    <a th:class="${itemClass}" th:href="@{/requests}"><svg class="icon"><use href="#i-list"></use></svg><span>Request của tôi</span></a>
+    <a th:class="${itemClass}" th:href="@{/requests/browse}"><svg class="icon"><use href="#i-search"></use></svg><span>Tìm Request</span></a>
+    <a th:class="${itemClass}" th:href="@{/orders}"><svg class="icon"><use href="#i-bag"></use></svg><span>Đơn hàng</span></a>
+    <a th:class="${itemClass}" th:href="@{/messages}"><svg class="icon"><use href="#i-chat"></use></svg><span>Tin nhắn</span><span class="notification-count" th:id="${itemClass == 'nav-item' ? 'chat-header-unread-count' : null}" data-chat-unread-badge hidden>0</span></a>
+   </th:block>
+   <th:block th:if="${currentUser != null and currentUser.role.name() == 'PROVIDER'}">
+    <a th:class="${itemClass}" href="/provider/dashboard"><svg class="icon"><use href="#i-home"></use></svg><span>Dashboard</span></a>
+    <a th:class="${itemClass}" href="/provider/services"><svg class="icon"><use href="#i-list"></use></svg><span>Dịch vụ</span></a>
+    <a th:class="${itemClass}" href="/provider/bookings"><svg class="icon"><use href="#i-bag"></use></svg><span>Đặt lịch &amp; Đơn hàng</span></a>
+    <a th:class="${itemClass}" href="/messages"><svg class="icon"><use href="#i-chat"></use></svg><span>Tin nhắn</span><span class="notification-count" th:id="${itemClass == 'nav-item' ? 'chat-header-unread-count' : null}" data-chat-unread-badge hidden>0</span></a>
+   </th:block>
+   <th:block th:if="${currentUser != null and currentUser.role.name() == 'ADMIN'}">
+    <a th:class="${itemClass}" href="/admin/dashboard"><svg class="icon"><use href="#i-home"></use></svg><span>Dashboard</span></a>
+    <a th:class="${itemClass}" href="/admin/users"><svg class="icon"><use href="#i-user"></use></svg><span>Người dùng</span></a>
+    <a th:class="${itemClass}" href="/admin/support"><svg class="icon"><use href="#i-chat"></use></svg><span>Hỗ trợ</span></a>
+    <a th:class="${itemClass}" href="/admin/notifications"><svg class="icon"><use href="#i-bell"></use></svg><span>Thông báo</span></a>
+   </th:block>
+  </th:block>
+  <th:block th:fragment="sidebar">
+   <aside aria-label="Điều hướng Customer" class="sidebar customer-sidebar" th:if="${currentUser == null or currentUser.role.name() == 'CUSTOMER'}">
+    <a class="logo sidebar-logo" href="/marketplace"><span class="logo-mark">S</span><span>SKILL RENTAL</span></a>
+    <p class="sidebar-caption">KHÁM PHÁ &amp; CÔNG VIỆC</p>
+    <nav aria-label="Chức năng Customer"><th:block th:replace="~{fragments :: primaryLinks('side-item')}"></th:block>
+     <a class="side-item" href="/cart"><svg class="icon"><use href="#i-cart"></use></svg><span>Giỏ hàng</span></a>
+    </nav>
+    <p class="sidebar-caption">TÀI KHOẢN</p>
+    <a class="side-item" href="/profile"><svg class="icon"><use href="#i-user"></use></svg><span>Hồ sơ</span></a>
+    <a class="side-item" href="/settings"><svg class="icon"><use href="#i-settings"></use></svg><span>Cài đặt</span></a>
+    <a class="side-item" href="/change-password"><svg class="icon"><use href="#i-lock"></use></svg><span>Đổi mật khẩu</span></a>
+    <form method="post" th:action="@{/logout}"><button class="side-item side-button" type="submit"><svg class="icon"><use href="#i-logout"></use></svg><span>Đăng xuất</span></button></form>
+   </aside>
+   <div class="account-role-sidebar" th:if="${currentUser != null and currentUser.role.name() != 'CUSTOMER'}">
+    <aside th:replace="~{workspace/fragments :: providerSidebar('account', ${currentUser.role.name() == 'ADMIN'})}"></aside>
+   </div>
+  </th:block>
   <div th:fragment="flash">
    <div class="alert success" th:if="${success}" th:text="${success}">
    </div>
@@ -337,15 +226,32 @@
   </div>
   <footer class="footer" th:fragment="footer">
    <div class="container footer-inner">
-    <span>
-     © 2026 Skill Rental · Nền tảng kết nối kỹ năng
-    </span>
-    <a th:href="@{/marketplace}">
-     Về trang chủ
-    </a>
+    <div class="footer-brand">
+     <a class="logo" href="/marketplace"><span class="logo-mark">S</span><span>SKILL RENTAL</span></a>
+     <p>Kết nối kỹ năng, cùng tạo giá trị.</p>
+     <small>© 2026 Skill Rental · Nền tảng kết nối kỹ năng</small>
+     <a class="footer-home" href="/marketplace">Về trang chủ →</a>
+    </div>
+    <nav class="footer-policy-links" aria-label="Chính sách và điều khoản">
+     <strong>Chính sách &amp; Điều khoản</strong>
+     <a th:href="@{/policies/terms}">Điều khoản sử dụng</a>
+     <a th:href="@{/policies/privacy}">Quyền riêng tư</a>
+     <a th:href="@{/policies/provider}">Quy định Provider</a>
+     <a th:href="@{/policies/booking}">Đặt dịch vụ</a>
+     <a th:href="@{/policies/cancellation}">Hủy đơn &amp; khiếu nại</a>
+     <a th:href="@{/policies/messages}">Tin nhắn &amp; bàn giao</a>
+     <a th:href="@{/policies/payments}">Thanh toán &amp; ví</a>
+     <a th:href="@{/policies/cookies}">Cookie</a>
+     <a th:if="${currentUser != null}" th:href="@{/terms/accepted}">Điều khoản đã chấp nhận</a>
+    </nav>
    </div>
   </footer>
   <div th:fragment="floatingChat" th:if="${currentUser!=null}" th:replace="~{interaction/chat :: widget}">
   </div>
  </body>
+
+<th:block th:fragment="policyConsent(required, slug)">
+ <label class="policy-consent checkbox-label" th:if="${required}"><input type="checkbox" name="acceptedPolicy" value="true" required/>
+ Tôi đồng ý <a th:href="@{/policies/{slug}(slug=${slug})}" target="_blank" rel="noopener">điều khoản áp dụng</a> và <a href="/policies/privacy" target="_blank" rel="noopener">chính sách quyền riêng tư</a>.</label>
+</th:block>
 </html>

@@ -15,8 +15,8 @@ import com.skillrental.entity.ServiceStatus;
 import com.skillrental.repository.RentalOrderRepository;
 import com.skillrental.repository.SkillRepository;
 import com.skillrental.service.MarketplaceService;
-import com.skillrental.service.ProviderEligibilityService;
 import com.skillrental.service.ServiceCatalogService;
+import com.skillrental.service.ProviderRecommendationService;
 import com.skillrental.service.RequestService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Controller;
@@ -27,6 +27,7 @@ import java.math.BigDecimal;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import java.util.Locale;
 import java.util.stream.Collectors;
 
 @Controller
@@ -41,8 +42,8 @@ public class HomeController {
     private final RentalOrderItemRepository orderItems;
     private final CustomerProfileRepository customerProfiles;
     private final CurrentUserService currentUser;
-    private final ProviderEligibilityService providerEligibility;
     private final ServiceCatalogService serviceCatalog;
+    private final ProviderRecommendationService providerRecommendations;
 
     @GetMapping("/")
     String root() {
@@ -56,23 +57,13 @@ public class HomeController {
         User viewer = currentUser.require(authentication);
         String preferred = customerProfiles.findByUser(viewer).map(p -> p.getPreferredSkills()).orElse("");
         List<String> preferredSkills = java.util.Arrays.stream((preferred == null ? "" : preferred).split(","))
-                .map(String::trim).filter(value -> !value.isBlank()).map(String::toLowerCase).toList();
-        List<ProviderProfile> recommendedProviders = providerProfiles.findAll().stream()
-                .filter(providerEligibility::isEligible)
-                .sorted((left, right) -> {
-                    int leftMatches = (int) left.getSkills().stream()
-                            .filter(skill -> preferredSkills.contains(skill.getName().toLowerCase())).count();
-                    int rightMatches = (int) right.getSkills().stream()
-                            .filter(skill -> preferredSkills.contains(skill.getName().toLowerCase())).count();
-                    int bySkillMatch = Integer.compare(rightMatches, leftMatches);
-                    if (bySkillMatch != 0) return bySkillMatch;
-                    double leftRating = left.getRating() == null ? 0.0 : left.getRating();
-                    double rightRating = right.getRating() == null ? 0.0 : right.getRating();
-                    return Double.compare(rightRating, leftRating);
-                })
-                .limit(4).toList();
+                .map(String::trim).filter(value -> !value.isBlank())
+                .map(value -> value.toLowerCase(Locale.ROOT)).toList();
+        var recommendedProviders = providerRecommendations.recommend(preferredSkills, 4);
         model.addAttribute("recommendedProviders", recommendedProviders);
-        model.addAttribute("recommendationBasis", preferredSkills.isEmpty() ? "đánh giá của cộng đồng" : "kỹ năng ưu tiên trong hồ sơ của bạn");
+        model.addAttribute("recommendationBasis",
+                "45% đánh giá hợp lệ, 25% số đơn (tối đa 10), 30% tỷ lệ hoàn thành"
+                        + (preferredSkills.isEmpty() ? "" : " và ưu tiên kỹ năng trong hồ sơ"));
 
         Map<Long, Long> orderCounts = orderItems.countOrdersPerService(OrderStatus.CANCELLED).stream()
                 .collect(Collectors.toMap(row -> ((Number) row[0]).longValue(), row -> ((Number) row[1]).longValue()));

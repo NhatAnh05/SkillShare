@@ -15,6 +15,9 @@ import com.skillrental.service.ProviderServiceManagementService.ServiceManagemen
 import com.skillrental.service.ProviderEligibilityService;
 import com.skillrental.service.UserManagementService;
 import com.skillrental.service.UserManagementService.AccountManagementException;
+import com.skillrental.service.ChatService;
+import com.skillrental.service.NotificationService;
+import com.skillrental.service.NotificationCampaignService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
@@ -68,6 +71,11 @@ public class WorkspaceController {
     private final ComplaintRepository complaints;
     private final ConversationRepository conversations;
     private final MessageRepository messages;
+    private final ChatService chatService;
+    private final com.skillrental.service.PolicyConsentService policyConsent;
+    private final com.skillrental.service.ComplaintHandlingService complaintHandling;
+    private final NotificationService notificationService;
+    private final NotificationCampaignService notificationCampaigns;
     private final WorkspaceState state;
 
     @GetMapping("/workspace")
@@ -298,11 +306,15 @@ public class WorkspaceController {
                                         @RequestParam(required = false) BigDecimal price,
                                         @RequestParam(required = false) Integer durationMinutes,
                                         @RequestParam(required = false) String coverImageUrl,
-                                        Authentication authentication, RedirectAttributes ra) {
+                                        @RequestParam(defaultValue="false") boolean acceptedPolicy, Authentication authentication, RedirectAttributes ra) {
         User provider = require(authentication, Role.PROVIDER);
+        policyConsent.accept(provider,"PROVIDER_POLICY","SERVICE_MANAGEMENT",acceptedPolicy);
         try {
-            providerServiceManagement.create(provider,
+            ServiceCatalog created = providerServiceManagement.create(provider,
                     new ServiceDetails(name, category, description, pricingType, price, durationMinutes, coverImageUrl));
+            notificationService.notifyAdmins("SERVICE_REVIEW", "Dịch vụ chờ phê duyệt",
+                    provider.getFullName() + " đã gửi dịch vụ \"" + created.getName() + "\" để Admin xét duyệt.",
+                    "SERVICE", created.getId(), "/admin/pending-services");
             ra.addFlashAttribute("success", "Đã lưu dịch vụ ở trạng thái nháp. Dịch vụ cần được Admin duyệt trước khi mở bán.");
         } catch (ServiceManagementException e) {
             ra.addFlashAttribute("error", e.getMessage());
@@ -322,8 +334,9 @@ public class WorkspaceController {
                                         @RequestParam(required = false) BigDecimal price,
                                         @RequestParam(required = false) Integer durationMinutes,
                                         @RequestParam(required = false) String coverImageUrl,
-                                        Authentication authentication, RedirectAttributes ra) {
+                                        @RequestParam(defaultValue="false") boolean acceptedPolicy, Authentication authentication, RedirectAttributes ra) {
         User provider = require(authentication, Role.PROVIDER);
+        policyConsent.accept(provider,"PROVIDER_POLICY","SERVICE_MANAGEMENT",acceptedPolicy);
         try {
             providerServiceManagement.update(id, provider,
                     new ServiceDetails(name, category, description, pricingType, price, durationMinutes, coverImageUrl));
@@ -344,7 +357,8 @@ public class WorkspaceController {
     }
 
     @PostMapping("/provider/services/{id}/resume")
-    public String resumeProviderService(@PathVariable Long id, Authentication authentication, RedirectAttributes ra) {
+    public String resumeProviderService(@PathVariable Long id, @RequestParam(defaultValue="false") boolean acceptedPolicy, Authentication authentication, RedirectAttributes ra) {
+        policyConsent.accept(require(authentication,Role.PROVIDER),"PROVIDER_POLICY","SERVICE_RESUME",acceptedPolicy);
         return providerServiceStatusAction(id, authentication, ra,
                 user -> providerServiceManagement.resume(id, user), "Đã xuất bản lại dịch vụ.");
     }
@@ -388,11 +402,8 @@ public class WorkspaceController {
 
     @PostMapping("/provider/orders/{id}/complete")
     public String providerComplete(@PathVariable Long id, Authentication authentication, RedirectAttributes ra) {
-        User u = require(authentication, Role.PROVIDER);
-        try {
-            escrowService.providerComplete(id, u);
-            ra.addFlashAttribute("success", "Đã báo hoàn thành. Tiền vẫn được giữ trong Escrow cho đến khi Customer nghiệm thu và xác nhận OTP.");
-        } catch (RuntimeException e) { ra.addFlashAttribute("error", e.getMessage()); }
+        require(authentication, Role.PROVIDER);
+        ra.addFlashAttribute("info", "Để bàn giao và lưu sản phẩm theo đơn, hãy mở chi tiết đơn hàng.");
         return "redirect:/provider/bookings";
     }
 
@@ -601,6 +612,7 @@ public class WorkspaceController {
         model.addAttribute("state", state);
         model.addAttribute("adminQuery", q);
         model.addAttribute("roleFilter", roleFilter);
+        if ("users".equals(page)) model.addAttribute("roleChanges", userManagement.recentRoleChanges());
 
         switch (page) {
             case "dashboard" -> { fillAdminDashboard(model); fillAdminFinance(model, from, to); }
@@ -631,6 +643,10 @@ public class WorkspaceController {
                     .filter(service -> service.getStatus() == ServiceStatus.PAUSED).toList());
             case "reviews" -> model.addAttribute("adminReviews", adminReviewRows());
             case "complaints" -> model.addAttribute("complaintRows", adminComplaintRows());
+            case "support" -> model.addAttribute("supportConversations",
+                    conversations.findBySupportConversationTrueOrderByLastMessageAtDesc().stream()
+                            .filter(conversation -> chatService.isParticipant(conversation, admin)).toList());
+            case "notifications" -> model.addAttribute("notificationCampaigns", notificationCampaigns.history());
             case "reports" -> model.addAttribute("reportRows", reportRows());
             case "statistics" -> fillAdminStatistics(model, from, to);
             case "finance" -> fillAdminFinance(model, from, to);
@@ -673,6 +689,23 @@ public class WorkspaceController {
                 .filter(Objects::nonNull).reduce(BigDecimal.ZERO, BigDecimal::add);
         ra.addFlashAttribute("success", "Đã đối soát demo Escrow. Tổng tiền đang bảo lãnh: " + money(active) + ".");
         return "redirect:/admin/dashboard";
+    }
+
+    @PostMapping("/admin/users/{id}/role")
+    public String promoteUser(@PathVariable Long id, @RequestParam String role, @RequestParam String reason,
+                              Authentication authentication, RedirectAttributes ra) {
+        User actor = require(authentication, Role.ADMIN);
+        try {
+            boolean changed = userManagement.promoteToAdmin(id, actor, role, reason);
+            ra.addFlashAttribute(changed ? "success" : "info", changed
+                    ? "Đã cấp quyền Admin. Người dùng cần đăng nhập lại để cập nhật quyền."
+                    : "Tài khoản đã là Admin; không ghi lặp thay đổi.");
+        } catch (AccountManagementException e) { ra.addFlashAttribute("error", e.getMessage()); }
+        catch (DataAccessException e) {
+            log.error("Không thể cấp quyền Admin userId={}", id, e);
+            ra.addFlashAttribute("error", "Không thể lưu thay đổi vai trò. Vui lòng thử lại.");
+        }
+        return "redirect:/admin/users";
     }
 
     @PostMapping("/admin/users/{id}/lock")
@@ -819,23 +852,16 @@ public class WorkspaceController {
     }
 
     @PostMapping("/admin/complaints/{id}/resolve")
-    public String resolveComplaint(@PathVariable Long id, Authentication authentication, RedirectAttributes ra) {
-        require(authentication, Role.ADMIN);
-        Complaint c = complaints.findById(id).orElseThrow();
-        c.setStatus(ComplaintStatus.RESOLVED);
-        complaints.save(c);
-        state.resolveComplaint(id);
-        ra.addFlashAttribute("success", "Đã đóng khiếu nại và ghi nhận phán quyết.");
+    public String resolveComplaint(@PathVariable Long id,@RequestParam(defaultValue="Admin đã xem xét và phản hồi yêu cầu.") String note, Authentication authentication,RedirectAttributes ra) {
+        complaintHandling.decide(id,require(authentication,Role.ADMIN),ComplaintStatus.RESOLVED,note);
+        ra.addFlashAttribute("success","Đã lưu phản hồi và thông báo cho người gửi khiếu nại.");
         return "redirect:/admin/complaints";
     }
 
     @PostMapping("/admin/complaints/{id}/reject")
-    public String rejectComplaint(@PathVariable Long id, Authentication authentication, RedirectAttributes ra) {
-        require(authentication, Role.ADMIN);
-        Complaint c = complaints.findById(id).orElseThrow();
-        c.setStatus(ComplaintStatus.REJECTED);
-        complaints.save(c);
-        ra.addFlashAttribute("success", "Đã bác khiếu nại.");
+    public String rejectComplaint(@PathVariable Long id,@RequestParam(defaultValue="Admin đã xem xét và phản hồi yêu cầu.") String note, Authentication authentication,RedirectAttributes ra) {
+        complaintHandling.decide(id,require(authentication,Role.ADMIN),ComplaintStatus.REJECTED,note);
+        ra.addFlashAttribute("success","Đã lưu phản hồi và thông báo cho người gửi khiếu nại.");
         return "redirect:/admin/complaints";
     }
 
@@ -861,28 +887,16 @@ public class WorkspaceController {
     }
 
     @PostMapping("/admin/reports/{id}/resolve")
-    public String resolveReport(@PathVariable Long id, Authentication authentication, RedirectAttributes ra) {
-        User admin = require(authentication, Role.ADMIN);
-        Complaint report = complaints.findById(id).orElseThrow();
-        report.setStatus(ComplaintStatus.RESOLVED);
-        report.setHandledBy(admin);
-        report.setResolvedAt(LocalDateTime.now());
-        report.setResolutionNotes("Admin đã xem xét báo cáo trong hệ thống.");
-        complaints.save(report);
-        ra.addFlashAttribute("success", "Đã ghi nhận xử lý báo cáo #" + id + ".");
+    public String resolveReport(@PathVariable Long id,@RequestParam(defaultValue="Admin đã xem xét và phản hồi yêu cầu.") String note, Authentication authentication,RedirectAttributes ra) {
+        complaintHandling.decide(id,require(authentication,Role.ADMIN),ComplaintStatus.RESOLVED,note);
+        ra.addFlashAttribute("success","Đã lưu phản hồi và thông báo cho người gửi khiếu nại.");
         return "redirect:/admin/reports";
     }
 
     @PostMapping("/admin/reports/{id}/reject")
-    public String rejectReport(@PathVariable Long id, Authentication authentication, RedirectAttributes ra) {
-        User admin = require(authentication, Role.ADMIN);
-        Complaint report = complaints.findById(id).orElseThrow();
-        report.setStatus(ComplaintStatus.REJECTED);
-        report.setHandledBy(admin);
-        report.setResolvedAt(LocalDateTime.now());
-        report.setResolutionNotes("Admin bác báo cáo sau khi xem xét.");
-        complaints.save(report);
-        ra.addFlashAttribute("success", "Đã bác báo cáo #" + id + ".");
+    public String rejectReport(@PathVariable Long id,@RequestParam(defaultValue="Admin đã xem xét và phản hồi yêu cầu.") String note, Authentication authentication,RedirectAttributes ra) {
+        complaintHandling.decide(id,require(authentication,Role.ADMIN),ComplaintStatus.REJECTED,note);
+        ra.addFlashAttribute("success","Đã lưu phản hồi và thông báo cho người gửi khiếu nại.");
         return "redirect:/admin/reports";
     }
 
@@ -1065,20 +1079,18 @@ public class WorkspaceController {
     public String providerChatSend(@PathVariable Long id, @RequestParam String content,
                                    Authentication authentication, RedirectAttributes ra) {
         User u = require(authentication, Role.PROVIDER);
-        Conversation c = conversations.findById(id).orElseThrow();
+        Conversation c = conversations.findById(id).orElseThrow(() ->
+                new org.springframework.web.server.ResponseStatusException(
+                        org.springframework.http.HttpStatus.NOT_FOUND, "Không tìm thấy hội thoại."));
         if (c.getProvider() == null || !Objects.equals(c.getProvider().getId(), u.getId())) {
-            throw new IllegalArgumentException("Không có quyền");
+            throw new org.springframework.web.server.ResponseStatusException(
+                    org.springframework.http.HttpStatus.FORBIDDEN, "Không có quyền truy cập hội thoại.");
         }
         if (content == null || content.isBlank()) {
             ra.addFlashAttribute("error", "Tin nhắn không được để trống.");
             return "redirect:/provider/chat";
         }
-        messages.save(Message.builder()
-                .conversation(c)
-                .sender(u)
-                .content(content.trim())
-                .sentAt(LocalDateTime.now())
-                .build());
+        chatService.send(c,u,content);
         return "redirect:/provider/chat";
     }
 
@@ -1502,6 +1514,7 @@ public class WorkspaceController {
         return switch (page) {
             case "dashboard" -> "Dashboard Tổng Quan";
             case "users" -> "Quản Lý Người Dùng";
+            case "notifications" -> "Quản Lý Thông Báo";
             case "locked" -> "Khóa Tài Khoản";
             case "unlock" -> "Mở Khóa Tài Khoản";
             case "providers", "provider-detail" -> "Quản Lý Provider";

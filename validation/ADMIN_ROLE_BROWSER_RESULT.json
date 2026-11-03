@@ -1,0 +1,8 @@
+{
+  "status": "PASS",
+  "checks": [
+    "CUSTOMER → ADMIN: form update, persisted role and audit, old session stopped, fresh login can open admin dashboard",
+    "PROVIDER → ADMIN: form update, persisted role and audit, old session stopped, fresh login can open admin dashboard",
+    "Role filter includes both newly promoted Admin accounts"
+  ]
+}

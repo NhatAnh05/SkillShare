@@ -110,6 +110,11 @@ class AdminUserManagementTest {
         users.saveAndFlush(admin);
 
         mvc.perform(post("/admin/users/{id}/unlock", admin.getId()).with(csrf()))
+                .andExpect(status().isForbidden()); // A locked actor cannot use a previously authenticated session.
+        User operator=users.saveAndFlush(User.builder().fullName("Active administrator").email("active-operator@test.local")
+                .password("unused").role(com.skillrental.entity.Role.ADMIN).emailVerified(true).accountStatus(AccountStatus.ACTIVE).build());
+        mvc.perform(post("/admin/users/{id}/unlock", admin.getId()).with(csrf())
+                        .with(org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user(operator.getEmail()).roles("ADMIN")))
                 .andExpect(status().is3xxRedirection())
                 .andExpect(flash().attributeExists("error"));
         assertEquals(AccountStatus.LOCKED, reload(admin.getId()).getAccountStatus());
@@ -229,4 +234,88 @@ class AdminUserManagementTest {
     private User reload(Long userId) {
         return users.findById(userId).orElseThrow();
     }
+    @Autowired private com.skillrental.repository.UserRoleChangeRepository roleChanges;
+    @Autowired private com.skillrental.repository.RentalOrderRepository orders;
+    @Autowired private com.skillrental.repository.CustomerProfileRepository customers;
+    @Autowired private com.skillrental.repository.UserWalletRepository wallets;
+    @Autowired private org.springframework.security.crypto.password.PasswordEncoder encoder;
+    @Autowired private com.skillrental.service.UserManagementService management;
+
+    private User roleCandidate(com.skillrental.entity.Role role) {
+        User u = users.saveAndFlush(User.builder().fullName("Role candidate " + role)
+                .email(java.util.UUID.randomUUID()+"@roles.test").password(encoder.encode("RolePassword123!"))
+                .role(role).accountStatus(AccountStatus.ACTIVE).emailVerified(true).build());
+        if(role==com.skillrental.entity.Role.CUSTOMER)customers.saveAndFlush(com.skillrental.entity.CustomerProfile.builder().user(u).location("Test location").build());
+        else providers.saveAndFlush(ProviderProfile.builder().user(u).headline("Provider profile").hourlyRate(java.math.BigDecimal.ZERO).rating(0.0).reviewCount(0).premium(false).approved(false).build());
+        return u;
+    }
+
+    @Test
+    @WithMockUser(username="admin@skillrental.vn",roles="ADMIN")
+    void adminCanPromoteCustomerAndProviderAndDuplicateSubmitDoesNotDuplicateAudit() throws Exception {
+        for(var role: new com.skillrental.entity.Role[]{com.skillrental.entity.Role.CUSTOMER,com.skillrental.entity.Role.PROVIDER}){
+            User target=roleCandidate(role);
+            mvc.perform(post("/admin/users/{id}/role",target.getId()).with(csrf()).param("role","ADMIN").param("reason","Appoint system administrator"))
+                    .andExpect(status().is3xxRedirection()).andExpect(redirectedUrl("/admin/users")).andExpect(flash().attributeExists("success"));
+            User saved=reload(target.getId());assertEquals(com.skillrental.entity.Role.ADMIN,saved.getRole());assertEquals(1,roleChanges.countByTargetId(target.getId()));
+            if(role==com.skillrental.entity.Role.CUSTOMER)assertTrue(customers.findByUser(saved).isPresent());else assertTrue(providers.findByUser(saved).isPresent());
+            mvc.perform(post("/admin/users/{id}/role",target.getId()).with(csrf()).param("role","ADMIN").param("reason","Repeated request"))
+                    .andExpect(status().is3xxRedirection()).andExpect(flash().attributeExists("info"));
+            assertEquals(1,roleChanges.countByTargetId(target.getId()));
+        }
+        mvc.perform(get("/admin/users")).andExpect(status().isOk()).andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.content().string(org.hamcrest.Matchers.containsString("Lịch sử cấp quyền Admin")));
+    }
+
+    @Test
+    void promotionRequiresAdminAtBothEndpointAndServiceAndRequiresCsrf() throws Exception {
+        User target=roleCandidate(com.skillrental.entity.Role.CUSTOMER);
+        mvc.perform(post("/admin/users/{id}/role",target.getId()).with(csrf()).with(org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user("customer@skillrental.vn").roles("CUSTOMER")).param("role","ADMIN").param("reason","Try"))
+                .andExpect(status().isForbidden());
+        mvc.perform(post("/admin/users/{id}/role",target.getId()).with(csrf()).with(org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user("customer@skillrental.vn").roles("ADMIN")).param("role","ADMIN").param("reason","Forged authority"))
+                .andExpect(status().isForbidden());
+        mvc.perform(post("/admin/users/{id}/role",target.getId()).with(org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user("admin@skillrental.vn").roles("ADMIN")).param("role","ADMIN").param("reason","No CSRF"))
+                .andExpect(status().isForbidden());
+        var customer=users.findByEmailIgnoreCase("customer@skillrental.vn").orElseThrow();
+        org.junit.jupiter.api.Assertions.assertThrows(org.springframework.web.server.ResponseStatusException.class,()->management.promoteToAdmin(target.getId(),customer,"ADMIN","Not an administrator"));
+        assertEquals(com.skillrental.entity.Role.CUSTOMER,reload(target.getId()).getRole());assertEquals(0,roleChanges.countByTargetId(target.getId()));
+    }
+
+    @Test
+    @WithMockUser(username="admin@skillrental.vn",roles="ADMIN")
+    void promotionValidatesRoleReasonAndTargetStatus() throws Exception {
+        User target=roleCandidate(com.skillrental.entity.Role.CUSTOMER);
+        for(String role:new String[]{"CUSTOMER","PROVIDER","INVALID"})
+            mvc.perform(post("/admin/users/{id}/role",target.getId()).with(csrf()).param("role",role).param("reason","Invalid target role")).andExpect(status().is3xxRedirection()).andExpect(flash().attributeExists("error"));
+        mvc.perform(post("/admin/users/{id}/role",target.getId()).with(csrf()).param("role","ADMIN").param("reason"," ")).andExpect(status().is3xxRedirection()).andExpect(flash().attributeExists("error"));
+        target.setAccountStatus(AccountStatus.LOCKED);users.saveAndFlush(target);
+        mvc.perform(post("/admin/users/{id}/role",target.getId()).with(csrf()).param("role","ADMIN").param("reason","Locked")).andExpect(status().is3xxRedirection()).andExpect(flash().attributeExists("error"));
+        target=reload(target.getId());target.setAccountStatus(AccountStatus.ACTIVE);target.setEmailVerified(false);users.saveAndFlush(target);
+        mvc.perform(post("/admin/users/{id}/role",target.getId()).with(csrf()).param("role","ADMIN").param("reason","Not verified")).andExpect(status().is3xxRedirection()).andExpect(flash().attributeExists("error"));
+        assertEquals(com.skillrental.entity.Role.CUSTOMER,reload(target.getId()).getRole());assertEquals(0,roleChanges.countByTargetId(target.getId()));
+    }
+
+    @Test
+    @WithMockUser(username="admin@skillrental.vn",roles="ADMIN")
+    void cannotAbandonAnActiveOrderOrProviderWalletByChangingRoles() throws Exception {
+        User target=roleCandidate(com.skillrental.entity.Role.CUSTOMER);var provider=users.findByEmailIgnoreCase("provider1@skillrental.vn").orElseThrow();
+        orders.saveAndFlush(com.skillrental.entity.RentalOrder.builder().customer(target).provider(provider).subtotal(java.math.BigDecimal.TEN).discount(java.math.BigDecimal.ZERO).total(java.math.BigDecimal.TEN).status(com.skillrental.entity.OrderStatus.PROCESSING).build());
+        mvc.perform(post("/admin/users/{id}/role",target.getId()).with(csrf()).param("role","ADMIN").param("reason","Has active work")).andExpect(status().is3xxRedirection()).andExpect(flash().attributeExists("error"));
+        assertEquals(com.skillrental.entity.Role.CUSTOMER,reload(target.getId()).getRole());
+        User candidate=roleCandidate(com.skillrental.entity.Role.PROVIDER);
+        wallets.saveAndFlush(com.skillrental.entity.UserWallet.builder().user(candidate).balance(java.math.BigDecimal.TEN).build());
+        mvc.perform(post("/admin/users/{id}/role",candidate.getId()).with(csrf()).param("role","ADMIN").param("reason","Has provider funds")).andExpect(status().is3xxRedirection()).andExpect(flash().attributeExists("error"));
+        assertEquals(com.skillrental.entity.Role.PROVIDER,reload(candidate.getId()).getRole());
+    }
+
+    @Test
+    void promotedAccountMustReauthenticateAndCanThenOpenAdminDashboard() throws Exception {
+        User target=roleCandidate(com.skillrental.entity.Role.CUSTOMER);
+        var login=mvc.perform(post("/login").with(csrf()).param("username",target.getEmail()).param("password","RolePassword123!")).andExpect(status().is3xxRedirection()).andReturn();
+        var session=(org.springframework.mock.web.MockHttpSession)login.getRequest().getSession(false);
+        mvc.perform(post("/admin/users/{id}/role",target.getId()).with(csrf()).with(org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user("admin@skillrental.vn").roles("ADMIN")).param("role","ADMIN").param("reason","New administrator")).andExpect(status().is3xxRedirection());
+        mvc.perform(get("/admin/dashboard").session(session)).andExpect(status().is3xxRedirection()).andExpect(redirectedUrl("/login?roleChanged"));assertTrue(session.isInvalid());
+        var again=mvc.perform(post("/login").with(csrf()).param("username",target.getEmail()).param("password","RolePassword123!")).andExpect(status().is3xxRedirection()).andReturn();
+        mvc.perform(get("/admin/dashboard").session((org.springframework.mock.web.MockHttpSession)again.getRequest().getSession(false))).andExpect(status().isOk());
+    }
+
 }

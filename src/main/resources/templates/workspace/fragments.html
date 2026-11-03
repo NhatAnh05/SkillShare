@@ -20,7 +20,7 @@
       </span>
     </a>
   </div>
-  <nav class="wk-side-nav">
+  <nav class="wk-side-nav" aria-label="Điều hướng Workspace">
     <div class="wk-side-label">Tổng quan</div>
     <a class="wk-side-item" th:classappend="${active == 'dashboard' ? ' active' : ''}" th:href="${adminMode ? '/admin/dashboard' : '/provider/dashboard'}"><span class="left"><span class="wk-side-icon">⌂</span><span>Dashboard</span></span></a>
 
@@ -32,16 +32,16 @@
       <a class="wk-side-item" th:classappend="${active == 'availability' ? ' active' : ''}" href="/provider/availability"><span class="left"><span class="wk-side-icon">◫</span><span>Lịch rảnh &amp; Trạng thái</span></span></a>
 
       <div class="wk-side-label">Công việc &amp; Đơn hàng</div>
-      <a class="wk-side-item" th:classappend="${active == 'offers' ? ' active' : ''}" href="/provider/offers"><span class="left"><span class="wk-side-icon">✈</span><span>Đề xuất &amp; Ứng tuyển</span></span><span class="wk-badge">6</span></a>
+      <a class="wk-side-item" th:classappend="${active == 'offers' ? ' active' : ''}" href="/provider/offers"><span class="left"><span class="wk-side-icon">✈</span><span>Đề xuất &amp; Ứng tuyển</span></span></a>
       <a class="wk-side-item" th:classappend="${active == 'applications' ? ' active' : ''}" href="/provider/applications"><span class="left"><span class="wk-side-icon">✓</span><span>Theo dõi Ứng tuyển</span></span></a>
-      <a class="wk-side-item" th:classappend="${active == 'bookings' ? ' active' : ''}" href="/provider/bookings"><span class="left"><span class="wk-side-icon">▣</span><span>Đặt lịch &amp; Tiến độ</span></span><span class="wk-badge">2</span></a>
+      <a class="wk-side-item" th:classappend="${active == 'bookings' ? ' active' : ''}" href="/provider/bookings"><span class="left"><span class="wk-side-icon">▣</span><span>Đặt lịch &amp; Tiến độ</span></span></a>
 
       <div class="wk-side-label">Kinh doanh &amp; Khách hàng</div>
-      <a class="wk-side-item" th:classappend="${active == 'chat' ? ' active' : ''}" href="/provider/chat"><span class="left"><span class="wk-side-icon">◌</span><span>Tin nhắn Khách hàng</span></span><span class="wk-badge">3</span></a>
+      <a class="wk-side-item" th:classappend="${active == 'chat' ? ' active' : ''}" href="/messages"><span class="left"><span class="wk-side-icon">◌</span><span>Tin nhắn &amp; Hỗ trợ</span></span><span class="wk-badge" data-chat-unread-badge hidden></span></a>
       <a class="wk-side-item" th:classappend="${active == 'fees' ? ' active' : ''}" href="/provider/fees"><span class="left"><span class="wk-side-icon">▤</span><span>Thanh toán &amp; Phí sàn</span></span></a>
       <a class="wk-side-item" th:classappend="${active == 'wallet' ? ' active' : ''}" href="/provider/wallet"><span class="left"><span class="wk-side-icon">₫</span><span>Ví &amp; Thu nhập</span></span></a>
       <a class="wk-side-item" th:classappend="${active == 'reviews' ? ' active' : ''}" href="/provider/reviews"><span class="left"><span class="wk-side-icon">★</span><span>Đánh giá &amp; Uy tín</span></span></a>
-      <a class="wk-side-item" th:classappend="${active == 'complaints' ? ' active' : ''}" href="/provider/complaints"><span class="left"><span class="wk-side-icon">⚑</span><span>Khiếu nại &amp; Tranh chấp</span></span><span class="wk-badge">1</span></a>
+      <a class="wk-side-item" th:classappend="${active == 'complaints' ? ' active' : ''}" href="/provider/complaints"><span class="left"><span class="wk-side-icon">⚑</span><span>Khiếu nại &amp; Tranh chấp</span></span></a>
 
       <div class="wk-side-label">Dịch vụ hệ thống</div>
       <a class="wk-side-item" href="/marketplace"><span class="left"><span class="wk-side-icon">⌂</span><span>Mua dịch vụ</span></span></a>
@@ -54,19 +54,25 @@
       <a class="wk-side-item" th:classappend="${active == 'locked' ? ' active' : ''}" href="/admin/locked"><span class="left"><span class="wk-side-icon">▣</span><span>Khóa tài khoản</span></span></a>
       <a class="wk-side-item" th:classappend="${active == 'unlock' ? ' active' : ''}" href="/admin/unlock"><span class="left"><span class="wk-side-icon">⌕</span><span>Mở khóa tài khoản</span></span></a>
 
+      <div class="wk-side-label">Tin nhắn &amp; Hỗ trợ</div>
+      <a class="wk-side-item" th:classappend="${active == 'support' ? ' active' : ''}" href="/admin/support"><span class="left"><span class="wk-side-icon">◌</span><span>Hộp thư hỗ trợ</span></span><span class="wk-badge" data-chat-unread-badge hidden></span></a>
+      <a class="wk-side-item" th:classappend="${active == 'messages' ? ' active' : ''}" href="/admin/messages"><span class="left"><span class="wk-side-icon">✉</span><span>Liên hệ người dùng</span></span></a>
+      <a class="wk-side-item" href="/admin/support-reviews"><span class="left">Quyền xem chat khiếu nại</span></a>
+      <a class="wk-side-item" th:classappend="${active == 'notifications' ? ' active' : ''}" href="/admin/notifications"><span class="left"><span class="wk-side-icon">♧</span><span>Quản lý thông báo</span></span></a>
+
       <div class="wk-side-label">Quản lý Provider</div>
       <a class="wk-side-item" th:classappend="${active == 'providers' ? ' active' : ''}" href="/admin/providers"><span class="left"><span class="wk-side-icon">♙</span><span>Tất cả Provider</span></span></a>
-      <a class="wk-side-item" th:classappend="${active == 'pending-providers' ? ' active' : ''}" href="/admin/pending-providers"><span class="left"><span class="wk-side-icon">✓</span><span>Duyệt Provider &amp; Hồ sơ</span></span><span class="wk-badge">4</span></a>
-      <a class="wk-side-item" th:classappend="${active == 'skills' ? ' active' : ''}" href="/admin/skills"><span class="left"><span class="wk-side-icon">✦</span><span>Duyệt kỹ năng &amp; CC</span></span><span class="wk-badge">3</span></a>
+      <a class="wk-side-item" th:classappend="${active == 'pending-providers' ? ' active' : ''}" href="/admin/pending-providers"><span class="left"><span class="wk-side-icon">✓</span><span>Duyệt Provider &amp; Hồ sơ</span></span></a>
+      <a class="wk-side-item" th:classappend="${active == 'skills' ? ' active' : ''}" href="/admin/skills"><span class="left"><span class="wk-side-icon">✦</span><span>Duyệt kỹ năng &amp; CC</span></span></a>
 
       <div class="wk-side-label">Quản lý dịch vụ</div>
       <a class="wk-side-item" th:classappend="${active == 'services' ? ' active' : ''}" href="/admin/services"><span class="left"><span class="wk-side-icon">▣</span><span>Dịch vụ</span></span></a>
-      <a class="wk-side-item" th:classappend="${active == 'pending-services' || active == 'price-requests' || active == 'blocked-services' ? ' active' : ''}" href="/admin/pending-services"><span class="left"><span class="wk-side-icon">✓</span><span>Duyệt dịch vụ &amp; giá</span></span><span class="wk-badge">3</span></a>
+      <a class="wk-side-item" th:classappend="${active == 'pending-services' || active == 'price-requests' || active == 'blocked-services' ? ' active' : ''}" href="/admin/pending-services"><span class="left"><span class="wk-side-icon">✓</span><span>Duyệt dịch vụ &amp; giá</span></span></a>
 
       <div class="wk-side-label">Giao dịch &amp; đánh giá</div>
       <a class="wk-side-item" th:classappend="${active == 'orders' ? ' active' : ''}" href="/admin/orders"><span class="left"><span class="wk-side-icon">▤</span><span>Đơn hàng</span></span></a>
       <a class="wk-side-item" th:classappend="${active == 'reviews' ? ' active' : ''}" href="/admin/reviews"><span class="left"><span class="wk-side-icon">★</span><span>Đánh giá</span></span></a>
-      <a class="wk-side-item" th:classappend="${active == 'complaints' ? ' active' : ''}" href="/admin/complaints"><span class="left"><span class="wk-side-icon">⚑</span><span>Khiếu nại</span></span><span class="wk-badge">2</span></a>
+      <a class="wk-side-item" th:classappend="${active == 'complaints' ? ' active' : ''}" href="/admin/complaints"><span class="left"><span class="wk-side-icon">⚑</span><span>Khiếu nại</span></span></a>
 
       <div class="wk-side-label">Thống kê &amp; Báo cáo</div>
       <a class="wk-side-item" th:classappend="${active == 'reports' ? ' active' : ''}" href="/admin/reports"><span class="left"><span class="wk-side-icon">▤</span><span>Báo cáo &amp; Xuất file</span></span></a>
@@ -74,8 +80,12 @@
       <a class="wk-side-item" th:classappend="${active == 'finance' ? ' active' : ''}" href="/admin/finance"><span class="left"><span class="wk-side-icon">◷</span><span>Thống kê dòng tiền</span></span></a>
 
       <div class="wk-side-label">Cấu hình &amp; Gói</div>
-      <a class="wk-side-item" th:classappend="${active == 'packages' ? ' active' : ''}" href="/admin/packages"><span class="left"><span class="wk-side-icon">▢</span><span>Gói đăng tin</span></span><span class="wk-badge">2</span></a>
+      <a class="wk-side-item" th:classappend="${active == 'packages' ? ' active' : ''}" href="/admin/packages"><span class="left"><span class="wk-side-icon">▢</span><span>Gói đăng tin</span></span></a>
     </div>
+    <div class="wk-side-label">Tài khoản</div>
+    <a class="wk-side-item" href="/profile"><span class="left"><span class="wk-side-icon">◉</span><span>Hồ sơ tài khoản</span></span></a>
+    <a class="wk-side-item" href="/settings"><span class="left"><span class="wk-side-icon">⚙</span><span>Cài đặt</span></span></a>
+    <a class="wk-side-item" href="/change-password"><span class="left"><span class="wk-side-icon">▣</span><span>Đổi mật khẩu</span></span></a>
   </nav>
   <div class="wk-side-foot">
     <div class="wk-user-mini">
@@ -86,10 +96,15 @@
 </aside>
 
 <header class="wk-topbar" th:classappend="${adminMode ? ' admin' : ''}" th:fragment="topbar(title, adminMode)">
-  <button class="wk-mobile-toggle" type="button" data-wk-menu>☰</button>
+  <button class="wk-mobile-toggle" type="button" aria-label="Mở menu điều hướng" aria-expanded="false" data-wk-menu>☰</button>
   <div class="wk-topbar-title" th:text="${title}">Dashboard</div>
   <div class="wk-search"><input aria-label="Tìm kiếm" type="search" placeholder="Tìm kiếm nhanh..."/></div>
   <div class="wk-topbar-actions">
+    <a class="wk-top-link" type="button"  href="/messages">Tin nhắn <span class="notification-count" id="chat-header-unread-count" hidden>0</span></a>
+    <details class="menu-wrap notification-menu" id="notification-menu">
+      <summary aria-label="Thông báo" class="icon-button"><svg class="icon"><use href="#i-bell"></use></svg><span class="notification-count" id="notification-count" hidden>0</span></summary>
+      <div class="menu-panel notification-panel"><div class="notification-panel-head"><strong>Thông báo</strong><button class="link-button" id="notification-read-all" type="button">Đánh dấu tất cả đã đọc</button></div><div id="notification-list" aria-live="polite"><p class="muted">Đang tải thông báo…</p></div><div class="notification-panel-foot"><a href="/notifications/all">Xem tất cả thông báo</a></div></div>
+    </details>
     <a class="wk-top-link wk-top-home"
        th:if="${adminMode}"
        th:href="@{/marketplace}">Xem Trang chủ ↗</a>

@@ -3,6 +3,8 @@ package com.skillrental;
 import com.skillrental.dto.BookingForm;
 import com.skillrental.entity.*;
 import com.skillrental.repository.*;
+import com.skillrental.service.DeliveryService;
+import org.springframework.mock.web.MockMultipartFile;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
@@ -11,6 +13,8 @@ import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
+import java.nio.file.Files;
+import java.nio.file.Path;
 
 import java.time.LocalDate;
 import java.math.BigDecimal;
@@ -23,6 +27,7 @@ import java.util.concurrent.TimeUnit;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -46,6 +51,12 @@ class CustomerProviderAdminTransactionFlowTest {
     @Autowired private RentalOrderRepository orders;
     @Autowired private RentalOrderItemRepository orderItems;
     @Autowired private RentalOrderStatusHistoryRepository history;
+    @Autowired private DeliverySubmissionRepository deliverySubmissions;
+    @Autowired private DeliveryFileRepository deliveryFiles;
+    @Autowired private DeliveryLinkRepository deliveryLinks;
+    @Autowired private DeliveryRevisionRequestRepository deliveryRevisions;
+    @Autowired private DeliveryService deliveryService;
+    @Autowired private NotificationRepository notifications;
 
     @Test
     @WithMockUser(username = "customer@skillrental.vn", roles = "CUSTOMER")
@@ -54,7 +65,7 @@ class CustomerProviderAdminTransactionFlowTest {
         User provider = users.findByEmailIgnoreCase("provider1@skillrental.vn").orElseThrow();
         ProviderProfile providerProfile = providers.findByUser(provider).orElseThrow();
 
-        mvc.perform(post("/provider/services/new").with(csrf())
+        mvc.perform(post("/provider/services/new").with(csrf()).param("acceptedPolicy","true")
                         .with(user(provider.getEmail()).roles("PROVIDER"))
                         .param("name", "Dịch vụ E2E ổn định")
                         .param("category", "Kiểm thử")
@@ -111,7 +122,7 @@ class CustomerProviderAdminTransactionFlowTest {
         long bookingCount = bookings.count();
         long orderCount = orders.count();
 
-        mvc.perform(post("/booking/provider/{id}", providerProfile.getId()).with(csrf())
+        mvc.perform(post("/booking/provider/{id}", providerProfile.getId()).with(csrf()).param("acceptedPolicy","true")
                         .param("serviceId", service.getId().toString())
                         .param("cartItemId", cartItem.getId().toString())
                         .param("idempotencyKey", key)
@@ -128,7 +139,7 @@ class CustomerProviderAdminTransactionFlowTest {
         assertEquals(orderCount, orders.count());
         assertTrue(cartItems.findByCartAndServiceId(cart, service.getId()).isPresent());
 
-        mvc.perform(post("/booking/provider/{id}", providerProfile.getId()).with(csrf())
+        mvc.perform(post("/booking/provider/{id}", providerProfile.getId()).with(csrf()).param("acceptedPolicy","true")
                         .param("serviceId", service.getId().toString())
                         .param("cartItemId", cartItem.getId().toString())
                         .param("idempotencyKey", key)
@@ -167,7 +178,7 @@ class CustomerProviderAdminTransactionFlowTest {
                 .anyMatch(entry -> entry.getPreviousStatus() == null
                         && OrderStatus.PENDING_PROVIDER_ACCEPTANCE.name().equals(entry.getNewStatus())));
 
-        mvc.perform(post("/booking/provider/{id}", providerProfile.getId()).with(csrf())
+        mvc.perform(post("/booking/provider/{id}", providerProfile.getId()).with(csrf()).param("acceptedPolicy","true")
                         .param("serviceId", service.getId().toString())
                         .param("cartItemId", cartItem.getId().toString())
                         .param("idempotencyKey", key)
@@ -183,7 +194,7 @@ class CustomerProviderAdminTransactionFlowTest {
         assertEquals(bookingCount + 1, bookings.count());
         assertEquals(orderCount + 1, orders.count());
 
-        mvc.perform(post("/booking/provider/{id}", providerProfile.getId()).with(csrf())
+        mvc.perform(post("/booking/provider/{id}", providerProfile.getId()).with(csrf()).param("acceptedPolicy","true")
                         .param("serviceId", service.getId().toString())
                         .param("idempotencyKey", key)
                         .param("bookingDate", day)
@@ -204,12 +215,58 @@ class CustomerProviderAdminTransactionFlowTest {
         mvc.perform(post("/provider/orders/{id}/start-confirmation", order.getId()).with(csrf())
                         .with(user(provider.getEmail()).roles("PROVIDER")))
                 .andExpect(status().is3xxRedirection());
-        mvc.perform(post("/provider/orders/{id}/complete", order.getId()).with(csrf())
-                        .with(user(provider.getEmail()).roles("PROVIDER")))
-                .andExpect(status().is3xxRedirection());
+        org.springframework.test.util.ReflectionTestUtils.setField(deliveryService, "storageDirectory", "target/test-deliveries");
+        MockMultipartFile handoffFile = new MockMultipartFile(
+                "files", "deliverable.txt", "text/plain", "private deliverable".getBytes());
+        mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders
+                        .multipart("/orders/{id}/deliveries", order.getId()).file(handoffFile)
+                        .with(csrf()).with(user(provider.getEmail()).roles("PROVIDER"))
+                        .param("description", "Bàn giao phiên bản đầu tiên")
+                        .param("usageNotes", "Mở bằng trình soạn thảo văn bản.")
+                        .param("links", "https://example.test/deliverable"))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(redirectedUrl("/orders/" + order.getId() + "/progress"));
 
         RentalOrder progressed = orders.findById(order.getId()).orElseThrow();
         assertEquals(OrderStatus.PENDING_CUSTOMER_ACCEPTANCE, progressed.getStatus());
+        DeliverySubmission firstDelivery = deliverySubmissions.findFirstByOrderIdOrderByVersionDesc(order.getId()).orElseThrow();
+        assertEquals(1, firstDelivery.getVersion());
+        assertEquals(1, deliveryFiles.findByDeliveryId(firstDelivery.getId()).size());
+        assertEquals(1, deliveryLinks.findByDeliveryId(firstDelivery.getId()).size());
+        DeliveryFile firstFile = deliveryFiles.findByDeliveryId(firstDelivery.getId()).get(0);
+        mvc.perform(get("/orders/{id}/deliveries/{deliveryId}/files/{fileId}",
+                        order.getId(), firstDelivery.getId(), firstFile.getId())
+                        .with(user(customer.getEmail()).roles("CUSTOMER")))
+                .andExpect(status().isOk())
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers
+                        .content().bytes("private deliverable".getBytes()));
+        Path storedFile = Path.of("target/test-deliveries").resolve(firstFile.getStorageKey());
+        assertTrue(Files.exists(storedFile));
+        Files.deleteIfExists(storedFile);
+        Files.deleteIfExists(Path.of("target/test-deliveries"));
+        org.springframework.test.util.ReflectionTestUtils.setField(deliveryService, "storageDirectory", "./private-deliveries");
+        User outsider = users.findAll().stream()
+                .filter(candidate -> candidate.getRole() == Role.CUSTOMER && !candidate.getId().equals(customer.getId()))
+                .findFirst().orElseThrow();
+        assertThrows(IllegalArgumentException.class,
+                () -> deliveryService.download(order.getId(), firstDelivery.getId(), firstFile.getId(), outsider));
+        mvc.perform(post("/orders/{id}/deliveries/{deliveryId}/revision",
+                        order.getId(), firstDelivery.getId()).with(csrf())
+                        .param("reason", "Vui lòng cập nhật một chi tiết.")
+                        .with(user(customer.getEmail()).roles("CUSTOMER")))
+                .andExpect(status().is3xxRedirection());
+        assertEquals(OrderStatus.PROCESSING, orders.findById(order.getId()).orElseThrow().getStatus());
+        assertEquals("OPEN", deliveryRevisions.findByOrderIdOrderByCreatedAtAsc(order.getId()).get(0).getStatus());
+        mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders
+                        .multipart("/orders/{id}/deliveries", order.getId())
+                        .with(csrf()).with(user(provider.getEmail()).roles("PROVIDER"))
+                        .param("description", "Bàn giao phiên bản đã chỉnh sửa").param("links", "https://example.test/revised-product"))
+                .andExpect(status().is3xxRedirection());
+        assertEquals(2, deliverySubmissions.findByOrderIdOrderByVersionDesc(order.getId()).get(0).getVersion());
+        assertEquals("RESOLVED", deliveryRevisions.findByOrderIdOrderByCreatedAtAsc(order.getId()).get(0).getStatus());
+        List<Notification> customerNotifications = notifications.findTop50ByRecipientOrderByCreatedAtDescIdDesc(customer);
+        assertTrue(customerNotifications.stream()
+                .anyMatch(notification -> notification.getTitle().contains("sản phẩm bàn giao")), customerNotifications.toString());
         assertEquals(BookingStatus.IN_PROGRESS, bookings.findById(booking.getId()).orElseThrow().getStatus());
         List<String> statuses = history.findByOrderIdOrderByCreatedAtAsc(order.getId()).stream()
                 .map(RentalOrderStatusHistory::getNewStatus).toList();
@@ -288,7 +345,7 @@ class CustomerProviderAdminTransactionFlowTest {
         if (!start.await(10, TimeUnit.SECONDS)) {
             throw new IllegalStateException("Timed out waiting to submit the concurrent request.");
         }
-        return mvc.perform(post("/booking/provider/{id}", providerProfile.getId()).with(csrf())
+        return mvc.perform(post("/booking/provider/{id}", providerProfile.getId()).with(csrf()).param("acceptedPolicy","true")
                         .with(user(customer.getEmail()).roles("CUSTOMER"))
                         .param("serviceId", service.getId().toString())
                         .param("idempotencyKey", key)

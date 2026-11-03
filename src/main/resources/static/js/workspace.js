@@ -5,13 +5,25 @@
     document.addEventListener('click', (event) => {
         const menuButton = event.target.closest('[data-wk-menu]');
         if (menuButton && sidebar) {
-            sidebar.classList.toggle('open');
+            const open = sidebar.classList.toggle('open');
+            menuButton.setAttribute('aria-expanded', String(open));
             return;
         }
 
         const sidebarLink = event.target.closest('.wk-side-item');
         if (sidebarLink && sidebar && window.matchMedia('(max-width: 820px)').matches) {
             sidebar.classList.remove('open');
+            document.querySelector('[data-wk-menu]')?.setAttribute('aria-expanded', 'false');
+        }
+        if (sidebar && !sidebar.contains(event.target) && !menuButton) {
+            sidebar.classList.remove('open');
+            document.querySelector('[data-wk-menu]')?.setAttribute('aria-expanded', 'false');
+        }
+    });
+    document.addEventListener('keydown', event => {
+        if (event.key === 'Escape' && sidebar) {
+            sidebar.classList.remove('open');
+            document.querySelector('[data-wk-menu]')?.setAttribute('aria-expanded', 'false');
         }
     });
 

@@ -1,0 +1,619 @@
+{
+  "input_zip": "SkillShare_Admin_Notifications_Policies_Full_Source.zip",
+  "input_zip_sha256": "abd963ad55f9627a1865dafc6bab97e3ad53a0b26f32eae3ba3c06d2cda7a225",
+  "requirements_sha256": "5e51a2953ef58c72a28bc972a8dd7d5bc33baba3bde3552063d38a364c8e7ee9",
+  "changes": [
+    {
+      "path": "BAO_CAO_HOAN_THIEN.md",
+      "action": "modified",
+      "before_sha256": "acfafa3cd43c1919fcff952b2b38724b97f56b8e14fbf3452bd247f621e00688",
+      "after_sha256": "7ef703dc75ef3a96a9df92f3f39118d67067b1f1a2e903e43796fb1c79809cd6"
+    },
+    {
+      "path": "HUONG_DAN_CHAY_BAN_MOI.md",
+      "action": "modified",
+      "before_sha256": "fd1bd1034350fb460c65c1fc518899ff7cf1059050587a0bdeea9c940d70a3dc",
+      "after_sha256": "13a8ef8e3acf8136fe4c4668b28ea9fa46bfe7fc795073dcdb9573f379f0b4cf"
+    },
+    {
+      "path": "README.md",
+      "action": "modified",
+      "before_sha256": "a805e1c957189dce488d4e3795e0a3bad2433fea148666daa4fdd06601a011cd",
+      "after_sha256": "99a3a1eb04f353fc18eca3bf9af8ccd9039d616e7fec29fbbb0a54acfff85afe"
+    },
+    {
+      "path": "src/main/java/com/skillrental/config/ChatWebSocketConfig.java",
+      "action": "modified",
+      "before_sha256": "852957c56d5251b607b29118363efa8cadecdb195275ab15b6fa6db8c2532e1c",
+      "after_sha256": "4ab0126f416623a82a48fd37acd1ee37d5beb43851406e62bcc3a895c3f0f035"
+    },
+    {
+      "path": "src/main/java/com/skillrental/config/PolicySnapshotConfig.java",
+      "action": "added",
+      "before_sha256": null,
+      "after_sha256": "1dcc16621f53580b822d7362c688f2796c9cbe60ea0d163729709fd9ede3fab8"
+    },
+    {
+      "path": "src/main/java/com/skillrental/config/SocketSessionLifecycleConfig.java",
+      "action": "added",
+      "before_sha256": null,
+      "after_sha256": "d92a837b01f5f3d009202afb351a678899c91e1cd303fe1b2e7e63c487ea68d6"
+    },
+    {
+      "path": "src/main/java/com/skillrental/controller/ChatWidgetController.java",
+      "action": "modified",
+      "before_sha256": "6bfc33dbb1083fed10e4c9e04da9453ec077bce4bd3c025f72226789d25c458d",
+      "after_sha256": "f2223ce16fc974569d446ded9920a32a4650785569b0845b379dc892e2061fa8"
+    },
+    {
+      "path": "src/main/java/com/skillrental/controller/ComplaintController.java",
+      "action": "modified",
+      "before_sha256": "1bc96c09f3b85efd7e8386157ea24bb28130758dd456eceba963a94a046b1801",
+      "after_sha256": "d17f6be9f71fecc7fb761a6da38a9d575b9def4ff91763a63f2021d9b0023ca9"
+    },
+    {
+      "path": "src/main/java/com/skillrental/controller/ComplaintDetailController.java",
+      "action": "added",
+      "before_sha256": null,
+      "after_sha256": "381a9adfaca9ad32cce3fb31686e369aa8683f1be51e3633ff9ae4712fb15f9c"
+    },
+    {
+      "path": "src/main/java/com/skillrental/controller/InteractionController.java",
+      "action": "modified",
+      "before_sha256": "54465800a30ec3b5ebfc525ad738829d18dbc578a62c5aa3367af9d9107b333d",
+      "after_sha256": "aeecfaabafff2b8bcf0f12e5354fa70a97a5fcdfe64e908c5ca8ad95febcc690"
+    },
+    {
+      "path": "src/main/java/com/skillrental/controller/OrderController.java",
+      "action": "modified",
+      "before_sha256": "d4ef6bb9a15e38765439f654e21ace9c4b2825c328bfefe48bcd74dcc37d2230",
+      "after_sha256": "d577b892047bc22df4b50387b2fef04711ea9af68f6694eafab050421b2af017"
+    },
+    {
+      "path": "src/main/java/com/skillrental/controller/PolicyConsentController.java",
+      "action": "added",
+      "before_sha256": null,
+      "after_sha256": "329f4855102dbc12954b587d6e35ccd88d6974fd8e6a5354f6289309391cc4b4"
+    },
+    {
+      "path": "src/main/java/com/skillrental/controller/PolicyConsentModel.java",
+      "action": "added",
+      "before_sha256": null,
+      "after_sha256": "cf589b63c4bd81b103cff4dbe389bb930c5965d29a62387de49cfcdae5134322"
+    },
+    {
+      "path": "src/main/java/com/skillrental/controller/PolicyController.java",
+      "action": "modified",
+      "before_sha256": "337e902d96f61957e40d0e0c64ed0c4f7b935ed0937a95881d189914bff75446",
+      "after_sha256": "2516ed4f2b0c7c50f49a9c3dba6c7960eb62d742bdfa8c24df7e20c4111425a2"
+    },
+    {
+      "path": "src/main/java/com/skillrental/controller/SupportManagementController.java",
+      "action": "added",
+      "before_sha256": null,
+      "after_sha256": "aa1cbf7a1f36eea763755ad61cc7d7589ddbe49da4e25351b1054f13bdf9bbe9"
+    },
+    {
+      "path": "src/main/java/com/skillrental/controller/WorkDocumentController.java",
+      "action": "added",
+      "before_sha256": null,
+      "after_sha256": "ac36ec615ffc75cdae8913239c1bc8b37c45271df64a416a103385ae3f159570"
+    },
+    {
+      "path": "src/main/java/com/skillrental/controller/WorkflowErrorAdvice.java",
+      "action": "added",
+      "before_sha256": null,
+      "after_sha256": "e2e01c8b65df23f55e4661e9934b0a8e1d8d6a8d17c8a3f16dffd56a29dcd4d0"
+    },
+    {
+      "path": "src/main/java/com/skillrental/dto/BookingForm.java",
+      "action": "modified",
+      "before_sha256": "c94deffdbe0684b8d9c52f1b29174a0523fb569d12e9da130668c4ade6424aa3",
+      "after_sha256": "7b88cfc4847a1daf7203141e6de9cf52878b52eb16208cfeca11fb4801e3baef"
+    },
+    {
+      "path": "src/main/java/com/skillrental/dto/MessageForm.java",
+      "action": "modified",
+      "before_sha256": "2d08baa3f05077b0700f85593f8025c925ffdcd0bdc3724061a2cae1b718f875",
+      "after_sha256": "6164e40c1506debdf694a44fdf27202d8c7535509a785775d92a59643641534b"
+    },
+    {
+      "path": "src/main/java/com/skillrental/entity/Conversation.java",
+      "action": "modified",
+      "before_sha256": "a4ac52d818de14fe4fa4c80666d233deaa4cc26d0f187750c849ecf20efe454c",
+      "after_sha256": "f390e69b2102a74baf7cd2cc48a824b68808ba736d755aa3b2ae61b6de673f57"
+    },
+    {
+      "path": "src/main/java/com/skillrental/entity/ConversationAccessAudit.java",
+      "action": "added",
+      "before_sha256": null,
+      "after_sha256": "23e8baf16d13f2c716f7f1aa138ead15771c4a2e6db5049fd91c292640ccd150"
+    },
+    {
+      "path": "src/main/java/com/skillrental/entity/ConversationReviewGrant.java",
+      "action": "added",
+      "before_sha256": null,
+      "after_sha256": "0be72a7c202cdef55c69bc0147b19f03940ac8d31a181acde5aa73941fd7fe45"
+    },
+    {
+      "path": "src/main/java/com/skillrental/entity/Message.java",
+      "action": "modified",
+      "before_sha256": "1959ddddb1bfee385084680770161a5cb3dddc013ac7ff1598f891547f039c7f",
+      "after_sha256": "be51034cfb040866baba35c56462acda78a1651640d965349983306ab3f6ddf7"
+    },
+    {
+      "path": "src/main/java/com/skillrental/entity/PolicySnapshot.java",
+      "action": "added",
+      "before_sha256": null,
+      "after_sha256": "a5d9c14c4646569ba7c4d3f748c29934d6b37ccc5e6b6366d0a0c4223de3a29a"
+    },
+    {
+      "path": "src/main/java/com/skillrental/entity/SupportNote.java",
+      "action": "added",
+      "before_sha256": null,
+      "after_sha256": "2a9814cba1f0cf99e9b099a59deca0c3bcb7e832fafaf7f5c7602f21fc65c766"
+    },
+    {
+      "path": "src/main/java/com/skillrental/entity/WorkDocument.java",
+      "action": "added",
+      "before_sha256": null,
+      "after_sha256": "947ad2e6e14868aa9166c0225b9b2e1cd037e99fe7aec4bffbc2924b4f6b22e0"
+    },
+    {
+      "path": "src/main/java/com/skillrental/notification/NotificationWebSocketConfig.java",
+      "action": "modified",
+      "before_sha256": "9d83b720202ba431375a53e6369eeeb58bd6c5975f9741a8f5c0af9d3e0f3a8f",
+      "after_sha256": "50d92bdb0be2113b70787c708ab13ebf994cc0d9a2eb9a64687a1653e163940e"
+    },
+    {
+      "path": "src/main/java/com/skillrental/notification/NotificationWebSocketHandler.java",
+      "action": "modified",
+      "before_sha256": "35c8a6f688d633901b1737ab7e3d2cebe284870e92b2ae6b9962b24aa803430c",
+      "after_sha256": "dfb9da65a7109973f4dc3262f87de9348ac789243cf0696987bd9be3ba7ccb98"
+    },
+    {
+      "path": "src/main/java/com/skillrental/repository/ComplaintRepository.java",
+      "action": "modified",
+      "before_sha256": "60abef562e602b0ac180dea995afa2733a57a36b2e26eaa5b2270c50c813b0a7",
+      "after_sha256": "c15d52571eae3cd579da224e3b6b4786100de5c2582f9c20d571f08e9e2ff148"
+    },
+    {
+      "path": "src/main/java/com/skillrental/repository/ConversationAccessAuditRepository.java",
+      "action": "added",
+      "before_sha256": null,
+      "after_sha256": "0d3719c24256a2d352c2dffbd29eb85e9748438a53e1a9a1ab9028267724d7b3"
+    },
+    {
+      "path": "src/main/java/com/skillrental/repository/ConversationRepository.java",
+      "action": "modified",
+      "before_sha256": "82b2e946ef802ea152a33214ad34e3486b672529445bc9cbf85764a7d804dc5f",
+      "after_sha256": "d3ff45bde7632c05574cebd6f72242d2a9d73a36799261df13557189fd72ae80"
+    },
+    {
+      "path": "src/main/java/com/skillrental/repository/ConversationReviewGrantRepository.java",
+      "action": "added",
+      "before_sha256": null,
+      "after_sha256": "a3db10934722f080599b4e36e3a7e5361eb6d9dd964f1adf229c81afa28bf215"
+    },
+    {
+      "path": "src/main/java/com/skillrental/repository/MessageRepository.java",
+      "action": "modified",
+      "before_sha256": "e7e95faa86c2f7280ae899d2d1195c8a48e28464245baea42dd3fcd0b65fc671",
+      "after_sha256": "ea725d08eee8ab117947b70d3a5c5bdd886e60f9f31a2136a49bf8588bad1b6c"
+    },
+    {
+      "path": "src/main/java/com/skillrental/repository/PolicySnapshotRepository.java",
+      "action": "added",
+      "before_sha256": null,
+      "after_sha256": "51801dec24dc752c2c83ee5abeefefaced21ad2493ee95b7bbf967d764deaa0e"
+    },
+    {
+      "path": "src/main/java/com/skillrental/repository/RentalOrderRepository.java",
+      "action": "modified",
+      "before_sha256": "acaddbe93b63657affc9e053aaaed371e379cc8644c1aa9c58543d82a022a1c8",
+      "after_sha256": "78cedcf5e373190e44dca73d01dba7e7684ad12161062661664d6e8a4ba2ceeb"
+    },
+    {
+      "path": "src/main/java/com/skillrental/repository/SupportAssignmentHistoryRepository.java",
+      "action": "modified",
+      "before_sha256": "87175cee9aa770fbbcd092670ec46cf6a8cbcdc8ff044ba03d8f6d0caa4db495",
+      "after_sha256": "4910c3bcd17f86c431addd87ae33c71ca6e1bae0b9debc062104e72ff893552b"
+    },
+    {
+      "path": "src/main/java/com/skillrental/repository/SupportNoteRepository.java",
+      "action": "added",
+      "before_sha256": null,
+      "after_sha256": "9775648d0bec8e83700537de04ab453797272fa7f8530a607c24c43f26667d6a"
+    },
+    {
+      "path": "src/main/java/com/skillrental/repository/UserRepository.java",
+      "action": "modified",
+      "before_sha256": "d4320111fd5db4a610bed97e379d1bace143815aea06b4db8d692c95ca1c6a47",
+      "after_sha256": "9892aaaddd21680b5e30cbeecc47191d91ff2864856fe21d4f27c020e2fd149c"
+    },
+    {
+      "path": "src/main/java/com/skillrental/repository/WorkDocumentRepository.java",
+      "action": "added",
+      "before_sha256": null,
+      "after_sha256": "9fe8953e082e244b2970410dce36e8ac9711d432e79b4263bd6e66e8ae54155c"
+    },
+    {
+      "path": "src/main/java/com/skillrental/service/AuthService.java",
+      "action": "modified",
+      "before_sha256": "f0fcb3de74ef16078f6117da845c7de8852c47c18610ec3b3524c8bff26a70ee",
+      "after_sha256": "880e6b96dd6595beacc5e61ae7392709e0408a1ec8a632b1609fab4f9876c85b"
+    },
+    {
+      "path": "src/main/java/com/skillrental/service/BookingService.java",
+      "action": "modified",
+      "before_sha256": "7d600755cd52f639a403d7d9c5101662602136a4c7528f0832fac5d33836759f",
+      "after_sha256": "ebb35ced9a7e73bc4e3bc32d13997062de4514918807db728402a3aa9f0a7727"
+    },
+    {
+      "path": "src/main/java/com/skillrental/service/ChatService.java",
+      "action": "modified",
+      "before_sha256": "46f48e43b7743b8b4d5047cea191b1613c21cb0b8241fb977d60d2cb7158105f",
+      "after_sha256": "2169bf81d1c29a4cd46a783131efb4b6082d66771204c327506b005dc459df76"
+    },
+    {
+      "path": "src/main/java/com/skillrental/service/ComplaintHandlingService.java",
+      "action": "added",
+      "before_sha256": null,
+      "after_sha256": "9621c6c87ca159b64de51926f0f311e14d914fefbe295bc2303990227b06a558"
+    },
+    {
+      "path": "src/main/java/com/skillrental/service/ConversationReviewService.java",
+      "action": "added",
+      "before_sha256": null,
+      "after_sha256": "cd52483e957b92a1d04e8cafafac7daa66d9eb24db20c527d136bc334fdeb42a"
+    },
+    {
+      "path": "src/main/java/com/skillrental/service/CurrentUserService.java",
+      "action": "modified",
+      "before_sha256": "92f189efe92492378b63829afee032b5e65a85591ddc0206a2a92b9128bd997c",
+      "after_sha256": "3f3109e9a720be72276fd91e92fbcedf57cf6bbc578e9be41bbd68cff71357b5"
+    },
+    {
+      "path": "src/main/java/com/skillrental/service/DeliveryService.java",
+      "action": "modified",
+      "before_sha256": "c12d04ff906cfc0559e146783c61bf71c14c140337717d2e6fbfb5b188d4b350",
+      "after_sha256": "b701dc3b8be6e5880517dd232491ffbcd50053c43d9e4509b6374695d4f6e974"
+    },
+    {
+      "path": "src/main/java/com/skillrental/service/NotificationAutomationService.java",
+      "action": "modified",
+      "before_sha256": "4ff777b526f3d73d0e7c45208bb7a6ad411f00db0f4d1cc4f5177ffd1902d691",
+      "after_sha256": "d810e2fbf3ca13456dbc4427b493ba546cf2c04bb69fbcb1ce7c6e537379eab4"
+    },
+    {
+      "path": "src/main/java/com/skillrental/service/NotificationService.java",
+      "action": "modified",
+      "before_sha256": "531f8e06f324bb706b517ca6e4a6591397ac9eaba222703ddc515180fa2df914",
+      "after_sha256": "ee1dee26b8fa9802173523c8b756b3c6ef41ad0915241b6026f332d9ac32506c"
+    },
+    {
+      "path": "src/main/java/com/skillrental/service/PolicyConsentService.java",
+      "action": "added",
+      "before_sha256": null,
+      "after_sha256": "551627b5e0c18a00132d35c18e0608df2e9ef163e8eeef29a67135dcd6900124"
+    },
+    {
+      "path": "src/main/java/com/skillrental/service/PolicyContent.java",
+      "action": "added",
+      "before_sha256": null,
+      "after_sha256": "ec93b3207414d554bf80008eba6d42600c659c2792914e944054425b265d74bb"
+    },
+    {
+      "path": "src/main/java/com/skillrental/service/PrivateFileStorage.java",
+      "action": "added",
+      "before_sha256": null,
+      "after_sha256": "60e4caf070adff1c3d8968533dcec54f2ed11f0f806874fda7b4d1cf3cb077ef"
+    },
+    {
+      "path": "src/main/java/com/skillrental/service/ReviewService.java",
+      "action": "modified",
+      "before_sha256": "d50721a01fae8cc0375447de50f73dca30a02052d9a433706fe76f86273ced24",
+      "after_sha256": "f70e10e2d03eccd34922a557e29f5f91eff0975f3870b0d7eb78cc27baf2265b"
+    },
+    {
+      "path": "src/main/java/com/skillrental/service/SupportManagementService.java",
+      "action": "added",
+      "before_sha256": null,
+      "after_sha256": "3b3128a74c29398569427239208f2a0399b1839e9e7854fc8420e77858873aff"
+    },
+    {
+      "path": "src/main/java/com/skillrental/service/WorkDocumentService.java",
+      "action": "added",
+      "before_sha256": null,
+      "after_sha256": "269a888e34148a8f9705699df465489f185640393bb662e957503e6480f1b31f"
+    },
+    {
+      "path": "src/main/java/com/skillrental/websocket/ChatMembershipChangedEvent.java",
+      "action": "added",
+      "before_sha256": null,
+      "after_sha256": "a887d6011677563272728c43693f2de1ee0fa9902e234507ae4304b455731115"
+    },
+    {
+      "path": "src/main/java/com/skillrental/websocket/ChatWebSocketHandler.java",
+      "action": "modified",
+      "before_sha256": "d4556bfddca33d1026812eac461eb72a7a229a61b7d88800ddec60a3cef86c48",
+      "after_sha256": "065d659a8ba3131f363b9d52fe812b7fee8d4982af7249adb83b919b72611617"
+    },
+    {
+      "path": "src/main/java/com/skillrental/websocket/SocketSessionRegistry.java",
+      "action": "added",
+      "before_sha256": null,
+      "after_sha256": "b5ba1e14068a9cc81b092e21091a78b54aa645a72b006fb15ba6f1654a6cf672"
+    },
+    {
+      "path": "src/main/java/com/skillrental/workspace/WorkspaceController.java",
+      "action": "modified",
+      "before_sha256": "b7088b4e8e9e90237091a2ef1cdecb8cf281b428b631cbe0435e31033653312b",
+      "after_sha256": "9e5abcd1e40b2c0bf6b3e7d4fbcb89c87a6e1783285c9e548e3b652258d11557"
+    },
+    {
+      "path": "src/main/resources/application-prod.properties",
+      "action": "modified",
+      "before_sha256": "d148115bbec361ccc648c75adeeaea9101b97c3d339fc383791003e816b87d30",
+      "after_sha256": "a04210e13c6981ebd57296302da3dfb7fdeec3bc6df069cfe34f9d8cc913540e"
+    },
+    {
+      "path": "src/main/resources/application.properties",
+      "action": "modified",
+      "before_sha256": "b3d92d631520891fa8236673a85598c5325feae612d291d34e1551873637fc86",
+      "after_sha256": "ac0c1bfcfe22fe729940e5552a0fce73f86adba48696335e3d0b07e07f400d9d"
+    },
+    {
+      "path": "src/main/resources/db/migration-v13-to-v14-workflow-completion.sql",
+      "action": "added",
+      "before_sha256": null,
+      "after_sha256": "e2c20ada0441e0e867781ceab5c9c5747c9dd020a7c34ddccf5e0d7e8b238c4b"
+    },
+    {
+      "path": "src/main/resources/static/css/app.css",
+      "action": "modified",
+      "before_sha256": "7941cac831b6bc31d3cd588d34b5630b7a39243239d0698ef388649d9cd621bf",
+      "after_sha256": "6ffe12a67b1756c7a9965321924dd3f8d7e58b67d69118105420fbb43ca8dc7d"
+    },
+    {
+      "path": "src/main/resources/static/js/app.js",
+      "action": "modified",
+      "before_sha256": "28bb72df7b9c0502e469d2a35b383c9d795c860f59e0f4f72233e0152361b3c8",
+      "after_sha256": "214dfa9f29bc4d32878e935c673517e8ff5a985f2b5f7e57c3f9db97d9f60511"
+    },
+    {
+      "path": "src/main/resources/static/js/workflow.js",
+      "action": "added",
+      "before_sha256": null,
+      "after_sha256": "628185043d20a24a69aeeed78b2a2ff08fcb3c600c790927397d6af8b59a26d7"
+    },
+    {
+      "path": "src/main/resources/templates/booking/booking.html",
+      "action": "modified",
+      "before_sha256": "ab2c1b5a1d9418cd26e4ab8d7b7e90b5332fe911ba95f8b5e297336b05762ff1",
+      "after_sha256": "f0d60299cb600c4d2ff4ce65c5b45d18cbc0cb126bebacf8aaf648291b65aee2"
+    },
+    {
+      "path": "src/main/resources/templates/booking/payment.html",
+      "action": "modified",
+      "before_sha256": "525fd1e036c5595200122f21279c6796a551f242aca0021616607580ee0a0852",
+      "after_sha256": "8832b84c9cb0455e0df6ea346964ecaae9a385d30e29427fa0eb65ad7b197d69"
+    },
+    {
+      "path": "src/main/resources/templates/customer/profile.html",
+      "action": "modified",
+      "before_sha256": "11040c13cbd550e0604a963092186305197b29a37a27be33690661cf06773add",
+      "after_sha256": "e8684d611d7e83fb4466e9dc21a9a1308ed65237011fff239cccd7a59c6a0464"
+    },
+    {
+      "path": "src/main/resources/templates/fragments.html",
+      "action": "modified",
+      "before_sha256": "6b3b4e63657f3ecc09845692d330b9c5f859f0073b0598463dae7da96ffddf9c",
+      "after_sha256": "e22e52e0cd8aedc81da1f248640f3f266ccaedc8a06e8a53b5d850e1931c1766"
+    },
+    {
+      "path": "src/main/resources/templates/interaction/chat.html",
+      "action": "modified",
+      "before_sha256": "578905929c0b5052b56a62fa74c3083a691969c2a3a4acc50f7b15dcbaec5afe",
+      "after_sha256": "3403b86687bb57674648f2e99da2053f72a5362073945f5f4f517af146d5bab7"
+    },
+    {
+      "path": "src/main/resources/templates/interaction/complaint-detail.html",
+      "action": "added",
+      "before_sha256": null,
+      "after_sha256": "b5a36c8e90a6fedb6087f9d28b66a9aaeb673f9b996870a7b465116e2603706a"
+    },
+    {
+      "path": "src/main/resources/templates/interaction/complaint.html",
+      "action": "modified",
+      "before_sha256": "994daeb0ca0ecb5e3a6a2272f076e5ef466195f6f49ef3221f98b53073d0f5e7",
+      "after_sha256": "032de23c29586991924f5e11fa1752655910d1432d9b838a86af34016981487d"
+    },
+    {
+      "path": "src/main/resources/templates/interaction/inbox.html",
+      "action": "modified",
+      "before_sha256": "6a60e647435166c43a256a80e4c75323beae8d3f96b0a69ad1eb523d1077ca50",
+      "after_sha256": "b3187a61f7a639e1a6861891553f091bc812112e485db6ccb38dbc766d29b128"
+    },
+    {
+      "path": "src/main/resources/templates/interaction/review.html",
+      "action": "modified",
+      "before_sha256": "ffb86179784fed67b25cb33384e680d045fa728c2492f830c9f3c41fcc895548",
+      "after_sha256": "915d53a45aa4b8dc1cf3704f76614ef77a521e5bf00625e396160889c959393b"
+    },
+    {
+      "path": "src/main/resources/templates/marketplace/search.html",
+      "action": "modified",
+      "before_sha256": "062cb5fcf4306ca3dcd46b3e9d4eafe0625f986396ccebf293f91adb37e06257",
+      "after_sha256": "60e65e391ad7b798cfc6a777bcef9587426a6efda250797186ffe5984a83073e"
+    },
+    {
+      "path": "src/main/resources/templates/notifications/all.html",
+      "action": "modified",
+      "before_sha256": "eabdebf4c0349bc36e07e221cdeb332a32bdd4c090775533356cd04a76c7307b",
+      "after_sha256": "577584d9b426ad5ac407170b35a586c6ca6b716234c2a1034d6e4aa8f24de326"
+    },
+    {
+      "path": "src/main/resources/templates/notifications/detail.html",
+      "action": "modified",
+      "before_sha256": "26276897f5e8ee94edaf4313528716c33e64979eebfc8c491bcf934e153c9843",
+      "after_sha256": "044d32812ade54b24c13654d2a14b2a3d65eb91e864ca58f841b448ba277816f"
+    },
+    {
+      "path": "src/main/resources/templates/orders/orders.html",
+      "action": "modified",
+      "before_sha256": "bee4296fcff1ec4b6ca2570ac1e2c17f3d6d17de3426be874b80ae844cea14ab",
+      "after_sha256": "7f5bbea3b72adf8a81dfd92e42ee09765f2a708e361c9fe28e6ce340a7695fbc"
+    },
+    {
+      "path": "src/main/resources/templates/orders/progress.html",
+      "action": "modified",
+      "before_sha256": "bc2148b881998a9bd9d7d959790811e6fd97362714f2cb03bc15954471b16ddb",
+      "after_sha256": "505f00c414f66c57c9f629fa17120f8fd0faac91a48c0e03720a90d7d7e5c8e9"
+    },
+    {
+      "path": "src/main/resources/templates/policies/accepted.html",
+      "action": "modified",
+      "before_sha256": "ddbcc7bdaa09704906b3ae87a382bce9531c43dcda9c66a86758718391288b4e",
+      "after_sha256": "f9da8a258bc83260ad8712c92b370ce5368555bb3392fa4935125c7d8a7ccf2a"
+    },
+    {
+      "path": "src/main/resources/templates/policies/page.html",
+      "action": "modified",
+      "before_sha256": "b251f441d3c35b83afa3de1e7c93550113e16315355bac79e154f9fc01568fc2",
+      "after_sha256": "1ca954a61cc5f818e9b51c413522dbc9e1c97fdfe614cd0bdaca1dc26f6a04cc"
+    },
+    {
+      "path": "src/main/resources/templates/policies/provider-consent.html",
+      "action": "added",
+      "before_sha256": null,
+      "after_sha256": "622376666a1a512a9365e1b2be6de78242412c3cdc413f9fef8016a69bff6e0a"
+    },
+    {
+      "path": "src/main/resources/templates/requests/applies.html",
+      "action": "modified",
+      "before_sha256": "fdfc59159aa15ab29a0a5538cda5fb5321e27ccfe5e6792cc0902a6d6d092827",
+      "after_sha256": "819fc38d875b475dd44a365072d2778270154346660991851e9305c3d1dfcfb2"
+    },
+    {
+      "path": "src/main/resources/templates/requests/create.html",
+      "action": "modified",
+      "before_sha256": "acfde18e14e2478d2313f1c7e18027c569db8c8c81b7f2dfb220367a35a09f77",
+      "after_sha256": "177790a5e73c26ef87a7c964d3cf9849bd9b77584ac2d74c3a9c4396459119ca"
+    },
+    {
+      "path": "src/main/resources/templates/workspace/admin/page.html",
+      "action": "modified",
+      "before_sha256": "42fa81b9f2c6603e36c83f602ca172f8872c979cfa20cb82f69ec687f65e25fe",
+      "after_sha256": "f4ded2c326d6243f968cd5ce72c1e1e3920c46afabcc835c4dbc90150e52e798"
+    },
+    {
+      "path": "src/main/resources/templates/workspace/admin/support-reviews.html",
+      "action": "added",
+      "before_sha256": null,
+      "after_sha256": "97bef672356bd50309f1d28cb6aa0b6df08b839b04a6a5aa2c07a99a1a56ecee"
+    },
+    {
+      "path": "src/main/resources/templates/workspace/fragments.html",
+      "action": "modified",
+      "before_sha256": "1048576ede3a5803ddd89cd16d7b43670357ae68e71fb3da4dd7760a797400a5",
+      "after_sha256": "9b877ae04c6ac3ca58bcab53ea2a0b0a6f1e8d03dabc02925aff4035de48a0c7"
+    },
+    {
+      "path": "src/main/resources/templates/workspace/provider/page.html",
+      "action": "modified",
+      "before_sha256": "b265ea30462681543fb0a381492e23e324bdf172063a03eb17fec2e60376c3c3",
+      "after_sha256": "545f5e2640a2528b16f300c4b33082d60f18a456a99eee9bf6e3d06d3bccf64e"
+    },
+    {
+      "path": "src/test/java/com/skillrental/AdminCatalogManagementTest.java",
+      "action": "modified",
+      "before_sha256": "db736c813f5846cc67a40f72795d13e4f99f1b6c9aba2e2c5b4432008ed89f1d",
+      "after_sha256": "e58b3c866da13250817094d9ea2e2132eed57003a50080ee5b06c138f277f23a"
+    },
+    {
+      "path": "src/test/java/com/skillrental/AdminUserManagementTest.java",
+      "action": "modified",
+      "before_sha256": "1fd22ebd4525b87c5ff79dd2d1e9b7b3d024e171b26043a32a4149474d9c7967",
+      "after_sha256": "ec57e1a70185de31805303a8a4907e4536ae65607a86d6be2631dfc5032c4372"
+    },
+    {
+      "path": "src/test/java/com/skillrental/BrowserReviewFixture.java",
+      "action": "added",
+      "before_sha256": null,
+      "after_sha256": "6460aff3ccb305cfd52c85c48a20394759880539034618f84cc275e901dba9b3"
+    },
+    {
+      "path": "src/test/java/com/skillrental/ChatRealtimeIntegrationTest.java",
+      "action": "modified",
+      "before_sha256": "91f7766e2aec8aea890f82e3ee2cbf4fdba68cfae63418b85c28153607b6cf5d",
+      "after_sha256": "4606732a9e810c93557898225cf94858000466b5d82444e6d0eaf0a656d05b47"
+    },
+    {
+      "path": "src/test/java/com/skillrental/CustomerProviderAdminTransactionFlowTest.java",
+      "action": "modified",
+      "before_sha256": "589c66c4e2c5b5527de00dde0ea801feb42efeb2f4d3ef9a6733b22d710ae3ee",
+      "after_sha256": "353a497a7e89caeaff6c746ca591487089256509c03e0d0b2fbf691882af53a7"
+    },
+    {
+      "path": "src/test/java/com/skillrental/ProviderServiceManagementTest.java",
+      "action": "modified",
+      "before_sha256": "1e0d951c45b5ddf62abbe06c08df234e83ed5356eeb292aee3e79ea449dc1321",
+      "after_sha256": "50fe6e2a6de617f7e33ea63716cef3c367c9683fb0f74502e33536a5fab454c9"
+    },
+    {
+      "path": "src/test/java/com/skillrental/SocketSessionRegistryTest.java",
+      "action": "added",
+      "before_sha256": null,
+      "after_sha256": "49847ee2120f92021aef6acf5e1597d49fbc21d2f021504f01798ccf280ff9db"
+    },
+    {
+      "path": "src/test/java/com/skillrental/WorkflowCompletionTest.java",
+      "action": "added",
+      "before_sha256": null,
+      "after_sha256": "f40fc5cefcdeb79760e1af5ab9bdfbd5f422d6d7f0a04936f2a89b52542f0e6b"
+    },
+    {
+      "path": "src/test/java/com/skillrental/WorkspaceControllerSmokeTest.java",
+      "action": "modified",
+      "before_sha256": "ce611d65b0f4a39623fd35d31611e9575cd155569cfbb871cd9a31e186464f87",
+      "after_sha256": "95cd49751c88b82c45cd140539cc6e34cfef50edda07f20953e891d479582150"
+    },
+    {
+      "path": "validation/BROWSER_REVIEW_RESULT.json",
+      "action": "added",
+      "before_sha256": null,
+      "after_sha256": "c0bfd356ef4bb79f5c076ad3c11bcdd749eb9c05eabf5a519f661b9b52f0607d"
+    },
+    {
+      "path": "validation/BROWSER_WORKFLOW_RESULT.json",
+      "action": "added",
+      "before_sha256": null,
+      "after_sha256": "5fd708cf673f1a83f681f0a7e63883a3e5a1a7685e2811fa05ccde822e593fd7"
+    },
+    {
+      "path": "validation/MAVEN_TEST_RESULT.txt",
+      "action": "modified",
+      "before_sha256": "34df62d60a39604f972457322179d312b676122fa0b15d7e385ce4523372808a",
+      "after_sha256": "388c12002c23b7cd026d90789e09cb6e8ad046a3d6c078041b7f1e6601c7a4f2"
+    },
+    {
+      "path": "validation/REQUIREMENTS.txt",
+      "action": "added",
+      "before_sha256": null,
+      "after_sha256": "5e51a2953ef58c72a28bc972a8dd7d5bc33baba3bde3552063d38a364c8e7ee9"
+    },
+    {
+      "path": "validation/browser-qa.cjs",
+      "action": "added",
+      "before_sha256": null,
+      "after_sha256": "064822896eabbb967190970f5c8cb136e40585383ebe85df6994bb318f1f984d"
+    },
+    {
+      "path": "validation/browser-review-qa.cjs",
+      "action": "added",
+      "before_sha256": null,
+      "after_sha256": "ede433d26b8590c137d4a2ccf6dd33a5b130b94f8e7af807d2b5f610484daa10"
+    }
+  ]
+}

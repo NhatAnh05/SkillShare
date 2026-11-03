@@ -13,6 +13,7 @@
  <body>
   <div th:replace="~{fragments :: icons}">
   </div>
+  <header th:replace="~{fragments :: header}"></header>
   <main class="page">
    <div class="container layout management-layout">
     <div th:replace="~{fragments :: sidebar}">
@@ -64,5 +65,6 @@
   </div>
   <script defer="" src="/js/app.js">
   </script>
+<script defer src="/js/workflow.js"></script>
  </body>
 </html>

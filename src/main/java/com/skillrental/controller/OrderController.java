@@ -6,7 +6,17 @@ import com.skillrental.service.CurrentUserService;
 import com.skillrental.service.EscrowService;
 import com.skillrental.service.OrderService;
 import com.skillrental.service.VnPayWalletTopUpService;
+import com.skillrental.service.DeliveryService;
+import com.skillrental.entity.DeliverySubmission;
 import jakarta.servlet.http.HttpServletRequest;
+import org.springframework.core.io.Resource;
+import org.springframework.http.ContentDisposition;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.multipart.MultipartFile;
+import java.nio.charset.StandardCharsets;
+import java.util.List;
 import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.Authentication;
@@ -23,7 +33,10 @@ public class OrderController {
     private final OrderService orders;
     private final EscrowService escrow;
     private final VnPayWalletTopUpService walletTopUp;
+    private final DeliveryService deliveries;
+    private final com.skillrental.service.OrderWorkService work;
 
+    private com.skillrental.entity.RentalOrder visibleOrder(Long id,com.skillrental.entity.User user){try{return orders.involved(id,user);}catch(IllegalArgumentException ex){throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.FORBIDDEN,"Bạn không tham gia đơn hàng này.");}}
     @GetMapping("/orders")
     String list(Authentication authentication, Model model) {
         var user = current.require(authentication);
@@ -66,17 +79,79 @@ public class OrderController {
 
     @GetMapping("/orders/{id}/details")
     String details(@PathVariable Long id, Authentication auth, Model model) {
-        model.addAttribute("order", orders.owned(id, current.require(auth)));
+        var user=current.require(auth);
+        model.addAttribute("order", visibleOrder(id,user));
+        model.addAttribute("deliveries",deliveries.history(id,user));
+        model.addAttribute("deliveryRevisions",deliveries.revisionHistory(id,user));
+        model.addAttribute("workUpdates", work.history(id,user));
         return "orders/progress :: details";
     }
 
     @GetMapping("/orders/{id}/progress")
     String progress(@PathVariable Long id, Authentication auth, Model model) {
         var user = current.require(auth);
-        var order = orders.owned(id, user);
+        var order = visibleOrder(id,user);
         model.addAttribute("order", order);
         model.addAttribute("wallet", escrow.wallet(user));
+        model.addAttribute("deliveries", deliveries.history(id, user));
+        model.addAttribute("deliveryRevisions", deliveries.revisionHistory(id, user));
+        model.addAttribute("workUpdates", work.history(id,user));
         return "orders/progress";
+    }
+
+    @PostMapping("/orders/{id}/work-updates")
+    String updateWork(@PathVariable Long id, @RequestParam int percent, @RequestParam String description,
+            @RequestParam @org.springframework.format.annotation.DateTimeFormat(iso=org.springframework.format.annotation.DateTimeFormat.ISO.DATE_TIME) java.time.LocalDateTime estimatedCompletionAt,
+            Authentication auth, RedirectAttributes ra) {
+        try { work.update(id,current.require(auth),percent,description,estimatedCompletionAt);
+            ra.addFlashAttribute("success","Đã cập nhật tiến độ và thông báo cho Customer.");
+        } catch (RuntimeException ex) { ra.addFlashAttribute("error",ex.getMessage()); }
+        return "redirect:/orders/"+id+"/progress";
+    }
+
+    @PostMapping("/orders/{id}/deliveries")
+    String submitDelivery(@PathVariable Long id,
+                          @RequestParam String description,
+                          @RequestParam(required = false) String usageNotes,
+                          @RequestParam(required = false, name = "links") List<String> links,
+                          @RequestParam(required = false, name = "files") List<MultipartFile> files,
+                          Authentication auth, RedirectAttributes ra) {
+        try {
+            deliveries.submit(id, current.require(auth), description, usageNotes, links, files);
+            ra.addFlashAttribute("success", "Đã gửi sản phẩm bàn giao. Đơn đang chờ Customer nghiệm thu.");
+        } catch (RuntimeException e) {
+            ra.addFlashAttribute("error", e.getMessage());
+        }
+        return "redirect:/orders/" + id + "/progress";
+    }
+
+    @PostMapping("/orders/{id}/deliveries/{deliveryId}/revision")
+    String requestDeliveryRevision(@PathVariable Long id, @PathVariable Long deliveryId,
+                                   @RequestParam String reason, Authentication auth, RedirectAttributes ra) {
+        try {
+            deliveries.requestRevision(id, current.require(auth), deliveryId, reason);
+            ra.addFlashAttribute("success", "Đã gửi yêu cầu chỉnh sửa cho Provider.");
+        } catch (RuntimeException e) {
+            ra.addFlashAttribute("error", e.getMessage());
+        }
+        return "redirect:/orders/" + id + "/progress";
+    }
+
+    @GetMapping("/orders/{id}/deliveries/{deliveryId}/files/{fileId}")
+    ResponseEntity<Resource> downloadDeliveryFile(@PathVariable Long id, @PathVariable Long deliveryId,
+                                                  @PathVariable Long fileId, Authentication auth) {
+        visibleOrder(id,current.require(auth));
+        var file = deliveries.download(id, deliveryId, fileId, current.require(auth));
+        MediaType contentType = MediaType.APPLICATION_OCTET_STREAM;
+        try {
+            contentType = MediaType.parseMediaType(file.metadata().getContentType());
+        } catch (IllegalArgumentException ignored) {
+            // Invalid persisted MIME metadata must not prevent an authorized download.
+        }
+        return ResponseEntity.ok().contentType(contentType)
+                .header(HttpHeaders.CONTENT_DISPOSITION, ContentDisposition.attachment()
+                        .filename(file.metadata().getOriginalName(), StandardCharsets.UTF_8).build().toString())
+                .body(file.resource());
     }
 
     @PostMapping("/orders/{id}/start-confirmation")
@@ -103,7 +178,7 @@ public class OrderController {
     String acceptCompletion(@PathVariable Long id, Authentication auth, RedirectAttributes ra) {
         var user = current.require(auth);
         try {
-            EscrowService.OtpDispatchResult result = escrow.customerAcceptCompletion(id, user);
+            EscrowService.OtpDispatchResult result = deliveries.acceptLatest(id, user);
             if (result.emailSent()) ra.addFlashAttribute("success", "Đã xác nhận nghiệm thu. Mã OTP đã gửi tới email " + user.getEmail() + ".");
             else if (result.demoCode() != null) {
                 ra.addFlashAttribute("info", "Chưa cấu hình SMTP gửi email. Đây là chế độ demo: mã OTP sẽ hiển thị một lần trên trang tiếp theo.");

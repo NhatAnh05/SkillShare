@@ -1,0 +1,10 @@
+{
+  "status": "PASS",
+  "checks": [
+    "Private config/mail.properties is imported",
+    "Registration OTP accepted by a local SMTP server",
+    "Correct envelope sender and recipient",
+    "Cooldown blocks duplicate email"
+  ],
+  "gmailDeliveryVerified": false
+}

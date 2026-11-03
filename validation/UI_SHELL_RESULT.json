@@ -1,0 +1,337 @@
+{
+  "results": [
+    {
+      "role": "customer",
+      "url": "/marketplace",
+      "width": 1440,
+      "status": "PASS",
+      "documentOverflow": false
+    },
+    {
+      "role": "customer",
+      "url": "/marketplace",
+      "width": 1024,
+      "status": "PASS",
+      "documentOverflow": false
+    },
+    {
+      "role": "customer",
+      "url": "/marketplace",
+      "width": 768,
+      "status": "PASS",
+      "documentOverflow": false
+    },
+    {
+      "role": "customer",
+      "url": "/marketplace",
+      "width": 390,
+      "status": "PASS",
+      "documentOverflow": false
+    },
+    {
+      "role": "customer",
+      "url": "/marketplace",
+      "width": 320,
+      "status": "PASS",
+      "documentOverflow": false
+    },
+    {
+      "role": "customer",
+      "url": "/profile",
+      "width": 1440,
+      "status": "PASS",
+      "documentOverflow": false
+    },
+    {
+      "role": "customer",
+      "url": "/profile",
+      "width": 1024,
+      "status": "PASS",
+      "documentOverflow": false
+    },
+    {
+      "role": "customer",
+      "url": "/profile",
+      "width": 768,
+      "status": "PASS",
+      "documentOverflow": false
+    },
+    {
+      "role": "customer",
+      "url": "/profile",
+      "width": 390,
+      "status": "PASS",
+      "documentOverflow": false
+    },
+    {
+      "role": "customer",
+      "url": "/profile",
+      "width": 320,
+      "status": "PASS",
+      "documentOverflow": false
+    },
+    {
+      "role": "customer",
+      "url": "/settings",
+      "width": 1440,
+      "status": "PASS",
+      "documentOverflow": false
+    },
+    {
+      "role": "customer",
+      "url": "/settings",
+      "width": 1024,
+      "status": "PASS",
+      "documentOverflow": false
+    },
+    {
+      "role": "customer",
+      "url": "/settings",
+      "width": 768,
+      "status": "PASS",
+      "documentOverflow": false
+    },
+    {
+      "role": "customer",
+      "url": "/settings",
+      "width": 390,
+      "status": "PASS",
+      "documentOverflow": false
+    },
+    {
+      "role": "customer",
+      "url": "/settings",
+      "width": 320,
+      "status": "PASS",
+      "documentOverflow": false
+    },
+    {
+      "role": "provider1",
+      "url": "/provider/dashboard",
+      "width": 1440,
+      "status": "PASS",
+      "documentOverflow": false
+    },
+    {
+      "role": "provider1",
+      "url": "/provider/dashboard",
+      "width": 1024,
+      "status": "PASS",
+      "documentOverflow": false
+    },
+    {
+      "role": "provider1",
+      "url": "/provider/dashboard",
+      "width": 768,
+      "status": "PASS",
+      "documentOverflow": false
+    },
+    {
+      "role": "provider1",
+      "url": "/provider/dashboard",
+      "width": 390,
+      "status": "PASS",
+      "documentOverflow": false
+    },
+    {
+      "role": "provider1",
+      "url": "/provider/dashboard",
+      "width": 320,
+      "status": "PASS",
+      "documentOverflow": false
+    },
+    {
+      "role": "provider1",
+      "url": "/profile",
+      "width": 1440,
+      "status": "PASS",
+      "documentOverflow": false
+    },
+    {
+      "role": "provider1",
+      "url": "/profile",
+      "width": 1024,
+      "status": "PASS",
+      "documentOverflow": false
+    },
+    {
+      "role": "provider1",
+      "url": "/profile",
+      "width": 768,
+      "status": "PASS",
+      "documentOverflow": false
+    },
+    {
+      "role": "provider1",
+      "url": "/profile",
+      "width": 390,
+      "status": "PASS",
+      "documentOverflow": false
+    },
+    {
+      "role": "provider1",
+      "url": "/profile",
+      "width": 320,
+      "status": "PASS",
+      "documentOverflow": false
+    },
+    {
+      "role": "provider1",
+      "url": "/settings",
+      "width": 1440,
+      "status": "PASS",
+      "documentOverflow": false
+    },
+    {
+      "role": "provider1",
+      "url": "/settings",
+      "width": 1024,
+      "status": "PASS",
+      "documentOverflow": false
+    },
+    {
+      "role": "provider1",
+      "url": "/settings",
+      "width": 768,
+      "status": "PASS",
+      "documentOverflow": false
+    },
+    {
+      "role": "provider1",
+      "url": "/settings",
+      "width": 390,
+      "status": "PASS",
+      "documentOverflow": false
+    },
+    {
+      "role": "provider1",
+      "url": "/settings",
+      "width": 320,
+      "status": "PASS",
+      "documentOverflow": false
+    },
+    {
+      "role": "admin",
+      "url": "/admin/dashboard",
+      "width": 1440,
+      "status": "PASS",
+      "documentOverflow": false
+    },
+    {
+      "role": "admin",
+      "url": "/admin/dashboard",
+      "width": 1024,
+      "status": "PASS",
+      "documentOverflow": false
+    },
+    {
+      "role": "admin",
+      "url": "/admin/dashboard",
+      "width": 768,
+      "status": "PASS",
+      "documentOverflow": false
+    },
+    {
+      "role": "admin",
+      "url": "/admin/dashboard",
+      "width": 390,
+      "status": "PASS",
+      "documentOverflow": false
+    },
+    {
+      "role": "admin",
+      "url": "/admin/dashboard",
+      "width": 320,
+      "status": "PASS",
+      "documentOverflow": false
+    },
+    {
+      "role": "admin",
+      "url": "/profile",
+      "width": 1440,
+      "status": "PASS",
+      "documentOverflow": false
+    },
+    {
+      "role": "admin",
+      "url": "/profile",
+      "width": 1024,
+      "status": "PASS",
+      "documentOverflow": false
+    },
+    {
+      "role": "admin",
+      "url": "/profile",
+      "width": 768,
+      "status": "PASS",
+      "documentOverflow": false
+    },
+    {
+      "role": "admin",
+      "url": "/profile",
+      "width": 390,
+      "status": "PASS",
+      "documentOverflow": false
+    },
+    {
+      "role": "admin",
+      "url": "/profile",
+      "width": 320,
+      "status": "PASS",
+      "documentOverflow": false
+    },
+    {
+      "role": "admin",
+      "url": "/settings",
+      "width": 1440,
+      "status": "PASS",
+      "documentOverflow": false
+    },
+    {
+      "role": "admin",
+      "url": "/settings",
+      "width": 1024,
+      "status": "PASS",
+      "documentOverflow": false
+    },
+    {
+      "role": "admin",
+      "url": "/settings",
+      "width": 768,
+      "status": "PASS",
+      "documentOverflow": false
+    },
+    {
+      "role": "admin",
+      "url": "/settings",
+      "width": 390,
+      "status": "PASS",
+      "documentOverflow": false
+    },
+    {
+      "role": "admin",
+      "url": "/settings",
+      "width": 320,
+      "status": "PASS",
+      "documentOverflow": false
+    },
+    {
+      "role": "guest",
+      "url": "/login",
+      "width": 390,
+      "status": "PASS"
+    },
+    {
+      "role": "guest",
+      "url": "/register",
+      "width": 390,
+      "status": "PASS"
+    },
+    {
+      "role": "guest",
+      "url": "/policies/terms",
+      "width": 390,
+      "status": "PASS"
+    }
+  ]
+}

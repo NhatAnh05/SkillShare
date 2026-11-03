@@ -133,9 +133,9 @@
       <a class="btn btn-primary" th:href="@{/booking/provider/{id}(id=${provider.id})}">
        Đặt lịch ngay
       </a>
-      <form method="post" th:action="@{/chat/start/{id}(id=${provider.id})}">
+      <form method="post" th:action="@{/chat/start/{id}(id=${provider.id})}" data-chat-start>
        <button class="btn btn-outline" type="submit">
-        Nhắn tin
+        Liên hệ Provider
        </button>
       </form>
       <small class="muted">

@@ -105,11 +105,20 @@
        Tôi xác nhận tiếp tục với giá mới
       </label>
       <div class="form-group">
+       <label for="schedule-mode">Cách đặt công việc</label>
+       <select class="select" id="schedule-mode" th:field="*{scheduleMode}" required>
+        <option value="APPOINTMENT">Hẹn giờ cố định — có giờ bắt đầu và kết thúc</option>
+        <option value="DEADLINE">Theo hạn giao — nhận sản phẩm trước thời điểm đã chọn</option>
+       </select>
+       <p class="muted">Dịch vụ theo giờ dùng lịch cố định. Công việc theo gói có thể đặt theo hạn giao. Đây là lịch đề xuất, cần Provider xác nhận nhận việc.</p>
+      </div>
+      <div id="appointment-fields">
+      <div class="form-group">
        <label>
         Ngày làm việc
        </label>
        <p class="muted">
-        Chọn ngày mong muốn (chưa kiểm tra tình trạng trống theo thời gian thực).
+        Chọn ngày hẹn; Provider sẽ xem xét và xác nhận lịch đề xuất.
        </p>
        <input id="booking-date" required="" th:field="*{bookingDate}" type="hidden"/>
        <div aria-label="Lịch chọn ngày" class="date-picker" id="booking-calendar" role="group">
@@ -159,20 +168,27 @@
        <input id="booking-time" required="" th:field="*{timeSlot}" type="hidden"/>
        <div aria-label="Chọn khung giờ" class="time-slots" role="group">
         <button data-start="10:00" type="button">
-         10:00 – 12:00
+         10:00
         </button>
         <button data-start="12:00" type="button">
-         12:00 – 14:00
+         12:00
         </button>
         <button data-start="18:00" type="button">
-         18:00 – 20:00
+         18:00
         </button>
         <button data-start="20:00" type="button">
-         20:00 – 22:00
+         20:00
         </button>
        </div>
        <small class="error" th:errors="*{timeSlot}">
        </small>
+      </div>
+      </div>
+      <div class="form-group" id="deadline-fields" hidden>
+       <label for="deliveryDueAt">Hạn giao sản phẩm (giờ địa phương của hệ thống)</label>
+       <input class="input" id="deliveryDueAt" type="datetime-local" th:field="*{deliveryDueAt}"/>
+       <small class="muted">Provider làm việc trong khoảng từ lúc hai bên xác nhận bắt đầu đến hạn giao; không cần chọn khung giờ 2 tiếng.</small>
+       <small class="error" th:errors="*{deliveryDueAt}"></small>
       </div>
       <div class="form-group">
        <label for="booking-note">
@@ -188,8 +204,9 @@
        <input id="booking-premium" th:field="*{premium}" type="checkbox"/>
        Đặt kỹ năng cao (+25%)
       </label>
+      <th:block th:replace="~{fragments :: policyConsent(${bookingPolicyRequired}, 'booking')}"></th:block>
       <button class="btn btn-primary booking-submit" type="submit">
-       Tiếp tục thanh toán →
+       Gửi yêu cầu &amp; ký quỹ →
       </button>
      </form>
      <aside class="card booking-summary"
@@ -221,6 +238,8 @@
           th:text="${selectedService != null ? selectedService.name : 'Chọn dịch vụ'}">Chọn dịch vụ</strong></div>
       <div class="price-line"><span>Provider</span><strong id="summary-provider"
           th:text="${selectedService != null ? selectedService.provider.fullName : provider.user.fullName}">Provider</strong></div>
+      <div class="price-line"><span>Hình thức</span><strong id="summary-schedule">Theo lịch hẹn</strong></div>
+      <div class="price-line"><span>Lịch / Hạn giao</span><strong id="summary-planned-time">Chưa chọn</strong></div>
       <div class="price-line"><span>Loại giá</span><strong id="summary-pricing-type"
           th:text="${selectedService != null ? (selectedService.pricingType.name() == 'HOURLY' ? 'Theo giờ' : 'Cố định') : '—'}">—</strong></div>
       <div class="price-line"><span>Đơn giá</span><strong id="summary-unit-price"

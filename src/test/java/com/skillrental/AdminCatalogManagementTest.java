@@ -95,7 +95,7 @@ class AdminCatalogManagementTest {
                 && list.stream().noneMatch(item -> ((ProviderProfile) item).getId().equals(provider.getId())));
 
         long ordersBefore = orders.count();
-        mvc.perform(post("/booking/provider/{id}", provider.getId()).with(csrf())
+        mvc.perform(post("/booking/provider/{id}", provider.getId()).with(csrf()).param("acceptedPolicy","true")
                         .with(user("customer@skillrental.vn").roles("CUSTOMER"))
                         .param("serviceId", service.getId().toString())
                         .param("bookingDate", LocalDate.now().plusDays(10).toString())
@@ -110,7 +110,7 @@ class AdminCatalogManagementTest {
                 .andExpect(status().is3xxRedirection());
         assertEquals("ACTIVE", providers.findById(provider.getId()).orElseThrow().getProfileStatus());
 
-        mvc.perform(post("/booking/provider/{id}", provider.getId()).with(csrf())
+        mvc.perform(post("/booking/provider/{id}", provider.getId()).with(csrf()).param("acceptedPolicy","true")
                         .with(user("customer@skillrental.vn").roles("CUSTOMER"))
                         .param("serviceId", service.getId().toString())
                         .param("bookingDate", LocalDate.now().plusDays(10).toString())
@@ -203,7 +203,7 @@ class AdminCatalogManagementTest {
         providers.saveAndFlush(provider);
         long ordersBefore = orders.count();
 
-        mvc.perform(post("/booking/provider/{id}", provider.getId()).with(csrf())
+        mvc.perform(post("/booking/provider/{id}", provider.getId()).with(csrf()).param("acceptedPolicy","true")
                         .param("serviceId", service.getId().toString())
                         .param("bookingDate", LocalDate.now().plusDays(10).toString())
                         .param("timeSlot", "10:00")
@@ -216,7 +216,7 @@ class AdminCatalogManagementTest {
         for (ServiceStatus unavailable : new ServiceStatus[]{ServiceStatus.DRAFT, ServiceStatus.PAUSED, ServiceStatus.ARCHIVED}) {
             service.setStatus(unavailable);
             services.saveAndFlush(service);
-            mvc.perform(post("/booking/provider/{id}", provider.getId()).with(csrf())
+            mvc.perform(post("/booking/provider/{id}", provider.getId()).with(csrf()).param("acceptedPolicy","true")
                             .param("serviceId", service.getId().toString())
                             .param("bookingDate", LocalDate.now().plusDays(10).toString())
                             .param("timeSlot", "10:00")

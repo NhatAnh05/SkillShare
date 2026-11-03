@@ -5,8 +5,12 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title th:text="${workspaceTitle + ' | SkillRental Admin'}">Admin Portal | SkillRental</title>
   <th:block th:replace="~{workspace/fragments :: workspaceStyles}"></th:block>
+  <link rel="stylesheet" th:href="@{/css/app.css}"/>
+  <meta name="_csrf" th:content="${_csrf.token}"/>
+  <meta name="_csrf_header" th:content="${_csrf.headerName}"/>
 </head>
 <body class="wk-body">
+<div th:replace="~{fragments :: icons}"></div>
 <div class="wk-app">
   <div th:replace="~{workspace/fragments :: providerSidebar(${page}, true)}"></div>
   <main class="wk-main">
@@ -32,10 +36,99 @@
         <div class="wk-card" style="margin-top:12px"><div class="wk-card-head"><div><h2 class="wk-card-title">Hồ sơ Provider đăng ký chờ phê duyệt</h2><p class="wk-card-desc">Đối chiếu thông tin căn cước và chuyên môn.</p></div><a class="wk-btn small primary" href="/admin/pending-providers">Xem tất cả →</a></div><div class="wk-table-wrap"><table class="wk-table"><thead><tr><th>Provider</th><th>Email</th><th>Lĩnh vực</th><th>Trạng thái</th><th>Thẩm định</th></tr></thead><tbody><tr th:each="p : ${providers}" th:if="${!p.approved}"><td><strong th:text="${p.user.fullName}">Provider</strong></td><td th:text="${p.user.email}">provider@example.com</td><td th:text="${p.headline}">Chuyên môn</td><td><span class="wk-chip yellow" th:text="${p.profileStatus}">ACTIVE</span></td><td><a class="wk-btn small primary" th:href="@{'/admin/pending-providers#p-' + ${p.id}}">Thẩm định</a></td></tr></tbody></table></div></div>
       </section>
 
+      <section th:if="${page == 'support'}" id="support-workspace">
+       <div class="wk-page-head"><div><h1>Hộp thư hỗ trợ</h1><p>Hội thoại được phân quyền theo người phụ trách; Customer và Provider không thấy ghi chú nội bộ.</p></div><a class="wk-btn" href="/admin/support-reviews">Quyền xem chat khiếu nại</a></div>
+       <form id="support-search" class="wk-card support-search">
+        <input class="input" name="q" placeholder="Tên/email, mã hội thoại hoặc mã đơn"/>
+        <select class="input" name="status"><option value="">Mọi trạng thái</option><option value="OPEN">Đang mở</option><option value="CLOSED">Đã đóng</option></select>
+        <input class="input" type="number" name="assignee" min="0" placeholder="ID Admin (0: chưa phân công)"/>
+        <label>Từ ngày<input name="from" type="date"/></label><label>Đến ngày<input name="to" type="date"/></label>
+        <button class="wk-btn primary" type="submit">Tìm hội thoại</button>
+       </form><p id="support-status" role="status"></p><div id="support-results" class="wk-stacked"></div>
+      </section>
+
+      <section th:if="${page == 'messages'}">
+        <div class="wk-page-head"><div><div class="wk-kicker">Tin nhắn Admin</div><h1 class="wk-page-title">Liên hệ người dùng</h1><p class="wk-page-desc">Tìm Customer hoặc Provider đang hoạt động để mở hội thoại hỗ trợ riêng. Hội thoại đã có sẽ được tiếp tục, không tạo bản ghi trùng.</p></div></div>
+        <div class="wk-card">
+          <label for="admin-chat-user-search">Tìm theo tên, email hoặc ID</label>
+          <input id="admin-chat-user-search" class="input" type="search" minlength="2" autocomplete="off" placeholder="Nhập tên/email (ít nhất 2 ký tự) hoặc ID"/>
+          <div id="admin-chat-user-results" class="wk-stacked" aria-live="polite"></div>
+          <p id="admin-chat-user-status" class="wk-card-desc" role="status"></p>
+        </div>
+        <div class="wk-card" style="margin-top:12px"><a class="wk-btn" href="/admin/support">← Hộp thư hỗ trợ</a></div>
+      </section>
+
+      <section th:if="${page == 'notifications'}" id="admin-notification-campaigns">
+        <div class="wk-page-head">
+          <div><div class="wk-kicker">Quản trị hệ thống</div><h1 class="wk-page-title">Quản lý thông báo</h1>
+            <p class="wk-page-desc">Tạo thông báo cho Customer, Provider hoặc nhóm tài khoản được chọn. Thông báo được lưu trước rồi phân phối nền; trạng thái online không đồng nghĩa đã đọc.</p>
+          </div>
+        </div>
+        <div class="wk-card">
+          <div class="wk-card-head"><div><h2 class="wk-card-title">Tạo thông báo</h2><p class="wk-card-desc">Chỉ gửi văn bản thuần. Người nhận phải là Customer/Provider đang hoạt động và đã xác minh email. Liên kết chọn từ các trang nghiệp vụ được phép.</p></div></div>
+          <div class="wk-form-grid wk-form-grid-2">
+            <label class="wk-field">Tiêu đề<input id="campaign-title" class="input" maxlength="180" required/></label>
+            <label class="wk-field">Loại thông báo<select id="campaign-type" class="input">
+              <option value="ADMIN_GENERAL">Chung</option><option value="ADMIN_IMPORTANT">Quan trọng</option>
+              <option value="ADMIN_MAINTENANCE">Bảo trì</option><option value="ADMIN_POLICY">Cập nhật chính sách</option>
+            </select></label>
+            <label class="wk-field">Nội dung<textarea id="campaign-content" class="input" rows="4" maxlength="1200" required></textarea></label>
+            <label class="wk-field">Đối tượng nhận<select id="campaign-audience" class="input">
+              <option value="ALL_CUSTOMERS">Tất cả Customer</option><option value="ALL_PROVIDERS">Tất cả Provider</option>
+              <option value="ALL_MARKETPLACE_USERS">Customer và Provider</option><option value="SELECTED">Chọn tài khoản</option>
+            </select></label>
+            <label class="wk-field">Liên kết nội bộ (không bắt buộc)<input id="campaign-target-url" class="input" maxlength="500" placeholder="/policies/terms"/></label>
+            <div class="wk-field" id="campaign-recipient-picker" hidden>
+              <label for="campaign-recipient-search">Tìm Customer/Provider theo tên, email hoặc ID</label>
+              <input id="campaign-recipient-search" class="input" type="search" autocomplete="off" placeholder="Nhập tên/email (ít nhất 2 ký tự) hoặc ID"/>
+              <div id="campaign-recipient-results" class="wk-stacked" aria-live="polite"></div>
+              <div id="campaign-selected-recipients" class="wk-pills" aria-live="polite"></div>
+            </div>
+          </div>
+          <div class="wk-form-actions">
+            <button type="button" class="wk-btn" id="campaign-preview">Xem trước số người nhận</button>
+            <span class="wk-card-desc" id="campaign-preview-result" role="status"></span>
+            <button type="button" class="wk-btn primary" id="campaign-send" disabled>Gửi thông báo</button>
+          </div>
+          <p class="wk-card-desc" id="campaign-send-status" role="status"></p>
+        </div>
+        <div class="wk-card" style="margin-top:12px">
+          <div class="wk-card-head"><div><h2 class="wk-card-title">Lịch sử gửi</h2><p class="wk-card-desc">“Online” là đã ghi nhận gửi WebSocket; “Đã đọc” chỉ tính khi người nhận mở hoặc đánh dấu đã đọc.</p></div></div>
+          <div class="wk-table-wrap"><table class="wk-table"><thead><tr><th>Mã</th><th>Tiêu đề / Loại</th><th>Đối tượng</th><th>Người nhận</th><th>Đã đọc / Chưa đọc</th><th>Lỗi</th><th>Người gửi / Thời điểm</th><th>Trạng thái</th><th></th></tr></thead>
+            <tbody><tr th:each="campaign : ${notificationCampaigns}">
+              <td th:text="${campaign.id}">1</td><td><strong th:text="${campaign.title}">Tiêu đề</strong><span class="sub" th:text="${campaign.type}">Chung</span></td>
+              <td th:text="${campaign.audience}">Tất cả</td><td th:text="${campaign.recipientCount}">0</td>
+              <td th:text="${campaign.readCount + ' / ' + campaign.unreadCount}">0 / 0</td><td th:text="${campaign.failedCount}">0</td>
+              <td><span th:text="${campaign.sender}">Admin</span><span class="sub" th:text="${#temporals.format(campaign.sentAt,'dd/MM/yyyy HH:mm:ss')}">Thời điểm gửi</span></td>
+              <td th:text="${campaign.status}">Đang phân phối</td>
+              <td><button class="wk-btn small" type="button" data-campaign-detail th:attr="data-campaign-id=${campaign.id}">Chi tiết</button>
+                <button class="wk-btn small" type="button" data-campaign-retry th:if="${campaign.failedCount > 0 || campaign.status == 'Đang phân phối'}" th:attr="data-campaign-id=${campaign.id}">Thử lại lỗi</button></td>
+            </tr></tbody>
+          </table></div>
+          <div class="wk-empty" th:if="${notificationCampaigns.isEmpty()}"><strong>Chưa có chiến dịch thông báo</strong>Lịch sử các thông báo Admin sẽ hiển thị tại đây.</div>
+        </div>
+        <section id="campaign-detail-panel" class="wk-card" style="margin-top:12px" hidden aria-live="polite"></section>
+      </section>
+
       <section th:if="${page == 'users'}">
         <div class="wk-page-head"><div><div class="wk-kicker">Quản lý / Người dùng</div><h1 class="wk-page-title">Quản lý Danh sách Người dùng</h1><p class="wk-page-desc">Tra cứu hồ sơ toàn sàn, lọc theo vai trò và quản lý trạng thái tài khoản.</p></div><div class="wk-actions"><a class="wk-btn" href="/admin/locked">Danh sách bị khóa</a><a class="wk-btn" href="/admin/unlock">Yêu cầu mở khóa</a><a class="wk-btn primary" href="/admin/users/export">Xuất CSV</a></div></div>
         <div class="wk-card"><form class="wk-form-grid wk-form-grid-3" method="get" action="/admin/users"><div class="wk-field"><label>Tìm theo ID, họ tên, email, SĐT</label><input name="q" th:value="${adminQuery}" placeholder="Ví dụ: Nguyễn Văn An"/></div><div class="wk-field"><label>Vai trò</label><select name="roleFilter"><option value="">Tất cả vai trò</option><option value="CUSTOMER" th:selected="${roleFilter == 'CUSTOMER'}">Customer</option><option value="PROVIDER" th:selected="${roleFilter == 'PROVIDER'}">Provider</option><option value="ADMIN" th:selected="${roleFilter == 'ADMIN'}">Admin</option></select></div><div class="wk-form-actions"><button class="wk-btn primary" type="submit">Lọc dữ liệu</button><a class="wk-btn" href="/admin/users">Làm mới</a></div></form></div>
-        <div class="wk-card" style="margin-top:12px"><div class="wk-table-wrap"><table class="wk-table wk-admin-table"><thead><tr><th>Người dùng / Email</th><th>Vai trò</th><th>Số điện thoại</th><th>Ngày tham gia</th><th>Trạng thái</th><th>Thao tác</th></tr></thead><tbody><tr th:each="row : ${userRows}"><td><strong th:text="${row.user.fullName}">Nguyễn Văn An</strong><span class="sub" th:text="${row.user.email}">an@example.com</span></td><td><span class="wk-chip" th:classappend="${row.user.role.name() == 'PROVIDER' ? ' green' : row.user.role.name() == 'ADMIN' ? ' purple' : ' blue'}" th:text="${row.user.role}">PROVIDER</span></td><td th:text="${row.user.phone != null ? row.user.phone : '-'}">0901 234 567</td><td th:text="${row.user.createdAt != null ? #temporals.format(row.user.createdAt,'dd/MM/yyyy') : '-'}">12/01/2024</td><td><span class="wk-chip" th:classappend="${row.blocked ? ' red' : ' green'}" th:text="${row.status}">Hoạt động</span></td><td class="actions"><form th:if="${row.user.accountStatus.name() == 'ACTIVE' && row.user.role.name() != 'ADMIN'}" method="post" th:action="@{'/admin/users/' + ${row.user.id} + '/lock'}"><button class="wk-btn danger small" type="submit">Khóa tài khoản</button></form><form th:if="${row.blocked && row.user.role.name() != 'ADMIN'}" method="post" th:action="@{'/admin/users/' + ${row.user.id} + '/unlock'}"><button class="wk-btn primary small" type="submit">Mở khóa</button></form></td></tr></tbody></table></div><div class="wk-empty" th:if="${userRows.isEmpty()}"><strong>Không có người dùng</strong>Không có dữ liệu phù hợp với bộ lọc hiện tại.</div><div class="wk-note" style="margin-top:9px" th:text="${'Hiển thị ' + #lists.size(userRows) + ' người dùng theo bộ lọc hiện tại.'}">Hiển thị 7 / 7 người dùng</div></div>
+        <div class="wk-card" style="margin-top:12px"><div class="wk-table-wrap"><table class="wk-table wk-admin-table"><thead><tr><th>Người dùng / Email</th><th>Vai trò</th><th>Số điện thoại</th><th>Ngày tham gia</th><th>Trạng thái</th><th>Thao tác</th></tr></thead><tbody><tr th:each="row : ${userRows}"><td><strong th:text="${row.user.fullName}">Nguyễn Văn An</strong><span class="sub" th:text="${row.user.email}">an@example.com</span></td><td><span class="wk-chip" th:classappend="${row.user.role.name() == 'PROVIDER' ? ' green' : row.user.role.name() == 'ADMIN' ? ' purple' : ' blue'}" th:text="${row.user.role}">PROVIDER</span>
+         <details th:if="${row.user.role.name() != 'ADMIN' && row.user.accountStatus.name() == 'ACTIVE' && row.user.emailVerified}" style="margin-top:8px">
+          <summary>Cấp quyền Admin</summary>
+          <form class="wk-form-grid" style="margin-top:8px;min-width:220px" method="post" th:action="@{/admin/users/{id}/role(id=${row.user.id})}" onsubmit="return confirm('Xác nhận cấp toàn quyền Admin cho tài khoản ở dòng này? Người dùng sẽ cần đăng nhập lại.')">
+           <label>Vai trò mới<select name="role" required><option value="" selected>Chọn vai trò</option><option value="ADMIN">Admin</option></select></label>
+           <label>Lý do cấp quyền<textarea name="reason" rows="2" maxlength="500" required></textarea></label>
+           <button class="wk-btn primary small" type="submit">Lưu vai trò Admin</button>
+          </form>
+         </details>
+        </td><td th:text="${row.user.phone != null ? row.user.phone : '-'}">0901 234 567</td><td th:text="${row.user.createdAt != null ? #temporals.format(row.user.createdAt,'dd/MM/yyyy') : '-'}">12/01/2024</td><td><span class="wk-chip" th:classappend="${row.blocked ? ' red' : ' green'}" th:text="${row.status}">Hoạt động</span></td><td class="actions"><form th:if="${row.user.accountStatus.name() == 'ACTIVE' && row.user.role.name() != 'ADMIN'}" method="post" th:action="@{'/admin/users/' + ${row.user.id} + '/lock'}"><button class="wk-btn danger small" type="submit">Khóa tài khoản</button></form><form th:if="${row.blocked && row.user.role.name() != 'ADMIN'}" method="post" th:action="@{'/admin/users/' + ${row.user.id} + '/unlock'}"><button class="wk-btn primary small" type="submit">Mở khóa</button></form></td></tr></tbody></table></div><div class="wk-empty" th:if="${userRows.isEmpty()}"><strong>Không có người dùng</strong>Không có dữ liệu phù hợp với bộ lọc hiện tại.</div><div class="wk-note" style="margin-top:9px" th:text="${'Hiển thị ' + #lists.size(userRows) + ' người dùng theo bộ lọc hiện tại.'}">Hiển thị 7 / 7 người dùng</div></div>
+        <div class="wk-card" style="margin-top:12px"><h2 class="wk-card-title">Lịch sử cấp quyền Admin gần đây</h2>
+         <p class="wk-card-desc">Chỉ tài khoản hoạt động, đã xác minh email và không còn đơn chưa kết thúc mới được nâng quyền. Provider cần xử lý số dư/rút tiền trước. Hồ sơ và lịch sử giao dịch được giữ nguyên.</p>
+         <div class="wk-table-wrap" th:if="${!roleChanges.isEmpty()}"><table class="wk-table"><thead><tr><th>Tài khoản</th><th>Thay đổi</th><th>Admin thực hiện</th><th>Lý do</th><th>Thời điểm</th></tr></thead><tbody>
+          <tr th:each="change : ${roleChanges}"><td th:text="${change.target.fullName + ' · ' + change.target.email}"></td><td th:text="${change.previousRole + ' → ' + change.newRole}"></td><td th:text="${change.actor.fullName}"></td><td th:text="${change.reason}"></td><td th:text="${#temporals.format(change.changedAt,'dd/MM/yyyy HH:mm')}"></td></tr>
+         </tbody></table></div><p class="wk-empty" th:if="${roleChanges.isEmpty()}">Chưa có thay đổi vai trò. Hiển thị tối đa 20 lần cấp quyền mới nhất.</p>
+        </div>
       </section>
 
       <section th:if="${page == 'locked' || page == 'unlock'}">
@@ -89,12 +182,12 @@
 
       <section th:if="${page == 'complaints'}">
         <div class="wk-page-head"><div><div class="wk-kicker">Tranh chấp / Khiếu nại</div><h1 class="wk-page-title">Quản lý Khiếu nại &amp; Tranh chấp</h1><p class="wk-page-desc">Tiếp nhận tranh chấp giữa Customer và Provider, kiểm tra và đưa ra phán quyết.</p></div></div>
-        <div class="wk-card"><div class="wk-table-wrap"><table class="wk-table"><thead><tr><th>Mã khiếu nại</th><th>Mã đơn</th><th>Bên khiếu nại</th><th>Bên bị khiếu nại</th><th>Lý do</th><th>Mức độ</th><th>Trạng thái</th><th>Xử lý</th></tr></thead><tbody><tr th:each="c : ${complaintRows}"><td><strong th:text="${'KN-' + c.id}">KN-2025-01</strong></td><td th:text="${c.orderCode}">DH001229</td><td th:text="${c.customer}">Đỗ Thúy Hà</td><td th:text="${c.provider}">Lê Thị Duyên</td><td th:text="${c.reason}">Dọn dẹp sơ sài</td><td><span class="wk-chip red">HIGH</span></td><td><span class="wk-chip" th:classappend="${c.status.name() == 'RESOLVED' ? ' green' : c.status.name() == 'REJECTED' ? ' gray' : ' yellow'}" th:text="${c.status}">OPEN</span></td><td><form th:if="${c.status.name() != 'RESOLVED' && c.status.name() != 'REJECTED'}" method="post" th:action="@{'/admin/complaints/' + ${c.id} + '/resolve'}" style="display:inline"><button class="wk-btn primary small" type="submit">Giải quyết</button></form><form th:if="${c.status.name() != 'RESOLVED' && c.status.name() != 'REJECTED'}" method="post" th:action="@{'/admin/complaints/' + ${c.id} + '/reject'}" style="display:inline"><button class="wk-btn danger small" type="submit">Bác bỏ</button></form></td></tr></tbody></table></div><div class="wk-empty" th:if="${complaintRows.isEmpty()}"><strong>Không có khiếu nại</strong>Hiện không có tranh chấp hoặc khiếu nại cần xử lý.</div></div>
+        <div class="wk-card"><div class="wk-table-wrap"><table class="wk-table"><thead><tr><th>Mã khiếu nại</th><th>Mã đơn</th><th>Bên khiếu nại</th><th>Bên bị khiếu nại</th><th>Lý do</th><th>Mức độ</th><th>Trạng thái</th><th>Xử lý</th></tr></thead><tbody><tr th:each="c : ${complaintRows}"><td><a th:href="@{/complaints/{id}(id=${c.id})}" th:text="${'KN-' + c.id}">Chi tiết khiếu nại</a></td><td th:text="${c.orderCode}">DH001229</td><td th:text="${c.customer}">Đỗ Thúy Hà</td><td th:text="${c.provider}">Lê Thị Duyên</td><td th:text="${c.reason}">Dọn dẹp sơ sài</td><td><span class="wk-chip red">HIGH</span></td><td><span class="wk-chip" th:classappend="${c.status.name() == 'RESOLVED' ? ' green' : c.status.name() == 'REJECTED' ? ' gray' : ' yellow'}" th:text="${c.status}">OPEN</span></td><td><form th:if="${c.status.name() != 'RESOLVED' && c.status.name() != 'REJECTED'}" method="post" th:action="@{'/admin/complaints/' + ${c.id} + '/resolve'}" style="display:inline"><label>Phản hồi xử lý<input name="note" required maxlength="1500" placeholder="Lý do và nội dung phản hồi"/></label><button class="wk-btn primary small" type="submit">Giải quyết</button></form><form th:if="${c.status.name() != 'RESOLVED' && c.status.name() != 'REJECTED'}" method="post" th:action="@{'/admin/complaints/' + ${c.id} + '/reject'}" style="display:inline"><label>Phản hồi xử lý<input name="note" required maxlength="1500" placeholder="Lý do và nội dung phản hồi"/></label><button class="wk-btn danger small" type="submit">Bác bỏ</button></form></td></tr></tbody></table></div><div class="wk-empty" th:if="${complaintRows.isEmpty()}"><strong>Không có khiếu nại</strong>Hiện không có tranh chấp hoặc khiếu nại cần xử lý.</div></div>
       </section>
 
       <section th:if="${page == 'reports'}">
         <div class="wk-page-head"><div><div class="wk-kicker">Báo cáo &amp; Xuất dữ liệu</div><h1 class="wk-page-title">Báo cáo Vi phạm &amp; Xuất Dữ liệu</h1><p class="wk-page-desc">Xử lý tố cáo vi phạm và xuất dữ liệu phục vụ quản trị.</p></div><a class="wk-btn primary" href="/admin/reports/export">⤓ Xuất CSV</a></div>
-        <div class="wk-card"><div class="wk-table-wrap"><table class="wk-table"><thead><tr><th>Đối tượng bị tố cáo</th><th>Loại vi phạm</th><th>Chi tiết tố cáo</th><th>Người tố cáo</th><th>Thời gian</th><th>Trạng thái</th><th>Thao tác</th></tr></thead><tbody><tr th:each="r : ${reportRows}"><td><strong th:text="${r.target}">Tài khoản bị báo cáo</strong></td><td><span class="wk-chip red" th:text="${r.type}">PROVIDER</span></td><td th:text="${r.detail}">Chi tiết báo cáo</td><td th:text="${r.reporter}">Người báo cáo</td><td th:text="${r.date}">18/10/2026</td><td><span class="wk-chip" th:classappend="${r.status.name() == 'RESOLVED' ? ' green' : (r.status.name() == 'REJECTED' ? ' gray' : ' yellow')}" th:text="${r.status}">OPEN</span></td><td><div class="wk-actions" th:if="${r.status.name() == 'OPEN' || r.status.name() == 'PROCESSING'}"><form method="post" th:action="@{'/admin/reports/' + ${r.id} + '/resolve'}"><button class="wk-btn primary small" type="submit">Đã xử lý</button></form><form method="post" th:action="@{'/admin/reports/' + ${r.id} + '/reject'}"><button class="wk-btn danger small" type="submit">Bác báo cáo</button></form></div></td></tr></tbody></table></div><div class="wk-empty" th:if="${reportRows.isEmpty()}"><strong>Không có báo cáo vi phạm</strong>Hiện không có báo cáo nào cần xem xét.</div></div>
+        <div class="wk-card"><div class="wk-table-wrap"><table class="wk-table"><thead><tr><th>Đối tượng bị tố cáo</th><th>Loại vi phạm</th><th>Chi tiết tố cáo</th><th>Người tố cáo</th><th>Thời gian</th><th>Trạng thái</th><th>Thao tác</th></tr></thead><tbody><tr th:each="r : ${reportRows}"><td><strong th:text="${r.target}">Tài khoản bị báo cáo</strong></td><td><span class="wk-chip red" th:text="${r.type}">PROVIDER</span></td><td th:text="${r.detail}">Chi tiết báo cáo</td><td th:text="${r.reporter}">Người báo cáo</td><td th:text="${r.date}">18/10/2026</td><td><span class="wk-chip" th:classappend="${r.status.name() == 'RESOLVED' ? ' green' : (r.status.name() == 'REJECTED' ? ' gray' : ' yellow')}" th:text="${r.status}">OPEN</span></td><td><div class="wk-actions" th:if="${r.status.name() == 'OPEN' || r.status.name() == 'PROCESSING'}"><form method="post" th:action="@{'/admin/reports/' + ${r.id} + '/resolve'}"><label>Phản hồi xử lý<input name="note" required maxlength="1500" placeholder="Lý do và nội dung phản hồi"/></label><button class="wk-btn primary small" type="submit">Đã xử lý</button></form><form method="post" th:action="@{'/admin/reports/' + ${r.id} + '/reject'}"><label>Phản hồi xử lý<input name="note" required maxlength="1500" placeholder="Lý do và nội dung phản hồi"/></label><button class="wk-btn danger small" type="submit">Bác báo cáo</button></form></div></td></tr></tbody></table></div><div class="wk-empty" th:if="${reportRows.isEmpty()}"><strong>Không có báo cáo vi phạm</strong>Hiện không có báo cáo nào cần xem xét.</div></div>
       </section>
 
       <section th:if="${page == 'statistics'}">
@@ -140,8 +233,12 @@
       </section>
 
     </div>
+  <div th:replace="~{fragments :: footer}"></div>
   </main>
 </div>
+<div th:replace="~{fragments :: floatingChat}"></div>
 <script th:src="@{/js/workspace.js}"></script>
+<script th:src="@{/js/app.js}"></script>
+<script defer src="/js/workflow.js"></script>
 </body>
 </html>

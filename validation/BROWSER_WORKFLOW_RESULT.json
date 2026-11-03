@@ -1,0 +1,78 @@
+{
+  "status": "PASS",
+  "results": [
+    {
+      "name": "Three independent browser login contexts",
+      "status": "PASS"
+    },
+    {
+      "name": "Customer ↔ Provider realtime without page reload",
+      "status": "PASS"
+    },
+    {
+      "name": "Customer support → Admin inbox → realtime reply",
+      "status": "PASS"
+    },
+    {
+      "name": "Admin proactively contacts Provider, no order dependency",
+      "status": "PASS"
+    },
+    {
+      "name": "55-message scroll: composer visible, old-message position retained",
+      "status": "PASS"
+    },
+    {
+      "name": "Older history loads beyond 50 messages",
+      "status": "PASS"
+    },
+    {
+      "name": "Mobile 390px: inbox fits viewport and composer remains usable",
+      "status": "PASS"
+    },
+    {
+      "name": "Customer file → Provider realtime document list and authorized download",
+      "status": "PASS"
+    },
+    {
+      "name": "Provider link → Customer realtime document list",
+      "status": "PASS"
+    },
+    {
+      "name": "Order file exchange, official handoff, revision and second version update live",
+      "status": "PASS"
+    },
+    {
+      "name": "Same account receives one chat message in each of two tabs",
+      "status": "PASS"
+    },
+    {
+      "name": "One Admin campaign reaches both roles; badges/read-all synchronize across tabs",
+      "status": "PASS"
+    },
+    {
+      "name": "Eight policy pages and footer destinations render",
+      "status": "PASS"
+    },
+    {
+      "name": "Provider policy consent is explicit and not requested again for the same version",
+      "status": "PASS"
+    },
+    {
+      "name": "Booking policy checkbox is linked, required and unchecked",
+      "status": "PASS"
+    },
+    {
+      "name": "Admin support search and internal note entry operate through the UI",
+      "status": "PASS"
+    },
+    {
+      "name": "Offline notification is visible after login, and read state survives the next login",
+      "status": "PASS"
+    },
+    {
+      "name": "No page JavaScript exceptions",
+      "status": "PASS"
+    }
+  ],
+  "errors": []
+}

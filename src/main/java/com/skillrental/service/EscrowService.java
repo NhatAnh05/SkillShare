@@ -2,7 +2,9 @@ package com.skillrental.service;
 
 import com.skillrental.entity.*;
 import com.skillrental.repository.*;
+import com.skillrental.notification.OrderStatusChangedEvent;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.ObjectProvider;
@@ -27,11 +29,13 @@ public class EscrowService {
     private static final BigDecimal ZERO = BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
     private final RentalOrderRepository orders;
     private final BookingRepository bookings;
+    private final DeliverySubmissionRepository deliveries;
     private final UserWalletRepository wallets;
     private final WalletTransactionRepository transactions;
     private final ProviderWithdrawalRepository providerWithdrawals;
     private final CommissionPolicy commissionPolicy;
     private final RentalOrderStatusHistoryRepository orderHistory;
+    private final ApplicationEventPublisher events;
     private final PasswordEncoder passwordEncoder;
     private final ObjectProvider<JavaMailSender> mailSenderProvider;
     @Value("${skillshare.escrow.show-demo-otp:true}") private boolean showDemoOtp;
@@ -271,6 +275,7 @@ public class EscrowService {
         else throw new IllegalArgumentException("Vai trò không được xác nhận bắt đầu công việc.");
         if (Boolean.TRUE.equals(order.getProviderStarted()) && Boolean.TRUE.equals(order.getCustomerStarted())) {
             order.setStatus(OrderStatus.PROCESSING);
+            if (order.getWorkStartedAt() == null) order.setWorkStartedAt(LocalDateTime.now());
             order.setStartDepositAmount(safe(order.getTotal()).divide(new BigDecimal("3"), 2, RoundingMode.HALF_UP));
             if (order.getBooking() != null) {
                 order.getBooking().setStatus(BookingStatus.IN_PROGRESS);
@@ -280,6 +285,9 @@ public class EscrowService {
         orders.save(order);
         if (order.getStatus() != previousStatus) {
             recordStatusChange(order, previousStatus, actor, "Hai bên đã xác nhận bắt đầu công việc.");
+        } else {
+            events.publishEvent(new OrderStatusChangedEvent(order.getId(), previousStatus.name(),
+                    order.getStatus().name(), actor.getId()));
         }
     }
 
@@ -290,11 +298,31 @@ public class EscrowService {
         if (!Boolean.TRUE.equals(order.getCustomerStarted()) || !Boolean.TRUE.equals(order.getProviderStarted())) {
             throw new IllegalStateException("Hai bên phải xác nhận bắt đầu trước khi báo hoàn thành.");
         }
+        DeliverySubmission latest = deliveries.findFirstByOrderIdOrderByVersionDesc(orderId)
+                .orElseThrow(() -> new IllegalStateException("Phải nộp sản phẩm trước khi báo hoàn thành."));
+        if (!"SUBMITTED".equals(latest.getStatus()) || (latest.getFiles().isEmpty() && latest.getLinks().isEmpty()))
+            throw new IllegalStateException("Bản bàn giao cần có ít nhất một tệp hoặc liên kết sản phẩm hợp lệ.");
         OrderStatus previousStatus = order.getStatus();
+        order.setProgressPercent(100);
+        order.setDeliveredAt(LocalDateTime.now());
         order.setProviderCompleted(true);
         order.setStatus(OrderStatus.PENDING_CUSTOMER_ACCEPTANCE);
         orders.save(order);
         recordStatusChange(order, previousStatus, provider, "Provider báo đã hoàn thành công việc; chờ Customer nghiệm thu.");
+    }
+
+    @Transactional
+    public void requestDeliveryRevision(Long orderId, User customer) {
+        RentalOrder order = customerOrder(orderId, customer);
+        requireStatus(order, OrderStatus.PENDING_CUSTOMER_ACCEPTANCE);
+        OrderStatus previousStatus = order.getStatus();
+        order.setStatus(OrderStatus.PROCESSING);
+        order.setProviderCompleted(false);
+        order.setProgressPercent(99);
+        order.setDeliveredAt(null);
+        order.setCustomerAcceptedCompletion(false);
+        orders.save(order);
+        recordStatusChange(order, previousStatus, customer, "Customer yêu cầu chỉnh sửa sản phẩm bàn giao; công việc tiếp tục.");
     }
 
     @Transactional
@@ -521,6 +549,9 @@ public class EscrowService {
         orderHistory.save(RentalOrderStatusHistory.builder().order(order)
                 .previousStatus(previousStatus == null ? null : previousStatus.name())
                 .newStatus(order.getStatus().name()).changedBy(actor).note(note).build());
+        events.publishEvent(new OrderStatusChangedEvent(order.getId(),
+                previousStatus == null ? null : previousStatus.name(),
+                order.getStatus().name(), actor == null ? null : actor.getId()));
     }
 
     private UserWallet lockWallet(User user) {

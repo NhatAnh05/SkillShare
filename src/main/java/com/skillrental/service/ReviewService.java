@@ -24,7 +24,7 @@ import java.time.LocalDateTime;
         );
         return saved;
     }
-    @Transactional public void complain(RentalOrder o,User u,ComplaintForm f) {
+    @Transactional public Complaint complain(RentalOrder o,User u,ComplaintForm f) {
         if (o == null || u == null || o.getCustomer() == null || o.getProvider() == null) {
             throw new IllegalArgumentException("Không tìm thấy hai bên của đơn hàng.");
         }
@@ -32,7 +32,7 @@ import java.time.LocalDateTime;
         boolean isProvider = o.getProvider().getId().equals(u.getId());
         if (!isCustomer && !isProvider) throw new IllegalArgumentException("Bạn không có quyền báo cáo đơn hàng này.");
         User target = isCustomer ? o.getProvider() : o.getCustomer();
-        complaints.save(Complaint.builder()
+        return complaints.save(Complaint.builder()
                 .customer(o.getCustomer())
                 .reporter(u)
                 .reportedUser(target)

@@ -48,6 +48,7 @@ class RegistrationOtpIntegrationTest {
     @Autowired private AuthService auth;
     @Autowired private UserRepository users;
     @Autowired private CustomerProfileRepository profiles;
+    @Autowired private com.skillrental.repository.ProviderProfileRepository providerProfiles;
     @Autowired private PasswordEncoder passwords;
     @Autowired private MockMvc mvc;
     @MockBean private JavaMailSender mailSender;
@@ -85,21 +86,36 @@ class RegistrationOtpIntegrationTest {
 
     private org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder registerPost(
             MockHttpSession session, String email, String code) {
+        return registerPost(session, email, code, "CUSTOMER");
+    }
+
+    private org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder registerPost(
+            MockHttpSession session, String email, String code, String role) {
         var request = post("/register").with(csrf());
         if (session != null) request.session(session);
-        addFormParams(request, email);
+        addFormParams(request, email, role);
         if (code != null) request.param("otp", code);
         return request;
     }
 
     private org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder sendPost(String email) {
+        return sendPost(email, "CUSTOMER");
+    }
+
+    private org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder sendPost(String email, String role) {
         var request = post("/register/send-otp").with(csrf());
-        addFormParams(request, email);
+        addFormParams(request, email, role);
         return request;
     }
 
     private void addFormParams(
             org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder request, String email) {
+        addFormParams(request, email, "CUSTOMER");
+    }
+
+    private void addFormParams(
+            org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder request, String email, String role) {
+        if (role != null) request.param("role", role);
         request.param("fullName", "Khách hàng OTP")
                 .param("email", email)
                 .param("password", "StrongPwd#123")
@@ -287,4 +303,85 @@ class RegistrationOtpIntegrationTest {
         mvc.perform(noCsrf)
                 .andExpect(status().isForbidden());
     }
+    @Test
+    void providerRegistrationCreatesUnapprovedProviderAndPreservesRoleAfterReload() throws Exception {
+        String email = freshEmail();
+        var sent = mvc.perform(sendPost(email, "PROVIDER"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.role").value("PROVIDER")).andReturn();
+        User pending = users.findByEmailIgnoreCase(email).orElseThrow();
+        assertEquals(com.skillrental.entity.Role.PROVIDER, pending.getRole());
+        assertTrue(profiles.findByUser(pending).isEmpty());
+        var profile = providerProfiles.findByUser(pending).orElseThrow();
+        assertFalse(profile.getApproved());
+        assertEquals(0, profile.getReviewCount());
+        var session = (MockHttpSession) sent.getRequest().getSession(false);
+        mvc.perform(get("/register").session(session)).andExpect(status().isOk())
+                .andExpect(model().attribute("form", org.hamcrest.Matchers.hasProperty("role",
+                        org.hamcrest.Matchers.is(com.skillrental.dto.RegisterRequest.AccountType.PROVIDER))));
+        mvc.perform(registerPost(session, email, otp(), "PROVIDER"))
+                .andExpect(status().is3xxRedirection()).andExpect(redirectedUrl("/login"));
+        User active = users.findById(pending.getId()).orElseThrow();
+        assertEquals(com.skillrental.entity.Role.PROVIDER, active.getRole());
+        assertTrue(active.getEmailVerified());
+        assertEquals(AccountStatus.ACTIVE, active.getAccountStatus());
+        assertFalse(providerProfiles.findByUser(active).orElseThrow().getApproved());
+        mvc.perform(get("/provider/dashboard").with(
+                org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors
+                        .user(email).roles("PROVIDER"))).andExpect(status().isOk());
+    }
+
+    @Test
+    void missingAdminAndUnknownRolesCannotCreateAnAccountOrSendEmail() throws Exception {
+        for (String role : new String[]{null, "ADMIN", "UNKNOWN", ""}) {
+            String email = freshEmail();
+            mvc.perform(sendPost(email, role)).andExpect(status().isBadRequest());
+            assertTrue(users.findByEmailIgnoreCase(email).isEmpty());
+        }
+        verify(mailSender, never()).send(any(MimeMessage.class));
+        mvc.perform(get("/register")).andExpect(status().isOk())
+                .andExpect(model().attribute("form", org.hamcrest.Matchers.hasProperty("role", org.hamcrest.Matchers.nullValue())));
+    }
+
+    @Test
+    void changingRoleRequiresNewOtpAndResendMigratesOnlyPendingProfile() throws Exception {
+        String email = freshEmail();
+        var sent = mvc.perform(sendPost(email)).andReturn();
+        var session = (MockHttpSession) sent.getRequest().getSession(false);
+        String previousOtp = otp();
+        mvc.perform(registerPost(session, email, previousOtp, "PROVIDER"))
+                .andExpect(status().isOk()).andExpect(content().string(
+                        org.hamcrest.Matchers.containsString("Loại tài khoản đã thay đổi")));
+        User user = users.findByEmailIgnoreCase(email).orElseThrow();
+        assertEquals(com.skillrental.entity.Role.CUSTOMER, user.getRole());
+        mvc.perform(sendPost(email, "PROVIDER")).andExpect(status().isTooManyRequests())
+                .andExpect(jsonPath("$.role").value("CUSTOMER"));
+        user.setEmailVerificationLastSentAt(LocalDateTime.now().minusSeconds(61));
+        users.saveAndFlush(user);
+        mvc.perform(sendPost(email, "PROVIDER")).andExpect(status().isOk());
+        user = users.findByEmailIgnoreCase(email).orElseThrow();
+        assertEquals(com.skillrental.entity.Role.PROVIDER, user.getRole());
+        assertTrue(profiles.findByUser(user).isEmpty());
+        assertTrue(providerProfiles.findByUser(user).isPresent());
+        assertFalse(passwords.matches(previousOtp, user.getEmailVerificationToken()));
+        mvc.perform(registerPost(session, email, previousOtp, "PROVIDER")).andExpect(status().isOk());
+        assertFalse(users.findById(user.getId()).orElseThrow().getEmailVerified());
+        mvc.perform(registerPost(session, email, otp(), "PROVIDER")).andExpect(status().is3xxRedirection());
+    }
+
+    @Test
+    void failedRoleChangeEmailRollsBackRoleProfileAndOtpTogether() throws Exception {
+        String email = freshEmail();
+        User user = sendOtp(email);
+        String previousOtp = otp();
+        user.setEmailVerificationLastSentAt(LocalDateTime.now().minusSeconds(61));
+        users.saveAndFlush(user);
+        doThrow(new MailSendException("SMTP offline")).when(mailSender).send(any(MimeMessage.class));
+        mvc.perform(sendPost(email, "PROVIDER")).andExpect(status().isBadGateway());
+        User preserved = users.findById(user.getId()).orElseThrow();
+        assertEquals(com.skillrental.entity.Role.CUSTOMER, preserved.getRole());
+        assertTrue(profiles.findByUser(preserved).isPresent());
+        assertTrue(providerProfiles.findByUser(preserved).isEmpty());
+        assertTrue(passwords.matches(previousOtp, preserved.getEmailVerificationToken()));
+    }
+
 }

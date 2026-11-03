@@ -236,6 +236,8 @@ CREATE TABLE IF NOT EXISTS bookings (
     provider_id BIGINT NOT NULL,
     service_id BIGINT NULL COMMENT 'Nullable for legacy direct-booking records; new catalog bookings should populate it',
     service_name VARCHAR(255) NOT NULL COMMENT 'Snapshot retained for compatibility and historical display',
+    schedule_mode VARCHAR(24) NOT NULL DEFAULT 'APPOINTMENT',
+    delivery_due_at DATETIME(6) NULL,
     booking_date DATE NOT NULL,
     time_slot TIME(6) NOT NULL,
     note VARCHAR(1200) NULL,
@@ -274,6 +276,10 @@ CREATE TABLE IF NOT EXISTS rental_orders (
     total DECIMAL(12,2) NOT NULL,
     status VARCHAR(50) NOT NULL,
     created_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+    work_started_at DATETIME(6) NULL,
+    delivered_at DATETIME(6) NULL,
+    estimated_completion_at DATETIME(6) NULL,
+    progress_percent INT NOT NULL DEFAULT 0,
     completed_at DATETIME(6) NULL,
     cancelled_at DATETIME(6) NULL,
     cancellation_reason VARCHAR(1000) NULL,
@@ -529,15 +535,24 @@ CREATE TABLE IF NOT EXISTS complaints (
 -- 8. CHAT ---------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS conversations (
     id BIGINT NOT NULL AUTO_INCREMENT,
-    customer_id BIGINT NOT NULL,
-    provider_id BIGINT NOT NULL,
+    customer_id BIGINT NULL,
+    provider_id BIGINT NULL,
+    support_admin_id BIGINT NULL,
+    support_conversation BOOLEAN NOT NULL DEFAULT FALSE,
+    support_key VARCHAR(80) NULL,
+    order_id BIGINT NULL,
     created_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+    last_message_at DATETIME(6) NULL,
     PRIMARY KEY (id),
     CONSTRAINT uq_conversation_customer_provider UNIQUE (customer_id, provider_id),
+    CONSTRAINT uq_conversation_support_key UNIQUE (support_key),
     CONSTRAINT fk_conversations_customer FOREIGN KEY (customer_id) REFERENCES users(id) ON UPDATE CASCADE ON DELETE RESTRICT,
     CONSTRAINT fk_conversations_provider FOREIGN KEY (provider_id) REFERENCES users(id) ON UPDATE CASCADE ON DELETE RESTRICT,
-    CONSTRAINT ck_conversations_different_users CHECK (customer_id <> provider_id),
-    INDEX idx_conversations_provider (provider_id)
+    CONSTRAINT fk_conversations_support_admin FOREIGN KEY (support_admin_id) REFERENCES users(id) ON UPDATE CASCADE ON DELETE RESTRICT,
+    CONSTRAINT fk_conversations_order FOREIGN KEY (order_id) REFERENCES rental_orders(id) ON UPDATE CASCADE ON DELETE SET NULL,
+    CONSTRAINT ck_conversations_different_users CHECK (customer_id IS NULL OR provider_id IS NULL OR customer_id <> provider_id),
+    INDEX idx_conversations_provider (provider_id),
+    INDEX idx_conversations_activity (last_message_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS messages (
@@ -546,11 +561,118 @@ CREATE TABLE IF NOT EXISTS messages (
     sender_id BIGINT NOT NULL,
     content VARCHAR(2500) NOT NULL,
     sent_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+    read_at DATETIME(6) NULL,
     PRIMARY KEY (id),
     CONSTRAINT fk_messages_conversation FOREIGN KEY (conversation_id) REFERENCES conversations(id) ON UPDATE CASCADE ON DELETE CASCADE,
     CONSTRAINT fk_messages_sender FOREIGN KEY (sender_id) REFERENCES users(id) ON UPDATE CASCADE ON DELETE RESTRICT,
     INDEX idx_messages_conversation_sent (conversation_id, sent_at),
     INDEX idx_messages_sender_sent (sender_id, sent_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS notifications (
+    id BIGINT NOT NULL AUTO_INCREMENT,
+    recipient_id BIGINT NOT NULL,
+    sender_id BIGINT NULL,
+    type VARCHAR(40) NOT NULL,
+    title VARCHAR(180) NOT NULL,
+    content VARCHAR(1200) NOT NULL,
+    target_type VARCHAR(40) NULL,
+    target_id BIGINT NULL,
+    target_url VARCHAR(500) NULL,
+    created_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+    read_at DATETIME(6) NULL,
+    PRIMARY KEY (id),
+    CONSTRAINT fk_notifications_recipient FOREIGN KEY (recipient_id) REFERENCES users(id) ON UPDATE CASCADE ON DELETE CASCADE,
+    CONSTRAINT fk_notifications_sender FOREIGN KEY (sender_id) REFERENCES users(id) ON UPDATE CASCADE ON DELETE SET NULL,
+    INDEX idx_notifications_recipient_created (recipient_id, created_at),
+    INDEX idx_notifications_recipient_read (recipient_id, read_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS notification_campaigns (
+    id BIGINT NOT NULL AUTO_INCREMENT,
+    sender_id BIGINT NOT NULL,
+    request_key CHAR(36) NOT NULL,
+    title VARCHAR(180) NOT NULL,
+    content VARCHAR(1200) NOT NULL,
+    type VARCHAR(40) NOT NULL,
+    audience VARCHAR(32) NOT NULL,
+    target_url VARCHAR(500) NOT NULL,
+    created_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+    sent_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+    PRIMARY KEY (id),
+    CONSTRAINT uq_notification_campaign_request UNIQUE (request_key),
+    CONSTRAINT fk_notification_campaign_sender FOREIGN KEY (sender_id) REFERENCES users(id) ON UPDATE CASCADE ON DELETE RESTRICT,
+    INDEX idx_notification_campaign_created (created_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS notification_campaign_recipients (
+    id BIGINT NOT NULL AUTO_INCREMENT,
+    campaign_id BIGINT NOT NULL,
+    recipient_id BIGINT NOT NULL,
+    notification_id BIGINT NULL,
+    delivery_status VARCHAR(24) NOT NULL DEFAULT 'QUEUED',
+    websocket_attempts INT NOT NULL DEFAULT 0,
+    last_error VARCHAR(1000) NULL,
+    updated_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+    PRIMARY KEY (id),
+    CONSTRAINT uq_notification_campaign_recipient UNIQUE (campaign_id, recipient_id),
+    CONSTRAINT uq_notification_campaign_notification UNIQUE (notification_id),
+    CONSTRAINT fk_notification_campaign_recipient_campaign FOREIGN KEY (campaign_id) REFERENCES notification_campaigns(id) ON UPDATE CASCADE ON DELETE CASCADE,
+    CONSTRAINT fk_notification_campaign_recipient_user FOREIGN KEY (recipient_id) REFERENCES users(id) ON UPDATE CASCADE ON DELETE RESTRICT,
+    CONSTRAINT fk_notification_campaign_recipient_notification FOREIGN KEY (notification_id) REFERENCES notifications(id) ON UPDATE CASCADE ON DELETE SET NULL,
+    INDEX idx_notification_campaign_recipient_status (campaign_id, delivery_status)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS delivery_submissions (
+    id BIGINT NOT NULL AUTO_INCREMENT,
+    order_id BIGINT NOT NULL,
+    provider_id BIGINT NOT NULL,
+    version INT NOT NULL,
+    description VARCHAR(4000) NOT NULL,
+    usage_notes VARCHAR(4000) NULL,
+    status VARCHAR(24) NOT NULL DEFAULT 'SUBMITTED',
+    sent_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+    PRIMARY KEY (id),
+    CONSTRAINT uq_delivery_order_version UNIQUE (order_id, version),
+    CONSTRAINT fk_delivery_order FOREIGN KEY (order_id) REFERENCES rental_orders(id) ON UPDATE CASCADE ON DELETE RESTRICT,
+    CONSTRAINT fk_delivery_provider FOREIGN KEY (provider_id) REFERENCES users(id) ON UPDATE CASCADE ON DELETE RESTRICT,
+    INDEX idx_delivery_order_sent (order_id, sent_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS delivery_links (
+    id BIGINT NOT NULL AUTO_INCREMENT,
+    delivery_id BIGINT NOT NULL,
+    url VARCHAR(1000) NOT NULL,
+    label VARCHAR(160) NULL,
+    PRIMARY KEY (id),
+    CONSTRAINT fk_delivery_link_submission FOREIGN KEY (delivery_id) REFERENCES delivery_submissions(id) ON UPDATE CASCADE ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS delivery_files (
+    id BIGINT NOT NULL AUTO_INCREMENT,
+    delivery_id BIGINT NOT NULL,
+    original_name VARCHAR(255) NOT NULL,
+    storage_key VARCHAR(80) NOT NULL,
+    content_type VARCHAR(160) NOT NULL,
+    file_size BIGINT NOT NULL,
+    PRIMARY KEY (id),
+    CONSTRAINT uq_delivery_file_storage_key UNIQUE (storage_key),
+    CONSTRAINT fk_delivery_file_submission FOREIGN KEY (delivery_id) REFERENCES delivery_submissions(id) ON UPDATE CASCADE ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS delivery_revision_requests (
+    id BIGINT NOT NULL AUTO_INCREMENT,
+    order_id BIGINT NOT NULL,
+    delivery_id BIGINT NOT NULL,
+    customer_id BIGINT NOT NULL,
+    reason VARCHAR(2000) NOT NULL,
+    status VARCHAR(20) NOT NULL DEFAULT 'OPEN',
+    created_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+    PRIMARY KEY (id),
+    CONSTRAINT fk_delivery_revision_order FOREIGN KEY (order_id) REFERENCES rental_orders(id) ON UPDATE CASCADE ON DELETE RESTRICT,
+    CONSTRAINT fk_delivery_revision_submission FOREIGN KEY (delivery_id) REFERENCES delivery_submissions(id) ON UPDATE CASCADE ON DELETE RESTRICT,
+    CONSTRAINT fk_delivery_revision_customer FOREIGN KEY (customer_id) REFERENCES users(id) ON UPDATE CASCADE ON DELETE RESTRICT,
+    INDEX idx_delivery_revision_order (order_id, created_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- Notes:
@@ -575,3 +697,59 @@ CREATE TABLE IF NOT EXISTS wallet_topups (
     CONSTRAINT fk_wallet_topup_user FOREIGN KEY (user_id) REFERENCES users(id)
 );
 CREATE INDEX idx_wallet_topups_user_status ON wallet_topups(user_id, status);
+
+CREATE TABLE IF NOT EXISTS support_assignment_history (
+    id BIGINT NOT NULL AUTO_INCREMENT,
+    conversation_id BIGINT NOT NULL,
+    changed_by_id BIGINT NOT NULL,
+    previous_admin_id BIGINT NULL,
+    assigned_admin_id BIGINT NULL,
+    action VARCHAR(20) NOT NULL,
+    created_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+    PRIMARY KEY (id),
+    CONSTRAINT fk_support_assignment_conversation FOREIGN KEY (conversation_id) REFERENCES conversations(id) ON UPDATE CASCADE ON DELETE CASCADE,
+    CONSTRAINT fk_support_assignment_changed_by FOREIGN KEY (changed_by_id) REFERENCES users(id) ON UPDATE CASCADE ON DELETE RESTRICT,
+    CONSTRAINT fk_support_assignment_previous_admin FOREIGN KEY (previous_admin_id) REFERENCES users(id) ON UPDATE CASCADE ON DELETE RESTRICT,
+    CONSTRAINT fk_support_assignment_admin FOREIGN KEY (assigned_admin_id) REFERENCES users(id) ON UPDATE CASCADE ON DELETE RESTRICT,
+    INDEX idx_support_assignment_conversation (conversation_id, created_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS terms_acceptances (
+    id BIGINT NOT NULL AUTO_INCREMENT,
+    user_id BIGINT NOT NULL,
+    policy_type VARCHAR(40) NOT NULL,
+    policy_version VARCHAR(40) NOT NULL,
+    accepted_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+    source VARCHAR(40) NOT NULL,
+    PRIMARY KEY (id),
+    CONSTRAINT fk_terms_acceptance_user FOREIGN KEY (user_id) REFERENCES users(id) ON UPDATE CASCADE ON DELETE CASCADE,
+    INDEX idx_terms_acceptance_user_time (user_id, accepted_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Order work progress history
+CREATE TABLE IF NOT EXISTS order_work_updates (
+ id BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+ order_id BIGINT NOT NULL,
+ provider_id BIGINT NOT NULL,
+ description VARCHAR(2000) NOT NULL,
+ progress_percent INT NOT NULL,
+ estimated_completion_at DATETIME(6) NOT NULL,
+ created_at DATETIME(6) NOT NULL,
+ INDEX idx_work_update_order (order_id,id),
+ CONSTRAINT fk_work_update_order FOREIGN KEY (order_id) REFERENCES rental_orders(id),
+ CONSTRAINT fk_work_update_provider FOREIGN KEY (provider_id) REFERENCES users(id),
+ CONSTRAINT chk_work_update_percent CHECK (progress_percent BETWEEN 0 AND 99)
+);
+
+CREATE TABLE IF NOT EXISTS user_role_changes (
+ id BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+ target_user_id BIGINT NOT NULL,
+ actor_user_id BIGINT NOT NULL,
+ previous_role VARCHAR(20) NOT NULL,
+ new_role VARCHAR(20) NOT NULL,
+ reason VARCHAR(500) NOT NULL,
+ changed_at DATETIME(6) NOT NULL,
+ INDEX idx_role_change_time (changed_at,id),
+ CONSTRAINT fk_role_change_target FOREIGN KEY (target_user_id) REFERENCES users(id),
+ CONSTRAINT fk_role_change_actor FOREIGN KEY (actor_user_id) REFERENCES users(id)
+);

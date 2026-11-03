@@ -22,13 +22,38 @@ import java.util.*;
     private final ReviewRepository reviewRepo;
     @PostMapping("/chat/{id}/send") String send(@PathVariable Long id,@Valid @ModelAttribute("messageForm")MessageForm f,BindingResult br,Authentication a) {
         var u=current.require(a);
-        if(!br.hasErrors())chat.send(chat.owned(id,u),u,f.getContent());
+        if(!br.hasErrors()) {
+            try {
+                chat.send(chat.requireParticipant(id,u),u,f.getContent());
+            } catch(IllegalArgumentException ex) {
+                throw new org.springframework.web.server.ResponseStatusException(
+                        org.springframework.http.HttpStatus.FORBIDDEN,ex.getMessage(),ex);
+            }
+        }
         return "redirect:/chat?conversationId="+id;
     }
-    @GetMapping("/chat/{id}/messages") @ResponseBody List<Map<String,Object>> poll(@PathVariable Long id,Authentication a) {
+    @GetMapping("/chat/{id}/messages") @ResponseBody List<Map<String,Object>> poll(@PathVariable Long id,@RequestParam(required=false) Long beforeId,Authentication a) {
         var u=current.require(a);
-        var fmt=DateTimeFormatter.ofPattern("HH:mm");
-        return chat.messages(chat.owned(id,u)).stream().map(x->Map.<String,Object>of("id",x.getId(),"own",x.getSender().getId().equals(u.getId()),"content",x.getContent(),"time",x.getSentAt().format(fmt))).toList();
+        try {
+            var conversation=chat.requireParticipant(id,u);
+
+            return chat.page(conversation,beforeId).stream().map(x->{
+                Map<String,Object> item=new LinkedHashMap<>();
+                item.put("id",x.getId());
+                item.put("own",x.getSender().getId().equals(u.getId()));
+                item.put("sender",x.getSender().getFullName());
+                item.put("content",x.getContent());
+                item.put("time",x.getSentAt().format(DateTimeFormatter.ofPattern("HH:mm")));
+                item.put("read",x.getReadAt()!=null);
+                return item;
+            }).toList();
+        } catch(IllegalArgumentException ex) {
+            throw new org.springframework.web.server.ResponseStatusException(
+                    org.springframework.http.HttpStatus.FORBIDDEN,ex.getMessage(),ex);
+        }
+    }
+    @PostMapping("/chat/{id}/read") @ResponseBody Map<String,Object> read(@PathVariable Long id,Authentication auth){
+        var u=current.require(auth);try{chat.markRead(chat.requireParticipant(id,u),u);return Map.of("success",true);}catch(IllegalArgumentException ex){throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.FORBIDDEN);}
     }
     @GetMapping("/orders/{id}/review") String review(@PathVariable Long id,Authentication a,Model m) {
         var o=orders.owned(id,current.require(a));

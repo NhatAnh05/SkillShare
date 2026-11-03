@@ -21,7 +21,7 @@
   <div class="auth">
    <div class="auth-art">
     <h1>Tạo tài khoản Skill Rental.</h1>
-    <p>Bắt đầu tìm Provider và đăng Service Request.</p>
+    <p>Thuê kỹ năng hoặc cung cấp dịch vụ với vai trò phù hợp.</p>
    </div>
    <div class="auth-box">
     <div class="auth-card">
@@ -30,6 +30,16 @@
      <form id="registerForm" method="post" th:action="@{/register}" th:object="${form}"
            th:data-send-url="@{/register/send-otp}">
       <div class="alert danger" th:each="e:${#fields.globalErrors()}" th:if="${#fields.hasGlobalErrors()}" th:text="${e}"></div>
+      <div class="form-group">
+       <label for="role">Bạn muốn đăng ký với vai trò nào?</label>
+       <select class="input" id="role" th:field="*{role}" required aria-describedby="roleHelp">
+        <option value="">Chọn loại tài khoản</option>
+        <option value="CUSTOMER">Customer — Tôi muốn thuê dịch vụ</option>
+        <option value="PROVIDER">Provider — Tôi muốn cung cấp dịch vụ</option>
+       </select>
+       <small class="muted" id="roleHelp">Provider cần hoàn thiện hồ sơ và được Admin duyệt trước khi hiển thị công khai.</small>
+       <span class="error" th:errors="*{role}"></span>
+      </div>
       <div class="form-group">
        <label for="fullName">Họ và tên</label>
        <input class="input" id="fullName" th:field="*{fullName}" maxlength="120" autocomplete="name" required/>
@@ -66,7 +76,8 @@
       <p class="muted" id="resendCountdown" style="display:none">Gửi lại mã sau <span id="resendSeconds"></span></p>
       <label style="display:block;margin-top:12px">
        <input th:field="*{acceptedTerms}" type="checkbox" required/>
-       Đồng ý điều khoản
+       Tôi đồng ý với <a href="/policies/terms" target="_blank" rel="noopener">Điều khoản sử dụng</a> và
+       <a href="/policies/privacy" target="_blank" rel="noopener">Chính sách quyền riêng tư</a>.
       </label>
       <span class="error" th:errors="*{acceptedTerms}"></span>
       <button class="btn btn-primary" id="registerButton" style="width:100%;margin-top:14px" type="submit">
@@ -79,6 +90,7 @@
   </div>
   <script th:inline="javascript">
    const registerForm = document.getElementById("registerForm");
+   const roleInput = document.getElementById("role");
    const emailInput = document.getElementById("email");
    const otpInput = document.getElementById("otp");
    const sendOtpButton = document.getElementById("sendOtpButton");
@@ -90,6 +102,7 @@
    const registerButton = document.getElementById("registerButton");
    const pageHasSentOtp = [[${otpSentForEmail}]];
    let issuedEmail = pageHasSentOtp ? [[${pendingEmail}]].trim().toLowerCase() : "";
+   let issuedRole = pageHasSentOtp ? [[${pendingRole}]] : "";
    let resendAt = [[${resendAvailableAtEpochMillis}]];
    let clockOffset = [[${serverNowEpochMillis}]] - Date.now();
    let requestInFlight = false;
@@ -142,9 +155,18 @@
      }
    });
 
+   roleInput.addEventListener("change", () => {
+     otpInput.value = "";
+     if (issuedEmail === normalizedEmail() && issuedRole && roleInput.value !== issuedRole) {
+       showStatus("Đã đổi loại tài khoản. Hãy gửi lại mã OTP sau thời gian chờ để xác nhận lựa chọn mới.", "error");
+     } else {
+       showStatus("", "");
+     }
+   });
+
    sendOtpButton.addEventListener("click", async () => {
      if (requestInFlight) return;
-     const requiredFields = ["fullName", "email", "password", "confirmPassword", "acceptedTerms"];
+     const requiredFields = ["role", "fullName", "email", "password", "confirmPassword", "acceptedTerms"];
      for (const fieldName of requiredFields) {
        const field = registerForm.elements.namedItem(fieldName);
        if (field && !field.reportValidity()) return;
@@ -155,6 +177,7 @@
        return;
      }
 
+     const requestedEmail = normalizedEmail();
      requestInFlight = true;
      sendOtpButton.disabled = true;
      sendSpinner.style.display = "inline-block";
@@ -171,14 +194,16 @@
          clockOffset = result.serverNowEpochMillis - Date.now();
        }
        if (result.success) {
-         issuedEmail = normalizedEmail();
+         issuedEmail = requestedEmail;
+         issuedRole = result.role || "";
          resendAt = result.resendAvailableAtEpochMillis;
          otpInput.value = "";
          showStatus(result.message, "success");
        } else {
          showStatus(result.message || "Không gửi được mã OTP. Vui lòng thử lại.", "error");
          if (response.status === 429 && result.resendAvailableAtEpochMillis != null) {
-           issuedEmail = normalizedEmail();
+           issuedEmail = requestedEmail;
+           issuedRole = result.role || "";
            resendAt = result.resendAvailableAtEpochMillis;
          }
        }
@@ -191,10 +216,16 @@
      }
    });
 
-   registerForm.addEventListener("submit", () => {
+   registerForm.addEventListener("submit", event => {
+     if (issuedRole && roleInput.value !== issuedRole) {
+       event.preventDefault();
+       showStatus("Loại tài khoản đã thay đổi. Hãy gửi mã OTP mới cho lựa chọn hiện tại.", "error");
+       return;
+     }
      registerButton.disabled = true;
      registerButton.textContent = "Đang xác minh...";
    });
   </script>
- </body>
+ <div th:replace="~{fragments :: footer}"></div>
+</body>
 </html>

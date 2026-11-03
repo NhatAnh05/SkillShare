@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>Thông báo · SkillShare</title>
+  <th:block th:replace="~{fragments :: customerStyles}"></th:block>
+</head>
+<body>
+  <div th:replace="~{fragments :: icons}"></div>
+  <header th:replace="~{fragments :: header}"></header>
+  <main class="page">
+    <section class="container policy-page card">
+      <div class="section-top">
+        <div><h1 class="title">Thông báo</h1><p class="muted" th:text="${unreadCount + ' thông báo chưa đọc'}">Thông báo chưa đọc</p></div>
+        <button id="all-notifications-read" class="btn" type="button">Đánh dấu tất cả đã đọc</button>
+      </div>
+      <div id="all-notifications-list">
+        <div class="notification-row" th:each="item : ${notifications}">
+        <a class="notification-item"
+           th:classappend="${item.readAt == null ? ' unread' : ''}"
+           th:href="${item.targetUrl}" th:attr="data-notification-id=${item.id}">
+          <strong th:text="${item.title}">Tiêu đề</strong>
+          <small class="notification-sender" th:if="${item.sender != null}" th:text="${'Từ: ' + item.sender.fullName}">Người gửi</small>
+          <span th:text="${item.content}">Nội dung</span>
+          <small th:text="${#temporals.format(item.createdAt,'dd/MM/yyyy HH:mm')}">Thời điểm</small>
+        </a>
+        <button class="notification-mark-read" type="button" th:if="${item.readAt == null}"
+                th:attr="data-notification-read-id=${item.id}">Đánh dấu đã đọc</button>
+        </div>
+        <p class="muted" th:if="${notifications.isEmpty()}">Chưa có thông báo.</p>
+      </div>
+      <nav class="pagination" aria-label="Trang thông báo">
+        <a class="btn" th:if="${notificationPage.hasPrevious()}" th:href="@{/notifications/all(page=${notificationPage.number - 1})}">Trang trước</a>
+        <span class="muted" th:text="${'Trang ' + (notificationPage.number + 1) + ' · ' + notificationPage.totalElements + ' thông báo'}"></span>
+        <a class="btn" th:if="${notificationPage.hasNext()}" th:href="@{/notifications/all(page=${notificationPage.number + 1})}">Trang sau</a>
+      </nav>
+    </section>
+  </main>
+  <div th:replace="~{fragments :: footer}"></div>
+  <div th:replace="~{fragments :: floatingChat}"></div>
+  <script defer src="/js/app.js"></script>
+<script defer src="/js/workflow.js"></script>
+</body>
+</html>

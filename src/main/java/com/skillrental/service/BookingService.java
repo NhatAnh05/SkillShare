@@ -3,7 +3,9 @@ package com.skillrental.service;
 import com.skillrental.dto.BookingForm;
 import com.skillrental.entity.*;
 import com.skillrental.repository.*;
+import com.skillrental.notification.OrderStatusChangedEvent;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
@@ -22,6 +24,8 @@ import java.util.Optional;
     private final RentalOrderStatusHistoryRepository orderHistory;
     private final EscrowService escrow;
     private final ServicePriceCalculator priceCalculator;
+    private final ApplicationEventPublisher events;
+    private final PolicyConsentService policyConsent;
     @Transactional public RentalOrder create(User customer, Long providerId, BookingForm f) {
         if (customer == null || customer.getRole() != Role.CUSTOMER) {
             throw new BookingUnavailableException("Chỉ Customer mới được tạo booking.");
@@ -34,6 +38,7 @@ import java.util.Optional;
         if (previousBooking.isPresent()) {
             return existingOrderForReplay(previousBooking.get(), customer, providerId, f);
         }
+        policyConsent.accept(customer,"BOOKING_POLICY","BOOKING",f.isAcceptedPolicy());
         CartItem cartItem = f.getCartItemId() == null ? null
                 : validateCartItemForCheckout(f.getCartItemId(), customer, f.getServiceId(), f.getQuantity());
 
@@ -43,14 +48,7 @@ import java.util.Optional;
             throw new BookingUnavailableException("Provider hiện chưa được duyệt hoặc không hoạt động.");
         }
         ServiceCatalog service = services.requireAvailablePublishedService(f.getServiceId(), p);
-        if (f.getBookingDate().equals(java.time.LocalDate.now()) &&
-            f.getTimeSlot().isBefore(java.time.LocalTime.now())) {
-            throw new IllegalArgumentException("Khung giờ đã qua");
-        }
-        if (!java.util.Set.of(java.time.LocalTime.of(10,0), java.time.LocalTime.of(12,0),
-                java.time.LocalTime.of(18,0), java.time.LocalTime.of(20,0)).contains(f.getTimeSlot())) {
-            throw new IllegalArgumentException("Khung giờ không hợp lệ");
-        }
+        validateSchedule(f, service);
         if (cartItem != null
                 && cartItem.getUnitPriceSnapshot().compareTo(service.getPrice()) != 0
                 && !f.isConfirmPriceChange()) {
@@ -63,11 +61,13 @@ import java.util.Optional;
                 priceCalculator.calculate(service, quantity, f.getDurationHours(), f.isPremium());
         var b=bookings.saveAndFlush(Booking.builder().customer(customer).provider(p.getUser()).service(service)
                 .serviceName(service.getName()).bookingDate(f.getBookingDate()).timeSlot(f.getTimeSlot())
+                .scheduleMode(f.getScheduleMode()).deliveryDueAt(plannedCompletion(f))
                 .note(f.getNote()).premium(f.isPremium()).directBooking(f.isDirectBooking())
                 .durationHours(f.getDurationHours()).amount(price.total()).status(BookingStatus.PENDING)
                 .idempotencyKey(f.getIdempotencyKey()).build());
         RentalOrder order = orders.saveAndFlush(RentalOrder.builder().booking(b).customer(customer).provider(p.getUser())
                 .subtotal(price.total()).discount(BigDecimal.ZERO).total(price.total())
+                .estimatedCompletionAt(plannedCompletion(f))
                 .status(OrderStatus.PENDING_PROVIDER_ACCEPTANCE).createdAt(LocalDateTime.now()).build());
         orderItems.saveAndFlush(RentalOrderItem.builder().order(order).service(service).provider(p.getUser())
                 .booking(b).serviceNameSnapshot(service.getName()).quantity(quantity)
@@ -75,6 +75,8 @@ import java.util.Optional;
         orderHistory.save(RentalOrderStatusHistory.builder().order(order).previousStatus(null)
                 .newStatus(OrderStatus.PENDING_PROVIDER_ACCEPTANCE.name()).changedBy(customer)
                 .note("Customer tạo booking cho dịch vụ " + service.getName() + ".").build());
+        events.publishEvent(new OrderStatusChangedEvent(order.getId(), null,
+                OrderStatus.PENDING_PROVIDER_ACCEPTANCE.name(), customer.getId()));
         escrow.reserveForBooking(order);
         if (cartItem != null) {
             cartItem.getCart().setUpdatedAt(LocalDateTime.now());
@@ -97,8 +99,11 @@ import java.util.Optional;
                         .map(provider -> provider.getUser().getId()).orElse(null))
                 && booking.getService() != null
                 && booking.getService().getId().equals(form.getServiceId())
-                && Objects.equals(booking.getBookingDate(), form.getBookingDate())
-                && Objects.equals(booking.getTimeSlot(), form.getTimeSlot())
+                && Objects.equals(booking.getScheduleMode(), form.getScheduleMode())
+                && (form.getScheduleMode() == ScheduleMode.DEADLINE
+                    ? Objects.equals(booking.getDeliveryDueAt(), form.getDeliveryDueAt())
+                    : Objects.equals(booking.getBookingDate(), form.getBookingDate())
+                        && Objects.equals(booking.getTimeSlot(), form.getTimeSlot()))
                 && Objects.equals(booking.getNote(), form.getNote())
                 && Objects.equals(booking.getPremium(), form.isPremium())
                 && Objects.equals(booking.getDirectBooking(), form.isDirectBooking())
@@ -121,6 +126,31 @@ import java.util.Optional;
         }
         return orders.findByBooking(booking)
                 .orElseThrow(() -> new BookingUnavailableException("Không tìm thấy đơn hàng của yêu cầu đã xử lý."));
+    }
+
+    private void validateSchedule(BookingForm f, ServiceCatalog service) {
+        if (f.getScheduleMode() == null) throw new IllegalArgumentException("Chọn cách đặt lịch.");
+        if (f.getDurationHours() < 1 || f.getDurationHours() > 24) throw new IllegalArgumentException("Thời lượng phải từ 1 đến 24 giờ.");
+        if (f.getScheduleMode() == ScheduleMode.DEADLINE) {
+            if (service.getPricingType() == ServicePricingType.HOURLY)
+                throw new IllegalArgumentException("Dịch vụ theo giờ cần hẹn giờ cố định.");
+            if (f.getDeliveryDueAt() == null || !f.getDeliveryDueAt().isAfter(LocalDateTime.now()))
+                throw new IllegalArgumentException("Hạn giao sản phẩm phải ở tương lai.");
+            f.setBookingDate(f.getDeliveryDueAt().toLocalDate());
+            f.setTimeSlot(f.getDeliveryDueAt().toLocalTime());
+        } else {
+            if (f.getBookingDate() == null || f.getTimeSlot() == null
+                    || !LocalDateTime.of(f.getBookingDate(), f.getTimeSlot()).isAfter(LocalDateTime.now()))
+                throw new IllegalArgumentException("Chọn ngày và giờ bắt đầu ở tương lai.");
+            if (!java.util.Set.of(java.time.LocalTime.of(10,0), java.time.LocalTime.of(12,0),
+                    java.time.LocalTime.of(18,0), java.time.LocalTime.of(20,0)).contains(f.getTimeSlot()))
+                throw new IllegalArgumentException("Khung giờ không hợp lệ.");
+        }
+    }
+
+    private LocalDateTime plannedCompletion(BookingForm f) {
+        return f.getScheduleMode() == ScheduleMode.DEADLINE ? f.getDeliveryDueAt()
+                : LocalDateTime.of(f.getBookingDate(), f.getTimeSlot()).plusHours(f.getDurationHours());
     }
 
     private CartItem validateCartItemForCheckout(Long cartItemId, User customer, Long serviceId, int requestedQuantity) {

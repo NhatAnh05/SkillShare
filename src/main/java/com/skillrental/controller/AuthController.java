@@ -43,6 +43,9 @@ import java.time.ZoneId;
         if (state.eligible()) {
             form.setEmail(email);
             form.setFullName(state.fullName());
+            if (state.role() == com.skillrental.entity.Role.CUSTOMER || state.role() == com.skillrental.entity.Role.PROVIDER) {
+                form.setRole(RegisterRequest.AccountType.valueOf(state.role().name()));
+            }
         } else if (email != null) {
             session.removeAttribute(PENDING_REGISTRATION_EMAIL);
             state = auth.getRegistrationOtpPageState(null);
@@ -70,7 +73,7 @@ import java.time.ZoneId;
             if (result == OtpResendResult.TOO_SOON) {
                 session.setAttribute(PENDING_REGISTRATION_EMAIL, email);
                 return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS).body(
-                        new OtpSendResponse(false, "Vui lòng chờ hết thời gian đếm ngược trước khi gửi lại.", availableAt, serverNow));
+                        new OtpSendResponse(false, "Vui lòng chờ hết thời gian đếm ngược trước khi gửi lại.", availableAt, serverNow, state.role().name()));
             }
             if (result != OtpResendResult.SENT) {
                 return ResponseEntity.badRequest().body(
@@ -79,7 +82,7 @@ import java.time.ZoneId;
             session.setAttribute(PENDING_REGISTRATION_EMAIL, email);
             return ResponseEntity.ok(new OtpSendResponse(true,
                     "Máy chủ email đã chấp nhận thư. Thư có thể mất thời gian để đến; hãy kiểm tra cả Spam/Junk.",
-                    availableAt, serverNow));
+                    availableAt, serverNow, state.role().name()));
         } catch (AuthService.OtpEmailDeliveryException ex) {
             return ResponseEntity.status(HttpStatus.BAD_GATEWAY)
                     .body(new OtpSendResponse(false, ex.getMessage(), null, null));
@@ -153,6 +156,7 @@ import java.time.ZoneId;
         boolean otpSentForEmail = state.eligible() && state.previouslySent() && sessionEmail != null
                 && form.getEmail() != null && sessionEmail.equalsIgnoreCase(form.getEmail().strip());
         model.addAttribute("otpSentForEmail", otpSentForEmail);
+        model.addAttribute("pendingRole", state.role() == null ? "" : state.role().name());
         model.addAttribute("pendingEmail", sessionEmail == null ? "" : sessionEmail);
         model.addAttribute("resendAvailableAtEpochMillis",
                 state.resendAvailableAt().atZone(ZoneId.systemDefault()).toInstant().toEpochMilli());
@@ -162,7 +166,11 @@ import java.time.ZoneId;
     }
 
     public record OtpSendResponse(boolean success, String message, Long resendAvailableAtEpochMillis,
-                                  Long serverNowEpochMillis) {}
+                                  Long serverNowEpochMillis, String role) {
+        public OtpSendResponse(boolean success, String message, Long resendAvailableAtEpochMillis, Long serverNowEpochMillis) {
+            this(success, message, resendAvailableAtEpochMillis, serverNowEpochMillis, null);
+        }
+    }
 
     @GetMapping("/forgot-password") String forgot(@RequestParam(required=false)String token,Model m) {
         m.addAttribute("token",token);

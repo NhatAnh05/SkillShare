@@ -28,9 +28,10 @@ public class SecurityConfig {
     @Bean SecurityFilterChain filter(HttpSecurity http, GoogleOidcUserService googleOidcUserService,
                                      ClientRegistrationRepository clientRegistrations,
                                      GoogleLoginFailureHandler googleFailures,
-                                     GooglePasswordLoginSuccessHandler passwordSuccess)throws Exception {
+                                     GooglePasswordLoginSuccessHandler passwordSuccess, UserRepository users)throws Exception {
+        http.addFilterBefore(new PromotedAdminSessionFilter(users), org.springframework.security.web.access.intercept.AuthorizationFilter.class);
         http.authorizeHttpRequests(a->a
-                .requestMatchers("/","/login","/register","/register/send-otp","/forgot-password","/reset-password","/css/**","/js/**","/h2-console/**", "/customer/wallet/vnpay/return", "/verify-email", "/verify-otp", "/registration-otp/send", "/resend-registration-otp").permitAll()
+                .requestMatchers("/","/login","/register","/register/send-otp","/forgot-password","/reset-password","/css/**","/js/**","/h2-console/**", "/customer/wallet/vnpay/return", "/verify-email", "/verify-otp", "/registration-otp/send", "/resend-registration-otp", "/policies/**").permitAll()
                 .requestMatchers("/oauth2/**", "/login/oauth2/**").permitAll()
                 .requestMatchers("/admin/**").hasRole("ADMIN")
                 .requestMatchers("/provider/**").hasRole("PROVIDER")

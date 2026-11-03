@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title th:text="${notification.title + ' · Thông báo SkillShare'}">Thông báo · SkillShare</title>
+  <th:block th:replace="~{fragments :: customerStyles}"></th:block>
+</head>
+<body>
+  <div th:replace="~{fragments :: icons}"></div>
+  <header th:replace="~{fragments :: header}"></header>
+  <main class="page">
+    <article class="container policy-page card">
+      <p class="eyebrow">Thông báo</p>
+      <h1 class="title" th:text="${notification.title}">Tiêu đề</h1>
+      <p class="policy-paragraph" th:text="${notification.content}">Nội dung</p>
+      <p class="muted" th:if="${notification.sender != null}"
+         th:text="${'Người gửi: ' + notification.sender.fullName}">Người gửi</p>
+      <p class="muted" th:text="${#temporals.format(notification.createdAt,'dd/MM/yyyy HH:mm')}">Thời điểm</p>
+      <div class="wk-actions">
+        <a class="btn" th:href="${notification.targetUrl}" th:if="${notification.targetUrl != '/notifications/all' && notification.targetUrl != '/notifications/item/' + notification.id}">Mở nội dung liên quan</a>
+        <a class="btn" href="/notifications/all">Tất cả thông báo</a>
+      </div>
+    </article>
+  </main>
+  <div th:replace="~{fragments :: footer}"></div>
+  <div th:replace="~{fragments :: floatingChat}"></div>
+  <script defer src="/js/app.js"></script>
+<script defer src="/js/workflow.js"></script>
+</body>
+</html>

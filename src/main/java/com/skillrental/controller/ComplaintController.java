@@ -4,6 +4,7 @@ import com.skillrental.dto.ComplaintForm;
 import com.skillrental.service.CurrentUserService;
 import com.skillrental.service.OrderService;
 import com.skillrental.service.ReviewService;
+import com.skillrental.service.NotificationService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.Authentication;
@@ -18,6 +19,7 @@ public class ComplaintController {
     private final CurrentUserService current;
     private final OrderService orders;
     private final ReviewService reviews;
+    private final NotificationService notifications;
     @GetMapping("/orders/{id}/complaint")
     public String form(@PathVariable Long id,Authentication auth,Model model) {
         var user = current.require(auth);
@@ -39,7 +41,10 @@ public class ComplaintController {
             model.addAttribute("reportedUser", order.getCustomer().getId().equals(user.getId()) ? order.getProvider() : order.getCustomer());
             return "interaction/complaint";
         }
-        reviews.complain(order,user,form);
+        var complaint=reviews.complain(order,user,form);
+        notifications.notifyAdmins("COMPLAINT", "Khiếu nại mới",
+                "Có khiếu nại mới liên quan đến đơn hàng #" + id + ".",
+                "COMPLAINT", complaint.getId(), "/complaints/"+complaint.getId());
         redirect.addFlashAttribute("success", "Báo cáo đã được ghi nhận và chuyển đến Admin xem xét.");
         return user.getRole() == com.skillrental.entity.Role.PROVIDER
                 ? "redirect:/provider/bookings" : "redirect:/orders";

@@ -18,6 +18,29 @@
         const quantityField = document.getElementById('booking-quantity') ||
             document.getElementById('quantity');
         const durationField = document.getElementById('durationHours');
+        const modeField = document.getElementById('schedule-mode');
+        const dueField = document.getElementById('deliveryDueAt');
+        function renderSchedule() {
+            if (!modeField) return;
+            const deadline = modeField.value === 'DEADLINE';
+            document.getElementById('summary-schedule').textContent = deadline ? 'Theo hạn giao' : 'Hẹn giờ cố định';
+            document.getElementById('summary-planned-time').textContent = deadline
+                ? (dueField.value.replace('T', ' ') || 'Chưa chọn hạn giao')
+                : (dateField.value && slotField.value ? dateField.value + ' ' + slotField.value + ' · ' + durationField.value + ' giờ' : 'Chưa chọn lịch');
+        }
+        function updateSchedule() {
+            if (!modeField) return;
+            const hourly = selectedPricingType === 'HOURLY';
+            modeField.querySelector('[value="DEADLINE"]').disabled = hourly;
+            if (hourly) modeField.value = 'APPOINTMENT';
+            const deadline = modeField.value === 'DEADLINE';
+            document.getElementById('appointment-fields').hidden = deadline;
+            document.getElementById('deadline-fields').hidden = !deadline;
+            dueField.disabled = !deadline; dueField.required = deadline;
+            dateField.disabled = deadline; slotField.disabled = deadline;
+            document.getElementById('duration-group').hidden = deadline;
+            renderSchedule();
+        }
         const money = amount => new Intl.NumberFormat('vi-VN', {
             maximumFractionDigits: 2, minimumFractionDigits: 0
         }).format(amount) + 'đ';
@@ -62,6 +85,7 @@
         }
 
         function updateSlots() {
+            renderSchedule();
             const currentLocalDate = isoDate(today);
             const isToday = dateField.value === currentLocalDate;
             document.querySelectorAll('.time-slots button[data-start]').forEach(button => {
@@ -116,16 +140,23 @@
             document.getElementById('summary-quantity').textContent = String(quantity);
             document.getElementById('summary-duration').textContent = `${duration} giờ`;
             document.getElementById('summary-duration-row').hidden = selectedPricingType !== 'HOURLY';
-            document.getElementById('duration-group').hidden = selectedPricingType !== 'HOURLY';
+            updateSchedule();
             document.getElementById('booking-base').textContent = money(base);
             document.getElementById('booking-extra').textContent = money(extra);
             document.getElementById('booking-total').textContent = money(base + extra);
         }
         premium?.addEventListener('change', updatePrice);
-        serviceField?.addEventListener('change', updatePrice);
+        serviceField?.addEventListener('change', () => {
+            updatePrice();
+            if (modeField) modeField.value = selectedPricingType === 'HOURLY' ? 'APPOINTMENT' : 'DEADLINE';
+            updateSchedule();
+        });
+        modeField?.addEventListener('change', updateSchedule);
+        dueField?.addEventListener('input', renderSchedule);
         quantityField?.addEventListener('input', updatePrice);
         durationField?.addEventListener('change', updatePrice);
         bookingForm.addEventListener('submit', event => {
+            if (modeField?.value === 'DEADLINE') return;
             if (!dateField.value || !slotField.value) {
                 event.preventDefault();
                 alert('Vui lòng chọn ngày và khung giờ trước khi tiếp tục.');

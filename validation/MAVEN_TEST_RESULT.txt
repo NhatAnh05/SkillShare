@@ -1,0 +1,29 @@
+Final verification — 01/11/2026
+
+[INFO] Tests run: 2, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.712 s -- in com.skillrental.ProviderRecommendationServiceTest
+[INFO] Tests run: 8, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 8.860 s -- in com.skillrental.AdminNotificationCampaignTest
+[INFO] Tests run: 2, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.002 s -- in com.skillrental.CommissionPolicyTest
+[INFO] Tests run: 1, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 2.170 s -- in com.skillrental.SkillRentalApplicationTests
+[INFO] Tests run: 6, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 8.223 s -- in com.skillrental.ProviderServiceManagementTest
+[INFO] Tests run: 6, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 8.650 s -- in com.skillrental.WorkspaceControllerSmokeTest
+[INFO] Tests run: 5, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 1.271 s -- in com.skillrental.ChatRealtimeIntegrationTest
+[INFO] Tests run: 3, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.002 s -- in com.skillrental.ServicePriceCalculatorTest
+[INFO] Tests run: 2, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 1.482 s -- in com.skillrental.CustomerProviderAdminTransactionFlowTest
+[INFO] Tests run: 5, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 4.882 s -- in com.skillrental.AdminCatalogManagementTest
+[INFO] Tests run: 2, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.004 s -- in com.skillrental.SocketSessionRegistryTest
+[INFO] Tests run: 6, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 5.465 s -- in com.skillrental.AdminUserManagementTest
+[INFO] Tests run: 1, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.251 s -- in com.skillrental.NotificationDispatcherTest
+[INFO] Tests run: 9, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 3.670 s -- in com.skillrental.RegistrationOtpIntegrationTest
+[INFO] Tests run: 1, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 2.022 s -- in com.skillrental.NotificationLiveSessionsTest
+[INFO] Tests run: 3, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.976 s -- in com.skillrental.MarketplaceCartSmokeTest
+[INFO] Tests run: 11, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 8.927 s -- in com.skillrental.GoogleOidcLoginTest
+[INFO] Tests run: 19, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 1.399 s -- in com.skillrental.WorkflowCompletionTest
+[INFO] Tests run: 4, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 2.338 s -- in com.skillrental.AdminOrderManagementTest
+[INFO] Tests run: 96, Failures: 0, Errors: 0, Skipped: 0
+[INFO] BUILD SUCCESS
+[INFO] Total time:  01:09 min
+
+Browser workflow: 18 groups PASS, three independent Chromium contexts plus a second account tab.
+Private-review browser workflow: 6 groups PASS, independent approval and audited download/export.
+Six application JS files and two browser scripts: syntax check PASS.
+MySQL migration: not executed against a real MySQL server.

@@ -37,6 +37,15 @@ class MarketplaceCartSmokeTest {
 
     @Test
     @WithMockUser(username = "customer@skillrental.vn", roles = "CUSTOMER")
+    void marketplaceRendersDatabaseBackedProviderRecommendations() throws Exception {
+        mvc.perform(get("/marketplace"))
+                .andExpect(status().isOk())
+                .andExpect(view().name("home"))
+                .andExpect(model().attributeExists("recommendedProviders"));
+    }
+
+    @Test
+    @WithMockUser(username = "customer@skillrental.vn", roles = "CUSTOMER")
     void customerCanAddAndRemovePublishedServiceFromCart() throws Exception {
         var service = services.findByStatusOrderByRatingDesc(ServiceStatus.PUBLISHED).stream().findFirst().orElseThrow();
         var customer = users.findByEmailIgnoreCase("customer@skillrental.vn").orElseThrow();

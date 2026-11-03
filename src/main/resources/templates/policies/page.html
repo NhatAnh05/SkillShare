@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title th:text="${pageTitle + ' · SkillShare'}">Chính sách · SkillShare</title>
+  <th:block th:replace="~{fragments :: customerStyles}"></th:block>
+</head>
+<body>
+  <div th:replace="~{fragments :: icons}"></div>
+  <header th:replace="~{fragments :: header}"></header>
+  <main class="page">
+    <article class="container policy-page card">
+      <p class="eyebrow">Chính sách SkillShare · Bản dự thảo <span th:text="${policyVersion}">v1</span></p>
+      <h1 class="title" th:text="${pageTitle}">Chính sách</h1>
+      <p class="policy-paragraph" th:each="paragraph : ${paragraphs}" th:text="${paragraph}"></p>
+      <p class="policy-draft-notice">Đây là bản dự thảo nội dung, cần bổ sung thông tin đơn vị vận hành, cách liên hệ, thời hạn lưu trữ dữ liệu, điều kiện giao dịch và chính sách thực tế trước khi đưa vào sử dụng chính thức.</p>
+      <a class="btn" href="/marketplace">Về Marketplace</a>
+    </article>
+  </main>
+  <div th:replace="~{fragments :: footer}"></div>
+  <div th:replace="~{fragments :: floatingChat}"></div>
+  <script defer src="/js/app.js"></script>
+<script defer src="/js/workflow.js"></script>
+</body>
+</html>

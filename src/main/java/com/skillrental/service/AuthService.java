@@ -16,6 +16,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.math.BigDecimal;
 import java.util.UUID;
 import java.security.SecureRandom;
 import java.util.Locale;
@@ -27,6 +28,9 @@ import java.util.regex.Pattern;
 public class AuthService {
     private final UserRepository users;
     private final CustomerProfileRepository customers;
+    private final ProviderProfileRepository providers;
+    private final TermsAcceptanceRepository termsAcceptances;
+    private final PolicyConsentService policyConsent;
     private final PasswordEncoder encoder;
     private final JavaMailSender mailSender;
     @Value("${app.base-url:http://localhost:8080}") private String baseUrl;
@@ -42,7 +46,7 @@ public class AuthService {
     public enum OtpVerificationResult { VERIFIED, INVALID, EXPIRED, TOO_MANY_ATTEMPTS }
     public enum OtpResendResult { SENT, TOO_SOON, NOT_ELIGIBLE }
     public record OtpPageState(boolean eligible, boolean previouslySent, boolean otpUsable,
-                               boolean resendCooldownActive, String fullName, LocalDateTime resendAvailableAt) {}
+                               boolean resendCooldownActive, String fullName, Role role, LocalDateTime resendAvailableAt) {}
 
     public static class OtpEmailDeliveryException extends IllegalStateException {
         public OtpEmailDeliveryException(String message) {
@@ -65,21 +69,23 @@ public class AuthService {
             return OtpResendResult.TOO_SOON;
         }
 
+        Role selectedRole = registrationRole(form);
         if (user == null) {
             user = users.saveAndFlush(User.builder()
                     .fullName(form.getFullName().strip())
                     .email(email)
                     .password(encoder.encode(form.getPassword()))
-                    .role(Role.CUSTOMER)
+                    .role(selectedRole)
                     .accountStatus(AccountStatus.PENDING_VERIFICATION)
                     .emailVerified(false)
                     .emailVerificationAttempts(0)
                     .avatarUrl("https://i.pravatar.cc/150?img=33")
-                    .bio("Customer của Skill Rental")
+                    .bio(selectedRole == Role.PROVIDER ? "Provider của Skill Rental" : "Customer của Skill Rental")
                     .build());
-            customers.save(CustomerProfile.builder().user(user).location("TP. Hồ Chí Minh")
-                    .preferredSkills("Java, UI/UX, Marketing").build());
         }
+        // A role change for an unverified account requires a new OTP, subject to the same cooldown.
+        user.setRole(selectedRole);
+        ensureRegistrationProfile(user);
 
         String previousHash = user.getEmailVerificationToken();
         String otp = newOtp();
@@ -109,7 +115,7 @@ public class AuthService {
         User user = email == null || email.isBlank()
                 ? null : users.findByEmailIgnoreCase(normalizeEmail(email)).orElse(null);
         if (!isPendingVerification(user)) {
-            return new OtpPageState(false, false, false, false, null, now);
+            return new OtpPageState(false, false, false, false, null, null, now);
         }
 
         LocalDateTime resendAvailableAt = user.getEmailVerificationLastSentAt() == null
@@ -121,7 +127,7 @@ public class AuthService {
                 && user.getEmailVerificationExpiresAt().isAfter(now)
                 && attempts < OTP_MAX_ATTEMPTS;
         return new OtpPageState(true, previouslySent, otpUsable,
-                resendAvailableAt.isAfter(now), user.getFullName(), resendAvailableAt);
+                resendAvailableAt.isAfter(now), user.getFullName(), user.getRole(), resendAvailableAt);
     }
 
     @Transactional
@@ -134,6 +140,9 @@ public class AuthService {
         if (otp == null || !otp.matches("[0-9]{6}")) return OtpVerificationResult.INVALID;
         User user = users.findByEmailForOtpUpdate(email).orElse(null);
         if (!isPendingVerification(user)) return OtpVerificationResult.INVALID;
+        if (user.getRole() != registrationRole(form)) {
+            throw new IllegalArgumentException("Loại tài khoản đã thay đổi. Hãy gửi mã OTP mới cho lựa chọn hiện tại.");
+        }
         LocalDateTime now = LocalDateTime.now();
         if (user.getEmailVerificationExpiresAt() == null
                 || !user.getEmailVerificationExpiresAt().isAfter(now)) return OtpVerificationResult.EXPIRED;
@@ -156,6 +165,16 @@ public class AuthService {
         user.setEmailVerificationAttempts(0);
         user.setEmailVerificationLastSentAt(null);
         users.save(user);
+        policyConsent.snapshot("TERMS_OF_USE");
+        String currentVersion = PolicyVersion.CURRENT;
+        boolean hasCurrentAcceptance = termsAcceptances
+                .findFirstByUserAndPolicyTypeOrderByAcceptedAtDesc(user, "TERMS_OF_USE")
+                .map(acceptance -> currentVersion.equals(acceptance.getPolicyVersion()))
+                .orElse(false);
+        if (!hasCurrentAcceptance) {
+            termsAcceptances.save(TermsAcceptance.builder().user(user).policyType("TERMS_OF_USE")
+                    .policyVersion(currentVersion).source("REGISTRATION").build());
+        }
         return OtpVerificationResult.VERIFIED;
     }
 
@@ -174,8 +193,37 @@ public class AuthService {
         if (!form.getPassword().equals(form.getConfirmPassword())) {
             throw new IllegalArgumentException("Mật khẩu xác nhận không khớp.");
         }
+        if (form.getRole() == null) {
+            throw new IllegalArgumentException("Vui lòng chọn Customer hoặc Provider.");
+        }
         if (!form.isAcceptedTerms()) {
             throw new IllegalArgumentException("Bạn phải đồng ý điều khoản.");
+        }
+    }
+
+    private Role registrationRole(RegisterRequest form) {
+        return switch (form.getRole()) {
+            case CUSTOMER -> Role.CUSTOMER;
+            case PROVIDER -> Role.PROVIDER;
+        };
+    }
+
+    private void ensureRegistrationProfile(User user) {
+        if (user.getRole() == Role.PROVIDER) {
+            customers.findByUser(user).ifPresent(customers::delete);
+            if (providers.findByUser(user).isEmpty()) {
+                providers.save(ProviderProfile.builder().user(user)
+                        .headline("Provider mới").hourlyRate(BigDecimal.ZERO)
+                        .rating(0.0).reviewCount(0).premium(false)
+                        .approved(false).profileStatus("ACTIVE")
+                        .introduction("").availability("Chưa cập nhật").build());
+            }
+        } else {
+            providers.findByUser(user).ifPresent(providers::delete);
+            if (customers.findByUser(user).isEmpty()) {
+                customers.save(CustomerProfile.builder().user(user).location("")
+                        .preferredSkills("").build());
+            }
         }
     }
 

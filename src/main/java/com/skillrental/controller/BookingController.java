@@ -73,6 +73,9 @@ import org.springframework.web.servlet.mvc.support.RedirectAttributes;
             throw new org.springframework.web.server.ResponseStatusException(HttpStatus.NOT_FOUND,
                     "Dịch vụ không thuộc Provider hoặc hiện không được mở bán.");
         }
+        if (f.getServiceId() == null && serviceId != null) f.setServiceId(serviceId);
+        var chosen = availableServices.stream().filter(service -> service.getId().equals(f.getServiceId())).findFirst().orElse(null);
+        if (chosen != null && chosen.getPricingType() == ServicePricingType.FIXED) f.setScheduleMode(ScheduleMode.DEADLINE);
         f.setCartItemId(cartItemId);
         m.addAttribute("form",f);
         m.addAttribute("provider",provider);
@@ -89,19 +92,6 @@ import org.springframework.web.servlet.mvc.support.RedirectAttributes;
                     "Chỉ Customer mới được đặt Provider.");
         }
         if(br.hasErrors()) {
-            populateBookingModel(id, f, user, m);
-            return "booking/booking";
-        }
-        if (f.getBookingDate().equals(java.time.LocalDate.now()) &&
-            f.getTimeSlot().isBefore(java.time.LocalTime.now())) {
-            br.rejectValue("timeSlot", "past", "Khung giờ đã qua");
-            populateBookingModel(id, f, user, m);
-            return "booking/booking";
-        }
-        if (!java.util.Set.of(java.time.LocalTime.of(10, 0), java.time.LocalTime.of(12, 0),
-                              java.time.LocalTime.of(18, 0), java.time.LocalTime.of(20, 0))
-                .contains(f.getTimeSlot())) {
-            br.rejectValue("timeSlot", "invalid", "Khung giờ không hợp lệ");
             populateBookingModel(id, f, user, m);
             return "booking/booking";
         }
@@ -133,10 +123,9 @@ import org.springframework.web.servlet.mvc.support.RedirectAttributes;
             ra.addFlashAttribute("error", e.getMessage());
             return "redirect:/customer/wallet";
         } catch (IllegalArgumentException e) {
-            ra.addFlashAttribute("error", e.getMessage());
-            return "redirect:/booking/provider/" + id
-                    + (f.getServiceId() == null ? "" : "?serviceId=" + f.getServiceId())
-                    + (f.getCartItemId() == null ? "" : (f.getServiceId() == null ? "?" : "&") + "cartItemId=" + f.getCartItemId());
+            populateBookingModel(id, f, user, m);
+            m.addAttribute("bookingError", e.getMessage());
+            return "booking/booking";
         }
     }
 

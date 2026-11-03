@@ -65,6 +65,7 @@
      <h1>
       Đăng nhập vào Skill Rental
      </h1>
+     <div class="alert success" th:if="${param.roleChanged}">Tài khoản của bạn đã được cấp quyền Admin. Vui lòng đăng nhập lại để cập nhật quyền.</div>
      <p class="muted">Chưa hoàn tất đăng ký? <a th:href="@{/register}">Tiếp tục trên trang đăng ký</a>.</p>
      <p class="muted">
       Vui lòng đăng nhập để sử dụng dịch vụ
@@ -149,5 +150,6 @@
     </section>
    </main>
   </div>
- </body>
+ <div th:replace="~{fragments :: footer}"></div>
+</body>
 </html>
