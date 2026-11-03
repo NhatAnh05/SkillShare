@@ -78,7 +78,13 @@ public class NotificationAutomationService {
             case "COMPLETED" -> "Đơn hàng đã hoàn tất và được quyết toán.";
             case "CANCELLED" -> "Đơn hàng đã bị hủy.";
             case "CANCELLATION_REQUESTED_BY_CUSTOMER" -> "Customer đã yêu cầu hủy đơn hàng.";
-            case "CANCELLATION_COMPENSATION_PENDING_CUSTOMER" -> "Provider đã đề xuất chi phí cho yêu cầu hủy.";
+            case "CANCELLATION_COMPENSATION_PENDING_CUSTOMER" -> "Provider đã đề xuất chi phí "
+                    + (order.getCancellationCompensation() == null ? "" : order.getCancellationCompensation().toPlainString() + "đ")
+                    + " cho phần việc: "
+                    + (order.getCancellationWorkSummary() == null ? "Xem trong đơn" :
+                        order.getCancellationWorkSummary().substring(0, Math.min(180, order.getCancellationWorkSummary().length())))
+                    + ". Vui lòng xem bằng chứng và xác nhận hoặc phản đối.";
+            case "CANCELLATION_DISPUTED" -> "Customer đã phản đối chi phí hủy; tiền vẫn bị giữ và Admin sẽ được thông báo.";
             default -> "Đơn hàng đã cập nhật trạng thái: " + event.newStatus() + ".";
         };
         String targetUrl="/orders/" + order.getId() + "/progress";

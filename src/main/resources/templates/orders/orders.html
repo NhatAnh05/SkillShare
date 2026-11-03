@@ -88,7 +88,7 @@
          <td><span class="badge" th:classappend="${o.status.name()=='COMPLETED'?'done':(o.status.name()=='CANCELLED'?'bad':(o.status.name()=='PROCESSING'?'info':'pending'))}" th:text="${o.status.displayName}">Trạng thái</span></td>
          <td><div class="icon-actions">
           <a class="action-icon" th:href="@{/orders/{id}/progress(id=${o.id})}" title="Xem tiến độ" aria-label="Xem tiến độ"><svg class="icon"><use href="#i-list"></use></svg></a>
-          <form th:if="${o.status.name()=='PENDING_PROVIDER_ACCEPTANCE' || o.status.name()=='PENDING_START_CONFIRMATION' || o.status.name()=='PROCESSING' || o.status.name()=='PENDING_CUSTOMER_ACCEPTANCE'}" method="post" th:action="@{/orders/{id}/cancel(id=${o.id})}" onsubmit="return confirm('Bạn chắc chắn muốn yêu cầu hủy đơn này?')"><button class="btn btn-outline btn-sm" type="submit">Hủy dịch vụ</button></form>
+          <a class="btn btn-outline btn-sm" th:if="${o.status.name()=='PENDING_PROVIDER_ACCEPTANCE' || o.status.name()=='PENDING_START_CONFIRMATION' || o.status.name()=='PROCESSING' || o.status.name()=='PENDING_CUSTOMER_ACCEPTANCE'}" th:href="@{/orders/{id}/progress(id=${o.id})}">Yêu cầu hủy</a>
           <a class="action-icon" th:if="${o.status.name()=='COMPLETED'}" th:href="@{/orders/{id}/review(id=${o.id})}" title="Đánh giá"><svg class="icon"><use href="#i-check"></use></svg></a>
           <a class="action-icon" th:href="@{/orders/{id}/complaint(id=${o.id})}" title="Khiếu nại"><svg class="icon"><use href="#i-alert"></use></svg></a>
          </div></td>

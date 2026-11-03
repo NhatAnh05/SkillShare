@@ -165,11 +165,12 @@ public class OrderController {
     }
 
     @PostMapping("/orders/{id}/cancel")
-    String cancel(@PathVariable Long id, Authentication auth, RedirectAttributes ra) {
+    String cancel(@PathVariable Long id, @RequestParam(required = false) String reason,
+                  Authentication auth, RedirectAttributes ra) {
         var user = current.require(auth);
         try {
-            escrow.cancelByCustomer(id, user);
-            ra.addFlashAttribute("success", "Đã ghi nhận yêu cầu hủy. Nếu công việc chưa bắt đầu, ký quỹ được mở khóa; nếu đã bắt đầu, Provider cần đề xuất chi phí phần việc đã làm.");
+            escrow.cancelByCustomer(id, user, reason);
+            ra.addFlashAttribute("success", "Yêu cầu hủy đã được ghi nhận: trước khi hai bên bắt đầu, tiền được hoàn khóa; sau khi bắt đầu, khoản ký quỹ tiếp tục giữ cho đến khi hai bên thỏa thuận.");
         } catch (RuntimeException e) { ra.addFlashAttribute("error", e.getMessage()); }
         return "redirect:/orders/" + id + "/progress";
     }
@@ -205,13 +206,15 @@ public class OrderController {
     }
 
     @PostMapping("/orders/{id}/cancellation-compensation/resolve")
-    String resolveCompensation(@PathVariable Long id, @RequestParam boolean accept, Authentication auth, RedirectAttributes ra) {
+    String resolveCompensation(@PathVariable Long id, @RequestParam boolean accept,
+                               @RequestParam(required = false) String reason,
+                               Authentication auth, RedirectAttributes ra) {
         var user = current.require(auth);
         try {
-            escrow.customerResolveCompensation(id, user, accept);
+            escrow.customerResolveCompensation(id, user, accept, reason);
             ra.addFlashAttribute("success", accept
-                    ? "Đã xác nhận chi phí phần việc. Provider nhận khoản đã thống nhất và phần ký quỹ còn lại được hoàn về ví."
-                    : "Bạn chưa chấp nhận chi phí. Đơn trở lại trạng thái đang thực hiện để hai bên tiếp tục trao đổi.");
+                    ? "Đã chấp nhận chi phí phần việc; Provider nhận phần đã thống nhất và tiền dư được hoàn vào ví."
+                    : "Đã ghi nhận phản đối, giữ nguyên ký quỹ và thông báo Admin xử lý tranh chấp.");
         } catch (RuntimeException e) { ra.addFlashAttribute("error", e.getMessage()); }
         return "redirect:/orders/" + id + "/progress";
     }

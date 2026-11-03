@@ -423,10 +423,11 @@ public class WorkspaceController {
     @PostMapping("/provider/orders/{id}/cancellation-compensation")
     public String providerCompensation(@PathVariable Long id, @RequestParam BigDecimal amount,
                                        @RequestParam(required = false) String note,
+                                       @RequestParam(required = false) String evidence,
                                        Authentication authentication, RedirectAttributes ra) {
         User u = require(authentication, Role.PROVIDER);
         try {
-            escrowService.proposeCancellationCompensation(id, u, amount, note);
+            escrowService.proposeCancellationCompensation(id, u, amount, note, evidence);
             ra.addFlashAttribute("success", "Đã gửi đề xuất chi phí phần việc đã thực hiện. Chờ Customer xác nhận trước khi giải ngân.");
         } catch (RuntimeException e) { ra.addFlashAttribute("error", e.getMessage()); }
         return "redirect:/provider/bookings";
@@ -1174,9 +1175,10 @@ public class WorkspaceController {
         List<OrderStatus> statusList = List.of(OrderStatus.PENDING_PROVIDER_ACCEPTANCE,
                 OrderStatus.PENDING_START_CONFIRMATION, OrderStatus.PROCESSING, OrderStatus.PENDING_CUSTOMER_ACCEPTANCE,
                 OrderStatus.PENDING_PAYMENT_OTP, OrderStatus.CANCELLATION_REQUESTED_BY_CUSTOMER,
-                OrderStatus.CANCELLATION_COMPENSATION_PENDING_CUSTOMER, OrderStatus.COMPLETED, OrderStatus.CANCELLED,
+                OrderStatus.CANCELLATION_COMPENSATION_PENDING_CUSTOMER, OrderStatus.CANCELLATION_DISPUTED,
+                OrderStatus.COMPLETED, OrderStatus.CANCELLED,
                 OrderStatus.PENDING_PAYMENT, OrderStatus.PAID);
-        List<String> colors = List.of("#64748b", "#0ea5e9", "#2563eb", "#a855f7", "#d97706", "#f97316", "#e11d48", "#16a34a", "#dc2626", "#94a3b8", "#64748b");
+        List<String> colors = List.of("#64748b", "#0ea5e9", "#2563eb", "#a855f7", "#d97706", "#f97316", "#e11d48", "#a16207", "#16a34a", "#dc2626", "#94a3b8", "#64748b");
         long total = periodOrders.size();
         List<StatusSlice> slices = new ArrayList<>();
         StringBuilder gradient = new StringBuilder();
@@ -1231,6 +1233,7 @@ public class WorkspaceController {
             case PENDING_PAYMENT_OTP -> "Chờ OTP quyết toán";
             case CANCELLATION_REQUESTED_BY_CUSTOMER -> "Đề nghị hủy";
             case CANCELLATION_COMPENSATION_PENDING_CUSTOMER -> "Chờ duyệt phí hủy";
+            case CANCELLATION_DISPUTED -> "Tranh chấp chi phí hủy";
             case COMPLETED -> "Hoàn thành";
             case CANCELLED -> "Đã hủy";
             case PENDING_PAYMENT -> "Đơn cũ: chờ thanh toán";

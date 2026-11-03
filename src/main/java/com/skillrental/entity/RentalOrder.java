@@ -48,6 +48,12 @@ public class RentalOrder {
     @Column(name="completion_otp_attempts", nullable=false, columnDefinition="INT DEFAULT 0") @Builder.Default private Integer completionOtpAttempts = 0;
     @Column(name="cancellation_compensation", precision=12, scale=2) private BigDecimal cancellationCompensation;
     @Column(name="cancellation_started_at") private LocalDateTime cancellationStartedAt;
+    @Column(name="cancellation_customer_reason", length=1000) private String cancellationCustomerReason;
+    @Column(name="cancellation_work_summary", length=2000) private String cancellationWorkSummary;
+    @Column(name="cancellation_evidence", length=2000) private String cancellationEvidence;
+    @Column(name="cancellation_proposed_at") private LocalDateTime cancellationProposedAt;
+    @Column(name="cancellation_dispute_reason", length=1000) private String cancellationDisputeReason;
+    @Column(name="cancellation_disputed_at") private LocalDateTime cancellationDisputedAt;
     @Column(name="settled_at") private LocalDateTime settledAt;
     @Column(name="platform_fee_amount", precision=12, scale=2) private BigDecimal platformFeeAmount;
     @Column(name="provider_net_amount", precision=12, scale=2) private BigDecimal providerNetAmount;

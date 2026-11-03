@@ -10,6 +10,7 @@ public enum OrderStatus {
     PENDING_PAYMENT_OTP("Chờ OTP quyết toán"),
     CANCELLATION_REQUESTED_BY_CUSTOMER("Chờ Provider đề xuất chi phí hủy"),
     CANCELLATION_COMPENSATION_PENDING_CUSTOMER("Chờ Customer xác nhận chi phí hủy"),
+    CANCELLATION_DISPUTED("Đang tranh chấp chi phí hủy"),
     COMPLETED("Đã hoàn thành và quyết toán"),
     CANCELLED("Đã hủy");
 

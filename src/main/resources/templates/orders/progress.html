@@ -125,8 +125,36 @@
         </div>
         <form method="post" th:action="@{/orders/{id}/verify-otp(id=${order.id})}" th:if="${currentUser.role.name() == 'CUSTOMER' && order.status.name()=='PENDING_PAYMENT_OTP'}" style="display:flex;gap:8px;align-items:end;flex-wrap:wrap"><div><label for="otp-code">OTP xác nhận quyết toán</label><input id="otp-code" name="otp" pattern="[0-9]{6}" maxlength="6" inputmode="numeric" required placeholder="Nhập 6 chữ số"/></div><button class="btn btn-primary" type="submit">Xác nhận &amp; quyết toán</button></form>
         <form method="post" th:action="@{/orders/{id}/resend-otp(id=${order.id})}" th:if="${currentUser.role.name() == 'CUSTOMER' && order.status.name()=='PENDING_PAYMENT_OTP'}"><button class="btn btn-outline" type="submit">Gửi lại mã OTP</button></form>
-        <form method="post" th:action="@{/orders/{id}/cancel(id=${order.id})}" th:if="${currentUser.role.name() == 'CUSTOMER' && (order.status.name()=='PENDING_PROVIDER_ACCEPTANCE' || order.status.name()=='PENDING_START_CONFIRMATION' || order.status.name()=='PROCESSING' || order.status.name()=='PENDING_CUSTOMER_ACCEPTANCE')}" onsubmit="return confirm('Bạn chắc chắn muốn yêu cầu hủy đơn?')"><button class="btn btn-outline" type="submit">Yêu cầu hủy dịch vụ</button></form>
-        <form method="post" th:action="@{/orders/{id}/cancellation-compensation/resolve(id=${order.id})}" th:if="${currentUser.role.name() == 'CUSTOMER' && order.status.name()=='CANCELLATION_COMPENSATION_PENDING_CUSTOMER'}"><p><strong>Provider đề xuất chi phí:</strong> <span th:text="${#numbers.formatDecimal(order.cancellationCompensation,0,'POINT',0,'COMMA')+'đ'}">0đ</span></p><p class="muted" th:text="${order.cancellationReason}">Giải thích</p><button class="btn btn-primary" type="submit" name="accept" value="true">Chấp nhận và quyết toán</button> <button class="btn btn-outline" type="submit" name="accept" value="false">Không chấp nhận</button></form>
+        <form method="post" th:action="@{/orders/{id}/cancel(id=${order.id})}" th:if="${currentUser.role.name() == 'CUSTOMER' && (order.status.name()=='PENDING_PROVIDER_ACCEPTANCE' || order.status.name()=='PENDING_START_CONFIRMATION' || order.status.name()=='PROCESSING' || order.status.name()=='PENDING_CUSTOMER_ACCEPTANCE')}" onsubmit="return confirm('Xác nhận yêu cầu hủy? Trước khi hai bên bắt đầu, toàn bộ tiền ký quỹ sẽ được hoàn khóa. Sau khi bắt đầu, tiền tiếp tục được giữ để xác định chi phí phần việc đã làm.')">
+          <label>Lý do hủy (không bắt buộc)<textarea name="reason" maxlength="500" rows="2" placeholder="Mô tả ngắn gọn lý do muốn hủy"></textarea></label>
+          <button class="btn btn-outline" type="submit">Yêu cầu hủy dịch vụ</button>
+        </form>
+        <div class="card" th:if="${order.status.name()=='CANCELLATION_REQUESTED_BY_CUSTOMER'}">
+          <strong>Đã yêu cầu hủy – chờ Provider đề xuất</strong>
+          <p class="muted" th:text="${order.cancellationCustomerReason}"></p>
+          <p class="muted">Tiền vẫn nằm trong escrow; không được tự động chuyển cho Provider.</p>
+        </div>
+        <div class="card" th:if="${order.status.name()=='CANCELLATION_COMPENSATION_PENDING_CUSTOMER'}">
+          <strong>Đề xuất bồi hoàn cho phần việc đã thực hiện</strong>
+          <p><strong>Provider đề xuất:</strong> <span th:text="${#numbers.formatDecimal(order.cancellationCompensation,0,'POINT',0,'COMMA')+'đ'}">0đ</span></p>
+          <p><strong>Phần việc:</strong> <span th:text="${order.cancellationWorkSummary}"></span></p>
+          <p><strong>Bằng chứng:</strong> <span th:text="${order.cancellationEvidence}"></span></p>
+          <p class="muted">Các bản cập nhật tiến độ và lịch sử bàn giao ở trên cũng là tài liệu tham khảo. Tiền chưa được chuyển cho Provider.</p>
+          <form method="post" th:action="@{/orders/{id}/cancellation-compensation/resolve(id=${order.id})}" th:if="${currentUser.role.name()=='CUSTOMER'}">
+            <button class="btn btn-primary" type="submit" name="accept" value="true" onclick="return confirm('Bạn đồng ý chi trả số tiền Provider đề xuất từ escrow và hoàn phần còn lại?')">Chấp nhận và quyết toán</button>
+          </form>
+          <form method="post" th:action="@{/orders/{id}/cancellation-compensation/resolve(id=${order.id})}" th:if="${currentUser.role.name()=='CUSTOMER'}">
+            <label>Lý do không đồng ý<textarea name="reason" minlength="10" maxlength="1000" rows="3" required placeholder="Nêu rõ phần công việc hoặc chi phí chưa thống nhất"></textarea></label>
+            <input type="hidden" name="accept" value="false"/>
+            <button class="btn btn-outline" type="submit" onclick="return confirm('Gửi tranh chấp để giữ nguyên khoản ký quỹ và nhờ Admin hỗ trợ?')">Phản đối và yêu cầu xử lý</button>
+          </form>
+        </div>
+        <div class="card" th:if="${order.status.name()=='CANCELLATION_DISPUTED'}">
+          <strong>Đang tranh chấp chi phí hủy</strong>
+          <p class="muted" th:text="${order.cancellationDisputeReason}">Lý do phản đối</p>
+          <p class="muted">Hệ thống giữ nguyên tiền ký quỹ, chưa chi trả hoặc hoàn tiền. Admin đã được thông báo; bạn có thể gửi thêm khiếu nại/bằng chứng qua mục bên dưới.</p>
+          <a class="btn btn-outline" th:href="@{/orders/{id}/complaint(id=${order.id})}">Gửi khiếu nại / bổ sung bằng chứng</a>
+        </div>
         <a class="btn btn-outline" th:href="@{/orders/{id}/review(id=${order.id})}" th:if="${currentUser.role.name() == 'CUSTOMER' && order.status.name()=='COMPLETED'}">Đánh giá</a>
        </div>
      </div>

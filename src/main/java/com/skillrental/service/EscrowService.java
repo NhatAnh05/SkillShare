@@ -38,6 +38,7 @@ public class EscrowService {
     private final EscrowSettlementRepository settlements;
     private final ProviderWithdrawalRepository providerWithdrawals;
     private final CommissionPolicy commissionPolicy;
+    private final NotificationService notifications;
     private final RentalOrderStatusHistoryRepository orderHistory;
     private final ApplicationEventPublisher events;
     private final PasswordEncoder passwordEncoder;
@@ -546,33 +547,62 @@ public class EscrowService {
         settle(order, safe(order.getTotal()), true, customer);
     }
 
+    /** Customer can freely cancel before BOTH start confirmations. All held funds return to the wallet. */
     @Transactional
     public void cancelByCustomer(Long orderId, User customer) {
+        cancelByCustomer(orderId, customer, null);
+    }
+
+    @Transactional
+    public void cancelByCustomer(Long orderId, User customer, String reason) {
         RentalOrder order = customerOrderForUpdate(orderId, customer);
         if (isTerminal(order)) throw new IllegalStateException("Đơn đã kết thúc, không thể hủy.");
         if (order.getStatus() == OrderStatus.PENDING_PAYMENT_OTP) {
-            throw new IllegalStateException("Đơn đang chờ xác nhận OTP quyết toán; không thể hủy trực tiếp.");
+            throw new IllegalStateException("Đơn đang chờ OTP quyết toán; cần xử lý qua hỗ trợ, không thể hủy trực tiếp.");
         }
         if (order.getStatus() == OrderStatus.CANCELLATION_REQUESTED_BY_CUSTOMER
-                || order.getStatus() == OrderStatus.CANCELLATION_COMPENSATION_PENDING_CUSTOMER) {
-            throw new IllegalStateException("Yêu cầu hủy đã được ghi nhận. Hãy chờ hoặc xử lý đề xuất chi phí từ Provider.");
+                || order.getStatus() == OrderStatus.CANCELLATION_COMPENSATION_PENDING_CUSTOMER
+                || order.getStatus() == OrderStatus.CANCELLATION_DISPUTED) {
+            throw new IllegalStateException("Đơn đã có yêu cầu hủy/tranh chấp; không được gửi lại để tránh xử lý hai lần.");
         }
-        if (order.getStatus() == OrderStatus.PROCESSING || order.getStatus() == OrderStatus.PENDING_CUSTOMER_ACCEPTANCE) {
-            OrderStatus previousStatus = order.getStatus();
-            order.setStatus(OrderStatus.CANCELLATION_REQUESTED_BY_CUSTOMER);
-            order.setCancellationStartedAt(LocalDateTime.now());
-            order.setCancellationReason("Khách hàng yêu cầu hủy sau khi hai bên xác nhận bắt đầu; chờ Provider đề xuất chi phí phần việc đã thực hiện.");
-            orders.save(order);
-            recordStatusChange(order, previousStatus, customer, "Customer yêu cầu hủy sau khi công việc bắt đầu.");
+        if (order.getSettledAt() != null || settlements.existsByOrderId(orderId)) {
+            throw new IllegalStateException("Đơn đã quyết toán, không thể xử lý yêu cầu hủy lần nữa.");
+        }
+        String customerReason = reason == null || reason.isBlank()
+                ? "Customer yêu cầu hủy đơn hàng." : CancellationCompensationPolicy.description(reason, 1, 500, "Lý do hủy");
+        boolean beforeStart = order.getStatus() == OrderStatus.PENDING_PROVIDER_ACCEPTANCE
+                || order.getStatus() == OrderStatus.PENDING_START_CONFIRMATION;
+        boolean afterStart = order.getStatus() == OrderStatus.PROCESSING
+                || order.getStatus() == OrderStatus.PENDING_CUSTOMER_ACCEPTANCE;
+        if (!beforeStart && !afterStart) {
+            throw new IllegalStateException("Trạng thái hiện tại không hỗ trợ hủy trực tiếp; cần Admin hỗ trợ đơn cũ.");
+        }
+        // Prevent silent cancellation of a legacy/non-escrow order or a corrupted hold.
+        if (safe(order.getLockedAmount()).compareTo(validHoldAmount(order.getTotal())) != 0) {
+            throw new IllegalStateException("Tiền ký quỹ không khớp hợp đồng; cần Admin đối soát trước khi hủy.");
+        }
+        order.setCancellationCustomerReason(customerReason);
+        order.setCancellationReason(customerReason);
+        order.setCancellationStartedAt(LocalDateTime.now());
+        if (beforeStart) {
+            if (order.getWorkStartedAt() != null
+                    || (Boolean.TRUE.equals(order.getCustomerStarted())
+                    && Boolean.TRUE.equals(order.getProviderStarted()))) {
+                throw new IllegalStateException("Đơn đã bắt đầu, không thể áp dụng hoàn tiền trước khi làm.");
+            }
+            cancelAndRelease(order, customer,
+                    "Customer hủy trước khi hai bên xác nhận bắt đầu: hoàn khóa toàn bộ ký quỹ. Lý do: " + customerReason);
             return;
         }
-        if (order.getStatus() != OrderStatus.PENDING_PROVIDER_ACCEPTANCE
-                && order.getStatus() != OrderStatus.PENDING_START_CONFIRMATION
-                && order.getStatus() != OrderStatus.PENDING_PAYMENT
-                && order.getStatus() != OrderStatus.PAID) {
-            throw new IllegalStateException("Trạng thái hiện tại không cho phép Customer hủy đơn theo luồng này.");
+        if (!Boolean.TRUE.equals(order.getCustomerStarted())
+                || !Boolean.TRUE.equals(order.getProviderStarted())) {
+            throw new IllegalStateException("Trạng thái xác nhận bắt đầu không nhất quán; cần đối soát.");
         }
-        cancelAndRelease(order, customer, "Khách hàng hủy trước khi hai bên xác nhận bắt đầu; hoàn lại toàn bộ khoản ký quỹ.");
+        OrderStatus previousStatus = order.getStatus();
+        order.setStatus(OrderStatus.CANCELLATION_REQUESTED_BY_CUSTOMER);
+        orders.save(order);
+        recordStatusChange(order, previousStatus, customer,
+                "Customer yêu cầu hủy sau khi bắt đầu; escrow giữ nguyên, chờ Provider đề xuất bằng chứng và chi phí.");
     }
 
     @Transactional
@@ -581,34 +611,56 @@ public class EscrowService {
         if (isTerminal(order) || order.getStatus() == OrderStatus.PENDING_PAYMENT_OTP) {
             throw new IllegalStateException("Đơn đã kết thúc hoặc đang quyết toán, không thể hủy ở bước này.");
         }
-        String why = (reason == null || reason.isBlank()) ? "Provider hủy công việc; hoàn 100% tiền ký quỹ cho khách." : reason.trim();
-        order.setCancellationReason(why);
+        String why = (reason == null || reason.isBlank()) ? "Provider chủ động hủy."
+                : CancellationCompensationPolicy.description(reason, 1, 500, "Lý do hủy của Provider");
         cancelAndRelease(order, provider, "Provider hủy đơn: hoàn 100% khoản đang ký quỹ cho khách. " + why);
     }
 
+    /** Provider must explain completed work and identify its evidence before asking for a payout. */
     @Transactional
-    public void proposeCancellationCompensation(Long orderId, User provider, BigDecimal amount, String note) {
+    public void proposeCancellationCompensation(Long orderId, User provider,
+                                                  BigDecimal amount, String note, String evidence) {
         RentalOrder order = providerOrderForUpdate(orderId, provider);
         requireStatus(order, OrderStatus.CANCELLATION_REQUESTED_BY_CUSTOMER);
-        BigDecimal proposed = safe(amount);
-        if (proposed.signum() < 0 || proposed.compareTo(safe(order.getLockedAmount())) > 0) {
-            throw new IllegalArgumentException("Chi phí đề xuất phải nằm trong khoảng 0 đến số tiền đang ký quỹ.");
+        if (order.getSettledAt() != null || settlements.existsByOrderId(orderId)) {
+            throw new IllegalStateException("Đơn đã được quyết toán.");
         }
+        BigDecimal proposed = CancellationCompensationPolicy.amount(amount, order.getLockedAmount());
+        String summary = CancellationCompensationPolicy.description(note, 20, 2000, "Mô tả phần việc");
+        String proof = CancellationCompensationPolicy.description(evidence, 10, 2000, "Bằng chứng công việc");
         OrderStatus previousStatus = order.getStatus();
         order.setCancellationCompensation(proposed);
-        order.setCancellationReason(note == null || note.isBlank() ? "Provider đề xuất chi phí phần việc đã thực hiện." : note.trim());
+        order.setCancellationWorkSummary(summary);
+        order.setCancellationEvidence(proof);
+        order.setCancellationProposedAt(LocalDateTime.now());
         order.setStatus(OrderStatus.CANCELLATION_COMPENSATION_PENDING_CUSTOMER);
         orders.save(order);
-        recordStatusChange(order, previousStatus, provider, "Provider đề xuất chi phí phần việc đã thực hiện.");
+        recordStatusChange(order, previousStatus, provider,
+                "Provider gửi đề xuất chi phí " + proposed.toPlainString() + "đ kèm mô tả/bằng chứng; chưa giải ngân.");
+    }
+
+    /** Legacy overload retained only for compilation: require evidence in new submissions. */
+    @Transactional
+    public void proposeCancellationCompensation(Long orderId, User provider, BigDecimal amount, String note) {
+        proposeCancellationCompensation(orderId, provider, amount, note, null);
     }
 
     @Transactional
     public void customerResolveCompensation(Long orderId, User customer, boolean accept) {
+        customerResolveCompensation(orderId, customer, accept, null);
+    }
+
+    @Transactional
+    public void customerResolveCompensation(Long orderId, User customer, boolean accept, String reason) {
         RentalOrder order = customerOrderForUpdate(orderId, customer);
         requireStatus(order, OrderStatus.CANCELLATION_COMPENSATION_PENDING_CUSTOMER);
         OrderStatus previousStatus = order.getStatus();
         if (accept) {
-            settle(order, safe(order.getCancellationCompensation()), false, customer);
+            if (order.getCancellationCompensation() == null) {
+                throw new IllegalStateException("Provider chưa cung cấp số tiền bồi hoàn hợp lệ.");
+            }
+            settle(order, CancellationCompensationPolicy.amount(
+                    order.getCancellationCompensation(), order.getLockedAmount()), false, customer);
             order.setStatus(OrderStatus.CANCELLED);
             order.setCancelledBy(customer);
             order.setCancelledAt(LocalDateTime.now());
@@ -620,13 +672,20 @@ public class EscrowService {
                 bookings.save(order.getBooking());
             }
             orders.save(order);
-            recordStatusChange(order, previousStatus, customer, "Customer chấp nhận chi phí hủy; đơn được kết thúc.");
+            recordStatusChange(order, previousStatus, customer,
+                    "Customer chấp thuận bồi hoàn; khoản đã thống nhất được quyết toán, phần dư hoàn về ví.");
         } else {
-            order.setCancellationCompensation(null);
-            order.setStatus(OrderStatus.PROCESSING);
-            order.setCancellationReason("Khách hàng chưa chấp nhận chi phí hủy; công việc trở lại trạng thái đang thực hiện.");
+            String explanation = CancellationCompensationPolicy.description(reason, 10, 1000, "Lý do phản đối");
+            // NEVER resume work or release funds just because the proposal was rejected.
+            order.setStatus(OrderStatus.CANCELLATION_DISPUTED);
+            order.setCancellationDisputeReason(explanation);
+            order.setCancellationDisputedAt(LocalDateTime.now());
             orders.save(order);
-            recordStatusChange(order, previousStatus, customer, "Customer từ chối chi phí hủy; công việc tiếp tục.");
+            recordStatusChange(order, previousStatus, customer,
+                    "Customer phản đối chi phí hủy; tiền giữ nguyên, chờ hai bên hoặc Admin giải quyết.");
+            notifications.notifyAdmins("ESCROW_DISPUTE", "Tranh chấp chi phí hủy đơn #" + order.getId(),
+                    "Customer phản đối chi phí hủy của Provider; cần xem bằng chứng và xử lý thủ công.",
+                    "ORDER", order.getId(), "/admin/orders");
         }
     }
 
@@ -768,7 +827,8 @@ public class EscrowService {
     private void recordStatusChange(RentalOrder order, OrderStatus previousStatus, User actor, String note) {
         orderHistory.save(RentalOrderStatusHistory.builder().order(order)
                 .previousStatus(previousStatus == null ? null : previousStatus.name())
-                .newStatus(order.getStatus().name()).changedBy(actor).note(note).build());
+                .newStatus(order.getStatus().name()).changedBy(actor)
+                .note(note != null && note.length() > 1000 ? note.substring(0, 1000) : note).build());
         events.publishEvent(new OrderStatusChangedEvent(order.getId(),
                 previousStatus == null ? null : previousStatus.name(),
                 order.getStatus().name(), actor == null ? null : actor.getId()));
@@ -780,7 +840,8 @@ public class EscrowService {
 
     private void record(UserWallet wallet, RentalOrder order, String type, BigDecimal amount, String description) {
         transactions.save(WalletTransaction.builder().wallet(wallet).order(order).type(type).amount(amount)
-                .balanceAfter(wallet.getBalance()).lockedAfter(wallet.getLockedAmount()).description(description).build());
+                .balanceAfter(wallet.getBalance()).lockedAfter(wallet.getLockedAmount())
+                .description(description.length() > 800 ? description.substring(0, 800) : description).build());
     }
     private RentalOrder customerOrderForUpdate(Long id, User customer) {
         RentalOrder order = orders.findByIdForUpdate(id)
