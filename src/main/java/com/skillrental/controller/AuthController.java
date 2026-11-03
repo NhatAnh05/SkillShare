@@ -8,7 +8,6 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.validation.BindingResult;
@@ -30,8 +29,6 @@ import java.time.ZoneId;
     private final UserRepository users;
     private final PasswordEncoder encoder;
     private final GoogleLoginSettings googleLoginSettings;
-    @Value("${spring.mail.username:}") private String mailUsername;
-    @Value("${app.base-url:http://localhost:8080}") private String appBaseUrl;
     @GetMapping("/login") String login(Model model) {
         model.addAttribute("googleLoginEnabled", googleLoginSettings.enabled());
         return "auth/login";
@@ -172,25 +169,42 @@ import java.time.ZoneId;
         }
     }
 
-    @GetMapping("/forgot-password") String forgot(@RequestParam(required=false)String token,Model m) {
-        m.addAttribute("token",token);
+    @GetMapping("/forgot-password")
+    String forgot(@RequestParam(required = false) String token, Model m,
+                  jakarta.servlet.http.HttpServletResponse response) {
+        // A reset link contains a bearer token; do not cache it or expose it in Referer headers.
+        response.setHeader("Cache-Control", "no-store");
+        response.setHeader("Referrer-Policy", "no-referrer");
+        m.addAttribute("token", token);
         return "auth/forgot-password";
     }
-    @PostMapping("/forgot-password") String forgotSubmit(@RequestParam String email,RedirectAttributes ra) {
-        String token = auth.createResetToken(email);
-        ra.addFlashAttribute("success", "Nếu email tồn tại và tài khoản đang hoạt động, liên kết khôi phục sẽ được gửi đến hộp thư trong vài phút.");
-        if (token != null && (mailUsername == null || mailUsername.isBlank()))
-            ra.addFlashAttribute("resetDemoLink", appBaseUrl + "/forgot-password?token=" + token);
+    @PostMapping("/forgot-password")
+    String forgotSubmit(@RequestParam String email, RedirectAttributes ra) {
+        try {
+            // Never expose recovery tokens to the browser. An unknown email gets the same public response.
+            auth.requestPasswordReset(email);
+            ra.addFlashAttribute("success",
+                    "Nếu tài khoản tồn tại và đang hoạt động, liên kết khôi phục sẽ được gửi tới email.");
+        } catch (AuthService.PasswordResetEmailDeliveryException ex) {
+            ra.addFlashAttribute("error", ex.getMessage());
+        }
         return "redirect:/forgot-password";
     }
-    @PostMapping("/reset-password") String reset(@RequestParam String token,@RequestParam String newPassword,@RequestParam String confirmPassword,RedirectAttributes ra) {
+
+    @PostMapping("/reset-password")
+    String reset(@RequestParam String token, @RequestParam String newPassword,
+                 @RequestParam String confirmPassword, RedirectAttributes ra) {
         try {
-            auth.reset(token,newPassword,confirmPassword);
-            ra.addFlashAttribute("success","Đặt lại mật khẩu thành công.");
+            auth.reset(token, newPassword, confirmPassword);
+            ra.addFlashAttribute("success", "Đặt lại mật khẩu thành công.");
             return "redirect:/login";
-        } catch(Exception e) {
-            ra.addFlashAttribute("error",e.getMessage());
-            return "redirect:/forgot-password?token="+token;
+        } catch (IllegalArgumentException ex) {
+            ra.addFlashAttribute("error", ex.getMessage());
+            // Only return a bounded, canonical reset token to the form on validation errors.
+            if (token != null && token.matches("[0-9a-fA-F]{8}(-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12}")) {
+                ra.addAttribute("token", token);
+            }
+            return "redirect:/forgot-password";
         }
     }
     @GetMapping("/verify-email") String verifyEmail(@RequestParam String token, RedirectAttributes ra) {

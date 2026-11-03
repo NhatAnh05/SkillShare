@@ -54,6 +54,12 @@ public class AuthService {
         }
     }
 
+    public static class PasswordResetEmailDeliveryException extends IllegalStateException {
+        public PasswordResetEmailDeliveryException(String message) {
+            super(message);
+        }
+    }
+
     @Transactional
     public OtpResendResult sendRegistrationOtp(RegisterRequest form) {
         validateRegistrationForm(form);
@@ -266,30 +272,50 @@ public class AuthService {
     }
 
     @Transactional
-    public String createResetToken(String email) {
-        User user = users.findByEmailIgnoreCase(email == null ? "" : email.strip()).orElse(null);
-        if (user == null || user.getAccountStatus() != AccountStatus.ACTIVE) return null;
+    public void requestPasswordReset(String email) {
+        User user = users.findByEmailIgnoreCase(normalizeEmail(email)).orElse(null);
+        // Do not disclose whether the submitted email is registered.
+        if (user == null || user.getAccountStatus() != AccountStatus.ACTIVE
+                || !Boolean.TRUE.equals(user.getEmailVerified())) return;
+
+        if (mailUsername == null || mailUsername.isBlank()
+                || mailPassword == null || mailPassword.isBlank()) {
+            throw new PasswordResetEmailDeliveryException(
+                    "Chưa cấu hình email gửi thư. Hãy thiết lập SKILLSHARE_MAIL_USERNAME và SKILLSHARE_MAIL_PASSWORD.");
+        }
+
         String token = UUID.randomUUID().toString();
         user.setResetToken(token);
         user.setResetTokenExpiresAt(LocalDateTime.now().plusMinutes(30));
         users.save(user);
-        sendMail(user.getEmail(), "Khôi phục mật khẩu SkillShare",
-                "Bạn vừa yêu cầu đặt lại mật khẩu. Liên kết có hiệu lực trong 30 phút:\n"
-                        + baseUrl + "/forgot-password?token=" + token + "\n\nNếu không phải bạn yêu cầu, hãy bỏ qua email này.");
-        return token;
+        try {
+            sendMimeMail(user.getEmail(), "Khôi phục mật khẩu SkillShare",
+                    "Bạn vừa yêu cầu đặt lại mật khẩu. Liên kết có hiệu lực trong 30 phút:\n"
+                            + baseUrl + "/forgot-password?token=" + token
+                            + "\n\nNếu không phải bạn yêu cầu, hãy bỏ qua email này.");
+        } catch (MailException | MessagingException ex) {
+            // Throwing a runtime exception rolls back the reset token change in the same transaction.
+            log.warn("Password reset email was not accepted by SMTP ({})", ex.getClass().getSimpleName());
+            throw new PasswordResetEmailDeliveryException(
+                    "Không gửi được email khôi phục. Hãy kiểm tra SMTP/Gmail App Password và thử lại.");
+        }
     }
 
     @Transactional
     public void reset(String token, String password, String confirmation) {
-        if (password == null || password.length() < 8)
-            throw new IllegalArgumentException("Mật khẩu phải có ít nhất 8 ký tự.");
+        if (token == null || !token.matches("[0-9a-fA-F]{8}(-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12}")) {
+            throw new IllegalArgumentException("Liên kết đặt lại mật khẩu không hợp lệ hoặc đã hết hạn.");
+        }
+        if (password == null || password.length() < 8 || password.length() > 72)
+            throw new IllegalArgumentException("Mật khẩu phải có từ 8 đến 72 ký tự.");
         if (!password.equals(confirmation))
             throw new IllegalArgumentException("Mật khẩu xác nhận không khớp.");
-        User user = users.findByResetToken(token).orElseThrow(() -> new IllegalArgumentException("Liên kết đặt lại mật khẩu không hợp lệ hoặc đã hết hạn."));
-        if (user.getResetTokenExpiresAt() == null || user.getResetTokenExpiresAt().isBefore(LocalDateTime.now())) {
-            user.setResetToken(null);
-            user.setResetTokenExpiresAt(null);
-            users.save(user);
+        User user = users.findByResetToken(token).orElseThrow(() -> new IllegalArgumentException(
+                "Liên kết đặt lại mật khẩu không hợp lệ hoặc đã hết hạn."));
+        if (user.getAccountStatus() != AccountStatus.ACTIVE || !Boolean.TRUE.equals(user.getEmailVerified())) {
+            throw new IllegalArgumentException("Tài khoản không ở trạng thái cho phép đặt lại mật khẩu.");
+        }
+        if (user.getResetTokenExpiresAt() == null || !user.getResetTokenExpiresAt().isAfter(LocalDateTime.now())) {
             throw new IllegalArgumentException("Liên kết đặt lại mật khẩu đã hết hạn. Hãy yêu cầu liên kết mới.");
         }
         user.setPassword(encoder.encode(password));
@@ -310,18 +336,6 @@ public class AuthService {
             log.warn("Registration OTP email was not accepted by SMTP ({})", ex.getClass().getSimpleName());
             throw new OtpEmailDeliveryException(
                     "SMTP không chấp nhận email OTP. Hãy kiểm tra cấu hình Gmail/App Password rồi thử lại.");
-        }
-    }
-
-    private boolean sendMail(String recipient, String subject, String body) {
-        if (mailUsername == null || mailUsername.isBlank()
-                || mailPassword == null || mailPassword.isBlank()) return false;
-        try {
-            sendMimeMail(recipient, subject, body);
-            return true;
-        } catch (MailException | MessagingException ex) {
-            log.warn("Email delivery was not accepted by SMTP ({})", ex.getClass().getSimpleName());
-            return false;
         }
     }
 

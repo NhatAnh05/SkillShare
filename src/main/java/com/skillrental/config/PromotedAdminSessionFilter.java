@@ -1,5 +1,4 @@
 package com.skillrental.config;
-import com.skillrental.entity.Role;
 import com.skillrental.repository.UserRepository;
 import jakarta.servlet.*;
 import jakarta.servlet.http.*;
@@ -15,8 +14,11 @@ public class PromotedAdminSessionFilter extends OncePerRequestFilter {
  @Override protected void doFilterInternal(HttpServletRequest request,HttpServletResponse response,FilterChain chain)throws ServletException,IOException {
   var auth=SecurityContextHolder.getContext().getAuthentication();
   if(auth!=null&&auth.isAuthenticated()&&!(auth instanceof AnonymousAuthenticationToken)
-      &&auth.getAuthorities().stream().noneMatch(a->"ROLE_ADMIN".equals(a.getAuthority()))
-      &&users.findByEmailIgnoreCase(auth.getName()).map(u->u.getRole()==Role.ADMIN).orElse(false)){
+      &&users.findByEmailIgnoreCase(auth.getName()).map(u ->
+          u.getAccountStatus() != com.skillrental.entity.AccountStatus.ACTIVE
+              || !Boolean.TRUE.equals(u.getEmailVerified())
+              || auth.getAuthorities().stream().noneMatch(a -> ("ROLE_" + u.getRole().name()).equals(a.getAuthority()))
+      ).orElse(true)){
    new SecurityContextLogoutHandler().logout(request,response,auth);
    Cookie cookie=new Cookie("remember-me","");cookie.setMaxAge(0);cookie.setPath(request.getContextPath().isEmpty()?"/":request.getContextPath());cookie.setHttpOnly(true);response.addCookie(cookie);
    if("XMLHttpRequest".equals(request.getHeader("X-Requested-With"))||String.valueOf(request.getHeader("Accept")).contains("application/json")){

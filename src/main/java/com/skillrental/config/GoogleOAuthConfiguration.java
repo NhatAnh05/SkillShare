@@ -1,6 +1,7 @@
 package com.skillrental.config;
 
 import org.springframework.beans.factory.annotation.Value;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.oauth2.core.AuthorizationGrantType;
@@ -13,6 +14,7 @@ import java.util.Collections;
 import java.util.Iterator;
 
 @Configuration
+@Slf4j
 public class GoogleOAuthConfiguration {
     @Bean
     GoogleLoginSettings googleLoginSettings(
@@ -23,7 +25,11 @@ public class GoogleOAuthConfiguration {
         if (hasClientId != hasClientSecret) {
             throw new IllegalStateException("Set both GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET to enable Google login.");
         }
-        if (!hasClientId) return new GoogleLoginSettings(null, false);
+        if (!hasClientId) {
+            log.info("Google Login disabled: set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET in the Spring Boot Run Configuration.");
+            return new GoogleLoginSettings(null, false);
+        }
+        log.info("Google Login enabled. Configured callback path: /login/oauth2/code/google");
 
         ClientRegistration registration = ClientRegistration.withRegistrationId("google")
                 .clientId(clientId.trim())
