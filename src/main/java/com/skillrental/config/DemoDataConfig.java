@@ -387,7 +387,10 @@ public class DemoDataConfig {
                 .cancellationReason(cancellationReason).cancelledBy(cancelledBy);
         if (effectiveStatus == OrderStatus.PROCESSING) {
             builder.lockedAmount(totalAmount).providerAccepted(true).customerStarted(true).providerStarted(true)
-                    .startDepositAmount(totalAmount.divide(new BigDecimal("3"), 2, java.math.RoundingMode.HALF_UP));
+                    .startDepositAmount(totalAmount.divide(new BigDecimal("3"), 2, java.math.RoundingMode.HALF_UP))
+                    .startDepositState(StartDepositState.RESERVED)
+                    .customerStartConfirmedAt(createdAt).providerStartConfirmedAt(createdAt)
+                    .startDepositReservedAt(createdAt).workStartedAt(createdAt);
         } else if (effectiveStatus == OrderStatus.PENDING_PROVIDER_ACCEPTANCE) {
             builder.lockedAmount(totalAmount);
         } else if (effectiveStatus == OrderStatus.COMPLETED) {

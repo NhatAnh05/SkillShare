@@ -63,7 +63,13 @@ public class NotificationAutomationService {
                 && "PENDING_CUSTOMER_ACCEPTANCE".equals(event.previousStatus())
                 && event.actorId() != null && order.getCustomer().getId().equals(event.actorId());
         if (revisionRequested) return;
-        String message = switch (event.newStatus()) {
+        boolean oneSideConfirmed = "PENDING_START_CONFIRMATION".equals(event.newStatus())
+                && "PENDING_START_CONFIRMATION".equals(event.previousStatus());
+        String message = oneSideConfirmed
+                ? (event.actorId() != null && event.actorId().equals(order.getCustomer().getId())
+                    ? "Customer đã xác nhận bắt đầu. Vui lòng xác nhận để công việc bắt đầu; tiền vẫn được giữ trong Escrow."
+                    : "Provider đã xác nhận bắt đầu. Vui lòng xác nhận để công việc bắt đầu; tiền vẫn được giữ trong Escrow.")
+                : switch (event.newStatus()) {
             case "PENDING_PROVIDER_ACCEPTANCE" -> "Customer đã tạo yêu cầu đặt dịch vụ mới.";
             case "PENDING_START_CONFIRMATION" -> "Provider đã nhận đơn hàng.";
             case "PROCESSING" -> "Hai bên đã xác nhận bắt đầu công việc.";

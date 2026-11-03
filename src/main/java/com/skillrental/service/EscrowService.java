@@ -298,7 +298,7 @@ public class EscrowService {
 
     @Transactional
     public void providerAccept(Long orderId, User provider) {
-        RentalOrder order = providerOrder(orderId, provider);
+        RentalOrder order = providerOrderForUpdate(orderId, provider);
         requireStatus(order, OrderStatus.PENDING_PROVIDER_ACCEPTANCE);
         OrderStatus previousStatus = order.getStatus();
         order.setProviderAccepted(true);
@@ -313,7 +313,7 @@ public class EscrowService {
 
     @Transactional
     public void providerDecline(Long orderId, User provider, String reason) {
-        RentalOrder order = providerOrder(orderId, provider);
+        RentalOrder order = providerOrderForUpdate(orderId, provider);
         requireStatus(order, OrderStatus.PENDING_PROVIDER_ACCEPTANCE);
         String why = (reason == null || reason.isBlank())
                 ? "Provider từ chối yêu cầu trước khi nhận việc; hoàn lại toàn bộ khoản ký quỹ cho Customer."
@@ -321,29 +321,70 @@ public class EscrowService {
         cancelAndRelease(order, provider, why);
     }
 
+    /**
+     * Acknowledges one party's start confirmation under a pessimistic order lock.
+     * Exactly once after BOTH parties confirm, earmarks one third of the already held total.
+     * No wallet balance is changed and nothing is paid to the Provider in this method.
+     */
     @Transactional
     public void confirmStart(Long orderId, User actor, Role role) {
-        RentalOrder order = role == Role.PROVIDER ? providerOrder(orderId, actor) : customerOrder(orderId, actor);
+        if (actor == null || actor.getId() == null || actor.getRole() != role
+                || (role != Role.CUSTOMER && role != Role.PROVIDER)) {
+            throw new IllegalArgumentException("Chỉ Customer hoặc Provider của đơn mới được xác nhận bắt đầu.");
+        }
+        RentalOrder order = role == Role.PROVIDER
+                ? providerOrderForUpdate(orderId, actor) : customerOrderForUpdate(orderId, actor);
         requireStatus(order, OrderStatus.PENDING_START_CONFIRMATION);
+        if (!Boolean.TRUE.equals(order.getProviderAccepted())) {
+            throw new IllegalStateException("Provider phải nhận yêu cầu trước khi hai bên xác nhận bắt đầu.");
+        }
+        BigDecimal total = validHoldAmount(order.getTotal());
+        if (safe(order.getLockedAmount()).compareTo(total) != 0) {
+            throw new IllegalStateException("Số tiền ký quỹ của đơn không khớp giá trị hợp đồng; không thể bắt đầu.");
+        }
+        if (order.getStartDepositAmount() != null || order.getStartDepositState() != null
+                || order.getStartDepositReservedAt() != null) {
+            throw new IllegalStateException("Mốc tạm ứng đã được ghi nhận; không thể tạo lần thứ hai.");
+        }
+
+        LocalDateTime now = LocalDateTime.now();
+        if (role == Role.PROVIDER) {
+            if (Boolean.TRUE.equals(order.getProviderStarted()))
+                throw new IllegalStateException("Provider đã xác nhận bắt đầu trước đó.");
+            order.setProviderStarted(true);
+            order.setProviderStartConfirmedAt(now);
+        } else {
+            if (Boolean.TRUE.equals(order.getCustomerStarted()))
+                throw new IllegalStateException("Customer đã xác nhận bắt đầu trước đó.");
+            order.setCustomerStarted(true);
+            order.setCustomerStartConfirmedAt(now);
+        }
+
         OrderStatus previousStatus = order.getStatus();
-        if (role == Role.PROVIDER) order.setProviderStarted(true);
-        else if (role == Role.CUSTOMER) order.setCustomerStarted(true);
-        else throw new IllegalArgumentException("Vai trò không được xác nhận bắt đầu công việc.");
-        if (Boolean.TRUE.equals(order.getProviderStarted()) && Boolean.TRUE.equals(order.getCustomerStarted())) {
+        boolean bothConfirmed = Boolean.TRUE.equals(order.getProviderStarted())
+                && Boolean.TRUE.equals(order.getCustomerStarted());
+        if (bothConfirmed) {
+            BigDecimal milestone = total.divide(new BigDecimal("3"), 2, RoundingMode.HALF_UP);
+            order.setStartDepositAmount(milestone);
+            order.setStartDepositState(StartDepositState.RESERVED);
+            order.setStartDepositReservedAt(now);
+            order.setWorkStartedAt(now);
             order.setStatus(OrderStatus.PROCESSING);
-            if (order.getWorkStartedAt() == null) order.setWorkStartedAt(LocalDateTime.now());
-            order.setStartDepositAmount(safe(order.getTotal()).divide(new BigDecimal("3"), 2, RoundingMode.HALF_UP));
             if (order.getBooking() != null) {
                 order.getBooking().setStatus(BookingStatus.IN_PROGRESS);
                 bookings.save(order.getBooking());
             }
-        }
-        orders.save(order);
-        if (order.getStatus() != previousStatus) {
-            recordStatusChange(order, previousStatus, actor, "Hai bên đã xác nhận bắt đầu công việc.");
+            orders.save(order);
+            recordStatusChange(order, previousStatus, actor,
+                    "Hai bên xác nhận bắt đầu. Ghi nhận mốc bảo đảm 1/3: "
+                    + milestone.toPlainString() + "đ trong tổng ký quỹ " + total.toPlainString()
+                    + "đ; chưa chuyển tiền cho Provider.");
         } else {
-            events.publishEvent(new OrderStatusChangedEvent(order.getId(), previousStatus.name(),
-                    order.getStatus().name(), actor.getId()));
+            orders.save(order);
+            // Same-status history records the individual acknowledgement and its actor.
+            recordStatusChange(order, previousStatus, actor,
+                    (role == Role.CUSTOMER ? "Customer" : "Provider")
+                    + " đã xác nhận bắt đầu; đang chờ bên còn lại. Không phát sinh thanh toán.");
         }
     }
 
@@ -451,7 +492,7 @@ public class EscrowService {
 
     @Transactional
     public void cancelByCustomer(Long orderId, User customer) {
-        RentalOrder order = customerOrder(orderId, customer);
+        RentalOrder order = customerOrderForUpdate(orderId, customer);
         if (isTerminal(order)) throw new IllegalStateException("Đơn đã kết thúc, không thể hủy.");
         if (order.getStatus() == OrderStatus.PENDING_PAYMENT_OTP) {
             throw new IllegalStateException("Đơn đang chờ xác nhận OTP quyết toán; không thể hủy trực tiếp.");
@@ -480,7 +521,7 @@ public class EscrowService {
 
     @Transactional
     public void cancelByProvider(Long orderId, User provider, String reason) {
-        RentalOrder order = providerOrder(orderId, provider);
+        RentalOrder order = providerOrderForUpdate(orderId, provider);
         if (isTerminal(order) || order.getStatus() == OrderStatus.PENDING_PAYMENT_OTP) {
             throw new IllegalStateException("Đơn đã kết thúc hoặc đang quyết toán, không thể hủy ở bước này.");
         }
@@ -558,6 +599,7 @@ public class EscrowService {
         order.setPlatformFeeAmount(platformFee);
         order.setProviderNetAmount(providerNet);
         order.setLockedAmount(BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP));
+        closeStartMilestone(order);
         order.setSettledAt(LocalDateTime.now());
         order.setCompletionOtpHash(null);
         order.setCompletionOtpExpiresAt(null);
@@ -586,6 +628,7 @@ public class EscrowService {
             record(customerWallet, order, "UNHOLD_REFUND", held, reason);
             order.setLockedAmount(BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP));
         }
+        closeStartMilestone(order);
         order.setStatus(OrderStatus.CANCELLED);
         order.setCancelledAt(LocalDateTime.now());
         order.setCancelledBy(actor);
@@ -599,6 +642,14 @@ public class EscrowService {
         }
         orders.save(order);
         recordStatusChange(order, previousStatus, actor, reason);
+    }
+
+    /** Marks the earmark resolved; the value is already included in the ordinary escrow settlement. */
+    private void closeStartMilestone(RentalOrder order) {
+        if (order.getStartDepositState() == StartDepositState.RESERVED) {
+            order.setStartDepositState(StartDepositState.CLOSED);
+            order.setStartDepositClosedAt(LocalDateTime.now());
+        }
     }
 
     private void recordStatusChange(RentalOrder order, OrderStatus previousStatus, User actor, String note) {
@@ -618,6 +669,28 @@ public class EscrowService {
         transactions.save(WalletTransaction.builder().wallet(wallet).order(order).type(type).amount(amount)
                 .balanceAfter(wallet.getBalance()).lockedAfter(wallet.getLockedAmount()).description(description).build());
     }
+    private RentalOrder customerOrderForUpdate(Long id, User customer) {
+        RentalOrder order = orders.findByIdForUpdate(id)
+                .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy đơn hàng."));
+        if (customer == null || customer.getRole() != Role.CUSTOMER || customer.getId() == null
+                || order.getCustomer() == null
+                || !order.getCustomer().getId().equals(customer.getId())) {
+            throw new IllegalArgumentException("Bạn không có quyền thao tác đơn hàng này.");
+        }
+        return order;
+    }
+
+    private RentalOrder providerOrderForUpdate(Long id, User provider) {
+        RentalOrder order = orders.findByIdForUpdate(id)
+                .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy đơn hàng."));
+        if (provider == null || provider.getRole() != Role.PROVIDER || provider.getId() == null
+                || order.getProvider() == null
+                || !order.getProvider().getId().equals(provider.getId())) {
+            throw new IllegalArgumentException("Bạn không có quyền thao tác đơn hàng này.");
+        }
+        return order;
+    }
+
     private RentalOrder customerOrder(Long id, User customer) {
         RentalOrder o = orders.findById(id).orElseThrow(() -> new IllegalArgumentException("Không tìm thấy đơn hàng."));
         if (o.getCustomer() == null || !o.getCustomer().getId().equals(customer.getId())) throw new IllegalArgumentException("Bạn không có quyền thao tác đơn hàng này.");

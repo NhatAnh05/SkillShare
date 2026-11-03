@@ -30,7 +30,14 @@ public class RentalOrder {
     @Column(name="provider_accepted", nullable=false, columnDefinition="BOOLEAN DEFAULT FALSE") @Builder.Default private Boolean providerAccepted = false;
     @Column(name="customer_started", nullable=false, columnDefinition="BOOLEAN DEFAULT FALSE") @Builder.Default private Boolean customerStarted = false;
     @Column(name="provider_started", nullable=false, columnDefinition="BOOLEAN DEFAULT FALSE") @Builder.Default private Boolean providerStarted = false;
+    // The 1/3 milestone is earmarked inside the full Customer escrow, NOT a second debit or a payout.
     @Column(name="start_deposit_amount", precision=12, scale=2) private BigDecimal startDepositAmount;
+    @Column(name="customer_start_confirmed_at") private LocalDateTime customerStartConfirmedAt;
+    @Column(name="provider_start_confirmed_at") private LocalDateTime providerStartConfirmedAt;
+    @Column(name="start_deposit_reserved_at") private LocalDateTime startDepositReservedAt;
+    @Column(name="start_deposit_closed_at") private LocalDateTime startDepositClosedAt;
+    @Enumerated(EnumType.STRING) @Column(name="start_deposit_state", length=24)
+    private StartDepositState startDepositState;
     @Column(name="provider_completed", nullable=false, columnDefinition="BOOLEAN DEFAULT FALSE") @Builder.Default private Boolean providerCompleted = false;
     @Column(name="customer_accepted_completion", nullable=false, columnDefinition="BOOLEAN DEFAULT FALSE") @Builder.Default private Boolean customerAcceptedCompletion = false;
     @Column(name="completion_otp_hash", length=100) private String completionOtpHash;

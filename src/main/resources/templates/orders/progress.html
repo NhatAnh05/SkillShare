@@ -37,7 +37,10 @@
        <section class="delivery-section work-progress">
         <h3>Tiến độ thực hiện</h3>
         <p>Provider đã nhận việc: <strong th:text="${order.providerAccepted ? 'Đã nhận' : 'Chưa nhận'}"></strong></p>
-        <p>Customer xác nhận bắt đầu: <strong th:text="${order.customerStarted ? 'Đã xác nhận' : 'Chưa xác nhận'}"></strong> · Provider: <strong th:text="${order.providerStarted ? 'Đã xác nhận' : 'Chưa xác nhận'}"></strong></p>
+        <p>Customer xác nhận bắt đầu: <strong th:text="${order.customerStarted ? 'Đã xác nhận' : 'Chưa xác nhận'}"></strong>
+         <span class="muted" th:if="${order.customerStartConfirmedAt != null}" th:text="${'(' + #temporals.format(order.customerStartConfirmedAt,'dd/MM/yyyy HH:mm') + ')'}"></span>
+         · Provider: <strong th:text="${order.providerStarted ? 'Đã xác nhận' : 'Chưa xác nhận'}"></strong>
+         <span class="muted" th:if="${order.providerStartConfirmedAt != null}" th:text="${'(' + #temporals.format(order.providerStartConfirmedAt,'dd/MM/yyyy HH:mm') + ')'}"></span></p>
         <p>Bắt đầu thực tế: <strong th:text="${order.workStartedAt != null ? #temporals.format(order.workStartedAt,'dd/MM/yyyy HH:mm') : (order.providerStarted and order.customerStarted ? 'Đã bắt đầu; đơn cũ chưa lưu thời điểm' : 'Chờ hai bên xác nhận')}"></strong></p>
         <p>Tiến độ Provider báo cáo: <strong th:text="${order.progressPercent + '%'}"></strong></p>
         <progress max="100" th:value="${order.progressPercent}" style="width:100%"></progress>
@@ -58,7 +61,11 @@
        </section>
        <p>Giá trị hợp đồng: <strong class="price" th:text="${#numbers.formatDecimal(order.total,0,'POINT',0,'COMMA')+'đ'}">0đ</strong></p>
        <p>Đã khóa trong Escrow: <strong th:text="${#numbers.formatDecimal(order.lockedAmount,0,'POINT',0,'COMMA')+'đ'}">0đ</strong></p>
-       <p th:if="${order.startDepositAmount != null}">Mốc 1/3 sau khi bắt đầu: <strong th:text="${#numbers.formatDecimal(order.startDepositAmount,0,'POINT',0,'COMMA')+'đ'}">0đ</strong> <span class="muted">(ghi nhận mốc, chưa giải ngân; quyết toán chỉ sau nghiệm thu và OTP)</span></p>
+       <p th:if="${order.startDepositAmount != null}">Mốc 1/3 được bảo đảm trong tiền đã khóa: <strong th:text="${#numbers.formatDecimal(order.startDepositAmount,0,'POINT',0,'COMMA')+'đ'}">0đ</strong>
+        <span class="muted" th:if="${order.startDepositState != null and order.startDepositState.name() == 'RESERVED'}">(đang giữ trong Escrow; Provider chưa nhận/rút tiền)</span>
+        <span class="muted" th:if="${order.startDepositState != null and order.startDepositState.name() == 'CLOSED'}">(đã xử lý trong quyết toán hoặc hoàn tiền; không chi lần hai)</span>
+        <span class="muted" th:if="${order.startDepositState == null}">(đơn cũ: chưa lưu trạng thái mốc; không mặc định đã giải ngân)</span></p>
+       <p class="muted" th:if="${order.startDepositReservedAt != null}" th:text="${'Ghi nhận mốc bảo đảm: ' + #temporals.format(order.startDepositReservedAt,'dd/MM/yyyy HH:mm')}"></p>
        <p>Trạng thái: <span class="badge info" th:text="${order.status.displayName}">PENDING_PROVIDER_ACCEPTANCE</span></p>
        <section class="delivery-section work-documents" th:attr="data-order-id=${order.id}">
         <h3>Trao đổi và tài liệu giữa hai bên</h3><p class="muted">Tài liệu trao đổi không tự hoàn tất đơn và không thay thế bản bàn giao chính thức.</p>
@@ -108,7 +115,7 @@
         <div class="step" th:classappend="${order.status.name()=='COMPLETED' ? 'on' : ''}"><div class="dot">4</div><strong>Quyết toán</strong></div>
        </div>
        <div class="modal-actions" style="display:flex;gap:10px;flex-wrap:wrap">
-        <form method="post" th:action="@{/orders/{id}/start-confirmation(id=${order.id})}" th:if="${order.status.name()=='PENDING_START_CONFIRMATION' && (currentUser.role.name() == 'CUSTOMER' ? !order.customerStarted : !order.providerStarted)}"><button class="btn btn-primary" type="submit">Tôi xác nhận bắt đầu</button></form>
+        <form method="post" th:action="@{/orders/{id}/start-confirmation(id=${order.id})}" th:if="${order.status.name()=='PENDING_START_CONFIRMATION' && (currentUser.role.name() == 'CUSTOMER' ? !order.customerStarted : !order.providerStarted)}" onsubmit="return confirm('Xác nhận bắt đầu công việc? Mốc 1/3 chỉ được ghi nhận trong tiền ký quỹ sau khi cả hai bên xác nhận, chưa giải ngân cho Provider.')"><button class="btn btn-primary" type="submit">Tôi xác nhận bắt đầu</button></form>
         <span class="muted" th:if="${order.status.name()=='PENDING_START_CONFIRMATION' && (currentUser.role.name() == 'CUSTOMER' ? order.customerStarted : order.providerStarted)}">Bạn đã xác nhận. Đang chờ bên còn lại xác nhận bắt đầu.</span>
         <form method="post" th:action="@{/orders/{id}/accept-completion(id=${order.id})}" th:if="${currentUser.role.name() == 'CUSTOMER' && order.status.name()=='PENDING_CUSTOMER_ACCEPTANCE'}" onsubmit="return confirm('Bạn đã kiểm tra và chấp nhận kết quả công việc?')"><button class="btn btn-primary" type="submit">Nghiệm thu và nhận OTP</button></form>
         <form method="post" th:action="@{/orders/{id}/verify-otp(id=${order.id})}" th:if="${currentUser.role.name() == 'CUSTOMER' && order.status.name()=='PENDING_PAYMENT_OTP'}" style="display:flex;gap:8px;align-items:end;flex-wrap:wrap"><div><label for="otp-code">OTP xác nhận quyết toán</label><input id="otp-code" name="otp" pattern="[0-9]{6}" maxlength="6" inputmode="numeric" required placeholder="Nhập 6 chữ số"/></div><button class="btn btn-primary" type="submit">Xác nhận &amp; quyết toán</button></form>
