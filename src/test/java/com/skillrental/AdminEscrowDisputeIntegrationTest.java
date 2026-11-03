@@ -139,7 +139,8 @@ class AdminEscrowDisputeIntegrationTest {
         assertTrue(audit.reconcile(entry));
         var providerTx = transactions.findByOrderIdOrderByIdAsc(s.order().getId()).stream()
                 .filter(x -> "SETTLEMENT_IN".equals(x.getType())).findFirst().orElseThrow();
-        transactions.deleteAndFlush(providerTx);
+        transactions.delete(providerTx);
+        transactions.flush();
         assertFalse(audit.reconcile(entry));
     }
 }

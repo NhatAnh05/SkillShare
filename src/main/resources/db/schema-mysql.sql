@@ -374,7 +374,7 @@ CREATE TABLE IF NOT EXISTS escrow_settlements (
         ON UPDATE CASCADE ON DELETE RESTRICT,
     CONSTRAINT fk_escrow_settlement_actor FOREIGN KEY (settled_by_user_id) REFERENCES users(id)
         ON UPDATE CASCADE ON DELETE RESTRICT,
-    CONSTRAINT ck_escrow_settlement_kind CHECK (kind IN ('COMPLETION','CUSTOMER_CANCELLATION','PROVIDER_CANCELLATION','ADMIN_DISPUTE')),
+    CONSTRAINT ck_escrow_settlement_kind CHECK (kind IN ('COMPLETION','CUSTOMER_CANCELLATION','PROVIDER_CANCELLATION','ADMIN_DISPUTE','CUSTOMER_CANCEL_EARLY')),
     CONSTRAINT ck_escrow_settlement_nonnegative CHECK (held_before >= 0 AND gross_amount >= 0
         AND customer_refund_amount >= 0 AND platform_fee_amount >= 0 AND provider_net_amount >= 0),
     CONSTRAINT ck_escrow_settlement_balance CHECK (held_before = gross_amount + customer_refund_amount
@@ -414,6 +414,8 @@ CREATE TABLE IF NOT EXISTS provider_withdrawals (
     otp_hash VARCHAR(100) NULL,
     otp_expires_at DATETIME(6) NULL,
     otp_attempts INT NOT NULL DEFAULT 0,
+    otp_resend_count INT NOT NULL DEFAULT 0,
+    otp_last_sent_at DATETIME(6) NULL,
     created_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
     verified_at DATETIME(6) NULL,
     processed_at DATETIME(6) NULL,
@@ -423,6 +425,7 @@ CREATE TABLE IF NOT EXISTS provider_withdrawals (
     CONSTRAINT fk_provider_withdrawal_provider FOREIGN KEY (provider_id) REFERENCES users(id) ON UPDATE CASCADE ON DELETE RESTRICT,
     CONSTRAINT fk_provider_withdrawal_admin FOREIGN KEY (processed_by_admin_id) REFERENCES users(id) ON UPDATE CASCADE ON DELETE SET NULL,
     CONSTRAINT ck_provider_withdrawal_amount CHECK (amount > 0),
+    CONSTRAINT ck_provider_withdrawal_otp_resend_count CHECK (otp_resend_count >= 0 AND otp_resend_count <= 3),
     INDEX idx_provider_withdrawal_status_created (status, created_at),
     INDEX idx_provider_withdrawal_provider (provider_id, created_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

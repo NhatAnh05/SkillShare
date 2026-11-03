@@ -90,7 +90,7 @@ class EscrowCompletionOtpIntegrationTest {
     void providerDeliveryDoesNotPayUntilCustomerAcceptsAndVerifiesOtp() {
         Fixture f = prepareStartedOrder();
         Long id = submit(f);
-        assertEquals(BigDecimal.ZERO, wallets.findByUser(f.provider()).orElseThrow().getBalance());
+        assertEquals(0, wallets.findByUser(f.provider()).orElseThrow().getBalance().signum());
         assertEquals(PRICE, wallets.findByUser(f.customer()).orElseThrow().getLockedAmount());
 
         var result = deliveryService.acceptLatest(id, f.customer());
@@ -98,7 +98,7 @@ class EscrowCompletionOtpIntegrationTest {
         assertNull(result.demoCode());
         assertEquals(OrderStatus.PENDING_PAYMENT_OTP, orders.findById(id).orElseThrow().getStatus());
         assertEquals("ACCEPTED", submissions.findFirstByOrderIdOrderByVersionDesc(id).orElseThrow().getStatus());
-        assertEquals(BigDecimal.ZERO, wallets.findByUser(f.provider()).orElseThrow().getBalance());
+        assertEquals(0, wallets.findByUser(f.provider()).orElseThrow().getBalance().signum());
         assertEquals(PRICE, wallets.findByUser(f.customer()).orElseThrow().getLockedAmount());
 
         escrow.verifyOtpAndSettle(id, f.customer(), lastSentCode());
@@ -126,7 +126,7 @@ class EscrowCompletionOtpIntegrationTest {
         assertNull(after.getCompletionOtpHash());
         assertEquals("SUBMITTED", submissions.findFirstByOrderIdOrderByVersionDesc(id).orElseThrow().getStatus());
         assertEquals(PRICE, wallets.findByUser(f.customer()).orElseThrow().getLockedAmount());
-        assertEquals(BigDecimal.ZERO, wallets.findByUser(f.provider()).orElseThrow().getBalance());
+        assertEquals(0, wallets.findByUser(f.provider()).orElseThrow().getBalance().signum());
     }
 
     @Test
@@ -142,7 +142,7 @@ class EscrowCompletionOtpIntegrationTest {
         assertThrows(IllegalStateException.class,
                 () -> escrow.verifyOtpAndSettle(id, f.customer(), lastSentCode()));
         assertEquals(PRICE, wallets.findByUser(f.customer()).orElseThrow().getLockedAmount());
-        assertEquals(BigDecimal.ZERO, wallets.findByUser(f.provider()).orElseThrow().getBalance());
+        assertEquals(0, wallets.findByUser(f.provider()).orElseThrow().getBalance().signum());
     }
 
     @Test
@@ -181,7 +181,7 @@ class EscrowCompletionOtpIntegrationTest {
                 () -> escrow.verifyOtpAndSettle(id, f.customer(), lastSentCode()));
         assertEquals(OrderStatus.PENDING_PAYMENT_OTP, orders.findById(id).orElseThrow().getStatus());
         assertEquals(PRICE, wallets.findByUser(f.customer()).orElseThrow().getLockedAmount());
-        assertEquals(BigDecimal.ZERO, wallets.findByUser(f.provider()).orElseThrow().getBalance());
+        assertEquals(0, wallets.findByUser(f.provider()).orElseThrow().getBalance().signum());
     }
 
     @Test
@@ -192,7 +192,7 @@ class EscrowCompletionOtpIntegrationTest {
         deliveryService.requestRevision(id, f.customer(), deliveryId, "Cần bổ sung tài liệu");
         assertEquals(OrderStatus.PROCESSING, orders.findById(id).orElseThrow().getStatus());
         assertThrows(IllegalStateException.class, () -> deliveryService.acceptLatest(id, f.customer()));
-        assertEquals(BigDecimal.ZERO, wallets.findByUser(f.provider()).orElseThrow().getBalance());
+        assertEquals(0, wallets.findByUser(f.provider()).orElseThrow().getBalance().signum());
     }
 
     @Test
@@ -222,7 +222,7 @@ class EscrowCompletionOtpIntegrationTest {
         assertThrows(IllegalStateException.class, () -> deliveryService.acceptLatest(id, f.customer()));
         verify(mailSender, times(1)).send(any(SimpleMailMessage.class));
         assertEquals(OrderStatus.PENDING_PAYMENT_OTP, orders.findById(id).orElseThrow().getStatus());
-        assertEquals(BigDecimal.ZERO, wallets.findByUser(f.provider()).orElseThrow().getBalance());
+        assertEquals(0, wallets.findByUser(f.provider()).orElseThrow().getBalance().signum());
     }
 
     @Test

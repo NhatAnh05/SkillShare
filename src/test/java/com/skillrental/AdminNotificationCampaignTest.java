@@ -258,8 +258,12 @@ class AdminNotificationCampaignTest {
             mvc.perform(get("/admin/notifications/campaigns/1").with(user(actor.getEmail()).roles(actor.getRole().name())))
                     .andExpect(status().isForbidden());
         }
+        // A forged ADMIN role does not match the persisted CUSTOMER role:
+        // the active-session filter logs out the request and redirects to login.
         mvc.perform(post("/admin/notifications/send").with(csrf()).with(user(customer.getEmail()).roles("ADMIN"))
-                        .contentType(MediaType.APPLICATION_JSON).content(body)).andExpect(status().isForbidden());
+                        .contentType(MediaType.APPLICATION_JSON).content(body))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(redirectedUrl("/login?roleChanged"));
         mvc.perform(post("/admin/notifications/send").with(csrf()).with(user(admin.getEmail()).roles("ADMIN"))
                         .contentType(MediaType.APPLICATION_JSON).content(mapper.writeValueAsString(request("SELECTED",
                                 "ADMIN_GENERAL", java.util.List.of(admin.getId()), UUID.randomUUID().toString()))))

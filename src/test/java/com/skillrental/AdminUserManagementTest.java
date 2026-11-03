@@ -110,7 +110,8 @@ class AdminUserManagementTest {
         users.saveAndFlush(admin);
 
         mvc.perform(post("/admin/users/{id}/unlock", admin.getId()).with(csrf()))
-                .andExpect(status().isForbidden()); // A locked actor cannot use a previously authenticated session.
+                .andExpect(status().is3xxRedirection())
+                .andExpect(redirectedUrl("/login?roleChanged")); // Locked sessions are invalidated before authorization.
         User operator=users.saveAndFlush(User.builder().fullName("Active administrator").email("active-operator@test.local")
                 .password("unused").role(com.skillrental.entity.Role.ADMIN).emailVerified(true).accountStatus(AccountStatus.ACTIVE).build());
         mvc.perform(post("/admin/users/{id}/unlock", admin.getId()).with(csrf())
@@ -272,7 +273,8 @@ class AdminUserManagementTest {
         mvc.perform(post("/admin/users/{id}/role",target.getId()).with(csrf()).with(org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user("customer@skillrental.vn").roles("CUSTOMER")).param("role","ADMIN").param("reason","Try"))
                 .andExpect(status().isForbidden());
         mvc.perform(post("/admin/users/{id}/role",target.getId()).with(csrf()).with(org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user("customer@skillrental.vn").roles("ADMIN")).param("role","ADMIN").param("reason","Forged authority"))
-                .andExpect(status().isForbidden());
+                .andExpect(status().is3xxRedirection())
+                .andExpect(redirectedUrl("/login?roleChanged"));
         mvc.perform(post("/admin/users/{id}/role",target.getId()).with(org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user("admin@skillrental.vn").roles("ADMIN")).param("role","ADMIN").param("reason","No CSRF"))
                 .andExpect(status().isForbidden());
         var customer=users.findByEmailIgnoreCase("customer@skillrental.vn").orElseThrow();

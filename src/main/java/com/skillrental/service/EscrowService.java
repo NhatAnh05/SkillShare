@@ -30,6 +30,8 @@ public class EscrowService {
     private static final int COMPLETION_OTP_MAX_ATTEMPTS = 5;
     private static final int COMPLETION_OTP_MAX_RESENDS = 3;
     private static final int COMPLETION_OTP_RESEND_WAIT_SECONDS = 60;
+    private static final int WITHDRAWAL_OTP_MAX_RESENDS = 3;
+    private static final int WITHDRAWAL_OTP_RESEND_WAIT_SECONDS = 60;
     private final RentalOrderRepository orders;
     private final BookingRepository bookings;
     private final DeliverySubmissionRepository deliveries;
@@ -44,8 +46,8 @@ public class EscrowService {
     private final ApplicationEventPublisher events;
     private final PasswordEncoder passwordEncoder;
     private final ObjectProvider<JavaMailSender> mailSenderProvider;
-    @Value("${skillshare.escrow.show-demo-otp:true}") private boolean showDemoOtp;
-    @Value("${skillshare.wallet.demo-topup-enabled:true}") private boolean demoTopupEnabled;
+    @Value("${skillshare.escrow.show-demo-otp:false}") private boolean showDemoOtp;
+    @Value("${skillshare.wallet.demo-topup-enabled:false}") private boolean demoTopupEnabled;
     @Value("${spring.mail.username:}") private String smtpFromAddress;
 
     public boolean isDemoTopupEnabled() { return demoTopupEnabled; }
@@ -83,31 +85,40 @@ public class EscrowService {
         if (amount == null || amount.compareTo(new BigDecimal("2000000")) < 0) {
             throw new IllegalArgumentException("Số tiền rút tối thiểu là 2.000.000đ.");
         }
+        // Never silently round away fractional cents between wallet debit and withdrawal record.
+        final BigDecimal withdrawalAmount;
+        try {
+            withdrawalAmount = amount.setScale(2, RoundingMode.UNNECESSARY);
+        } catch (ArithmeticException e) {
+            throw new IllegalArgumentException("Số tiền rút chỉ được có tối đa 2 chữ số thập phân.");
+        }
         if (bankName == null || bankName.isBlank() || accountNumber == null || accountNumber.isBlank()
                 || accountHolder == null || accountHolder.isBlank()) {
             throw new IllegalArgumentException("Vui lòng nhập ngân hàng, số tài khoản và tên chủ tài khoản.");
         }
         UserWallet wallet = lockWallet(provider);
-        if (wallet.getBalance().compareTo(amount) < 0) {
+        if (wallet.getBalance().compareTo(withdrawalAmount) < 0) {
             throw new IllegalArgumentException("Số dư khả dụng không đủ để tạo yêu cầu rút tiền.");
         }
-        wallet.setBalance(wallet.getBalance().subtract(amount));
+        wallet.setBalance(wallet.getBalance().subtract(withdrawalAmount));
         wallets.save(wallet);
-        record(wallet, null, "WITHDRAWAL_PENDING", amount.negate(), "Tạm giữ tiền cho yêu cầu rút tiền đang chờ OTP.");
+        record(wallet, null, "WITHDRAWAL_PENDING", withdrawalAmount.negate(), "Tạm giữ tiền cho yêu cầu rút tiền đang chờ OTP.");
 
         String code = String.format("%06d", RANDOM.nextInt(1_000_000));
+        LocalDateTime issuedAt = LocalDateTime.now();
         ProviderWithdrawal withdrawal = providerWithdrawals.save(ProviderWithdrawal.builder()
-                .provider(provider).amount(safe(amount)).bankName(bankName.trim())
+                .provider(provider).amount(withdrawalAmount).bankName(bankName.trim())
                 .accountNumber(accountNumber.trim()).accountHolder(accountHolder.trim())
                 .status("PENDING_OTP").otpHash(passwordEncoder.encode(code))
-                .otpExpiresAt(LocalDateTime.now().plusMinutes(10)).otpAttempts(0).build());
+                .otpExpiresAt(issuedAt.plusMinutes(10)).otpLastSentAt(issuedAt)
+                .otpResendCount(0).otpAttempts(0).build());
         boolean sent = sendWithdrawalOtp(withdrawal, code);
         String demoCode = !sent && showDemoOtp ? code : null;
         if (!sent && !showDemoOtp) {
             // Do not leave Provider funds stranded if neither email OTP nor demo OTP is available.
-            wallet.setBalance(wallet.getBalance().add(amount));
+            wallet.setBalance(wallet.getBalance().add(withdrawalAmount));
             wallets.save(wallet);
-            record(wallet, null, "WITHDRAWAL_RETURN", amount, "Hoàn tiền vì không thể phát hành OTP rút tiền WD" + withdrawal.getId());
+            record(wallet, null, "WITHDRAWAL_RETURN", withdrawalAmount, "Hoàn tiền vì không thể phát hành OTP rút tiền WD" + withdrawal.getId());
             withdrawal.setStatus("REJECTED");
             withdrawal.setOtpHash(null);
             withdrawal.setOtpExpiresAt(null);
@@ -119,14 +130,27 @@ public class EscrowService {
 
     @Transactional
     public WithdrawalOtpDispatchResult resendWithdrawalOtp(Long withdrawalId, User provider) {
-        ProviderWithdrawal withdrawal = providerWithdrawals.findById(withdrawalId)
+        ProviderWithdrawal withdrawal = providerWithdrawals.findByIdForUpdate(withdrawalId)
                 .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy yêu cầu rút tiền."));
         if (!withdrawal.getProvider().getId().equals(provider.getId())) throw new IllegalArgumentException("Bạn không có quyền với yêu cầu này.");
         if (!"PENDING_OTP".equals(withdrawal.getStatus())) throw new IllegalStateException("Yêu cầu không còn chờ OTP.");
         if (withdrawal.getOtpAttempts() >= 5) throw new IllegalStateException("Đã nhập sai OTP quá 5 lần. Hãy liên hệ Admin.");
-        String code = String.format("%06d", RANDOM.nextInt(1_000_000));
+        if (withdrawal.getOtpResendCount() != null && withdrawal.getOtpResendCount() >= WITHDRAWAL_OTP_MAX_RESENDS)
+            throw new IllegalStateException("Đã hết số lần gửi lại OTP (tối đa 3 lần).");
+        LocalDateTime now = LocalDateTime.now();
+        if (withdrawal.getOtpLastSentAt() != null
+                && withdrawal.getOtpLastSentAt().plusSeconds(WITHDRAWAL_OTP_RESEND_WAIT_SECONDS).isAfter(now))
+            throw new IllegalStateException("Vui lòng chờ 60 giây trước khi gửi lại OTP.");
+        if (withdrawal.getOtpHash() == null)
+            throw new IllegalStateException("Yêu cầu thiếu mã xác minh; vui lòng liên hệ hỗ trợ.");
+        String code;
+        do {
+            code = String.format("%06d", RANDOM.nextInt(1_000_000));
+        } while (passwordEncoder.matches(code, withdrawal.getOtpHash()));
         withdrawal.setOtpHash(passwordEncoder.encode(code));
-        withdrawal.setOtpExpiresAt(LocalDateTime.now().plusMinutes(10));
+        withdrawal.setOtpExpiresAt(now.plusMinutes(10));
+        withdrawal.setOtpLastSentAt(now);
+        withdrawal.setOtpResendCount((withdrawal.getOtpResendCount() == null ? 0 : withdrawal.getOtpResendCount()) + 1);
         // Keep failed-attempt count; requesting another code must not reset the security limit.
         providerWithdrawals.save(withdrawal);
         boolean sent = sendWithdrawalOtp(withdrawal, code);
@@ -146,7 +170,7 @@ public class EscrowService {
 
     @Transactional
     public void cancelUnverifiedWithdrawal(Long withdrawalId, User provider) {
-        ProviderWithdrawal withdrawal = providerWithdrawals.findById(withdrawalId)
+        ProviderWithdrawal withdrawal = providerWithdrawals.findByIdForUpdate(withdrawalId)
                 .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy yêu cầu rút tiền."));
         if (!withdrawal.getProvider().getId().equals(provider.getId())) throw new IllegalArgumentException("Bạn không có quyền với yêu cầu này.");
         if (!"PENDING_OTP".equals(withdrawal.getStatus())) throw new IllegalStateException("Chỉ có thể hủy yêu cầu đang chờ OTP.");
@@ -185,7 +209,7 @@ public class EscrowService {
 
     @Transactional(noRollbackFor = IllegalArgumentException.class)
     public void verifyWithdrawalOtp(Long withdrawalId, User provider, String otp) {
-        ProviderWithdrawal withdrawal = providerWithdrawals.findById(withdrawalId)
+        ProviderWithdrawal withdrawal = providerWithdrawals.findByIdForUpdate(withdrawalId)
                 .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy yêu cầu rút tiền."));
         if (!withdrawal.getProvider().getId().equals(provider.getId())) throw new IllegalArgumentException("Bạn không có quyền với yêu cầu này.");
         if (!"PENDING_OTP".equals(withdrawal.getStatus())) throw new IllegalStateException("Yêu cầu rút tiền không ở trạng thái chờ OTP.");
@@ -208,7 +232,7 @@ public class EscrowService {
     @Transactional
     public void approveWithdrawal(Long withdrawalId, User admin) {
         if (admin.getRole() != Role.ADMIN) throw new IllegalArgumentException("Chỉ Admin mới được duyệt rút tiền.");
-        ProviderWithdrawal withdrawal = providerWithdrawals.findById(withdrawalId)
+        ProviderWithdrawal withdrawal = providerWithdrawals.findByIdForUpdate(withdrawalId)
                 .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy yêu cầu rút tiền."));
         if (!"PENDING_ADMIN".equals(withdrawal.getStatus())) throw new IllegalStateException("Yêu cầu phải xác minh OTP trước khi duyệt.");
         withdrawal.setStatus("APPROVED_DEMO");
@@ -221,7 +245,7 @@ public class EscrowService {
     @Transactional
     public void rejectWithdrawal(Long withdrawalId, User admin, String reason) {
         if (admin.getRole() != Role.ADMIN) throw new IllegalArgumentException("Chỉ Admin mới được từ chối yêu cầu rút tiền.");
-        ProviderWithdrawal withdrawal = providerWithdrawals.findById(withdrawalId)
+        ProviderWithdrawal withdrawal = providerWithdrawals.findByIdForUpdate(withdrawalId)
                 .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy yêu cầu rút tiền."));
         if (!"PENDING_ADMIN".equals(withdrawal.getStatus())) throw new IllegalStateException("Yêu cầu phải xác minh OTP trước khi xử lý.");
         UserWallet wallet = lockWallet(withdrawal.getProvider());

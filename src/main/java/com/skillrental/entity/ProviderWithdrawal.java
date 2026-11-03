@@ -22,6 +22,8 @@ public class ProviderWithdrawal {
     @Column(name = "otp_hash", length = 100) private String otpHash;
     @Column(name = "otp_expires_at") private LocalDateTime otpExpiresAt;
     @Column(name = "otp_attempts", nullable = false) @Builder.Default private Integer otpAttempts = 0;
+    @Column(name = "otp_resend_count", nullable = false) @Builder.Default private Integer otpResendCount = 0;
+    @Column(name = "otp_last_sent_at") private LocalDateTime otpLastSentAt;
     @Column(name = "created_at", nullable = false) private LocalDateTime createdAt;
     @Column(name = "verified_at") private LocalDateTime verifiedAt;
     @Column(name = "processed_at") private LocalDateTime processedAt;
@@ -32,5 +34,6 @@ public class ProviderWithdrawal {
         if (createdAt == null) createdAt = LocalDateTime.now();
         if (status == null) status = "PENDING_OTP";
         if (otpAttempts == null) otpAttempts = 0;
+        if (otpResendCount == null) otpResendCount = 0;
     }
 }
