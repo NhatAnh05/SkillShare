@@ -924,26 +924,64 @@ public class EscrowService {
         orders.save(order);
     }
 
+    /**
+     * Before both parties start, Customer cancellation refunds the full hold and writes
+     * a zero-fee settlement snapshot. This makes early refunds auditable in Admin finance.
+     * Call only after the caller has locked the order and verified its escrow amount.
+     */
     private void cancelAndRelease(RentalOrder order, User actor, String reason) {
-        OrderStatus previousStatus = order.getStatus();
-        BigDecimal held = safe(order.getLockedAmount());
-        if (held.signum() > 0) {
-            UserWallet customerWallet = lockWallet(order.getCustomer());
-            if (customerWallet.getLockedAmount().compareTo(held) < 0) throw new IllegalStateException("Khoản ký quỹ không khớp; cần Admin đối soát trước khi hủy.");
-            customerWallet.setLockedAmount(customerWallet.getLockedAmount().subtract(held));
-            customerWallet.setBalance(customerWallet.getBalance().add(held));
-            wallets.save(customerWallet);
-            record(customerWallet, order, "UNHOLD_REFUND", held, reason);
-            order.setLockedAmount(BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP));
+        if (actor == null || actor.getRole() != Role.CUSTOMER || order.getCustomer() == null
+                || !order.getCustomer().getId().equals(actor.getId())) {
+            throw new IllegalArgumentException("Chỉ Customer của đơn mới được hủy trước khi bắt đầu.");
         }
+        if (order.getId() == null || order.getSettledAt() != null || settlements.existsByOrderId(order.getId())) {
+            throw new IllegalStateException("Đơn đã quyết toán hoặc đã hoàn tiền; không thể xử lý lại.");
+        }
+        if (order.getWorkStartedAt() != null || (Boolean.TRUE.equals(order.getCustomerStarted())
+                && Boolean.TRUE.equals(order.getProviderStarted()))) {
+            throw new IllegalStateException("Đơn đã bắt đầu; không thể hoàn 100% theo luồng hủy trước khi làm.");
+        }
+        BigDecimal held = validHoldAmount(order.getLockedAmount());
+        if (held.compareTo(validHoldAmount(order.getTotal())) != 0) {
+            throw new IllegalStateException("Khoản ký quỹ không khớp giá trị đơn; cần đối soát.");
+        }
+        UserWallet customerWallet = wallets.findByUserForUpdate(order.getCustomer())
+                .orElseThrow(() -> new IllegalStateException("Không tìm thấy ví Customer."));
+        if (safe(customerWallet.getLockedAmount()).compareTo(held) < 0
+                || safe(customerWallet.getBalance()).signum() < 0) {
+            throw new IllegalStateException("Khoản ký quỹ không khớp ví Customer; cần đối soát.");
+        }
+        OrderStatus previousStatus = order.getStatus();
+        LocalDateTime now = LocalDateTime.now();
+        customerWallet.setLockedAmount(safe(customerWallet.getLockedAmount()).subtract(held));
+        customerWallet.setBalance(safe(customerWallet.getBalance()).add(held));
+        wallets.save(customerWallet);
+        record(customerWallet, order, "UNHOLD_REFUND", held, reason);
+
+        EscrowSettlement snapshot = EscrowSettlement.builder()
+                .order(order).settledBy(actor).kind("CUSTOMER_CANCEL_EARLY")
+                .heldBefore(held).grossAmount(ZERO).customerRefundAmount(held)
+                .platformFeeAmount(ZERO).providerNetAmount(ZERO).commissionRate(ZERO)
+                .settledAt(now).build();
+        if (!snapshot.isBalanced()) throw new IllegalStateException("Sổ hoàn tiền không cân bằng.");
+        settlements.save(snapshot);
+
+        order.setLockedAmount(ZERO);
+        order.setProviderNetAmount(ZERO);
+        order.setPlatformFeeAmount(ZERO);
+        order.setSettledAt(now);
         closeStartMilestone(order);
+        order.setCompletionOtpHash(null);
+        order.setCompletionOtpExpiresAt(null);
+        order.setCompletionOtpLastSentAt(null);
         order.setStatus(OrderStatus.CANCELLED);
-        order.setCancelledAt(LocalDateTime.now());
+        order.setCancelledAt(now);
         order.setCancelledBy(actor);
-        if (order.getCancellationReason() == null || order.getCancellationReason().isBlank()) order.setCancellationReason(reason);
+        if (order.getCancellationReason() == null || order.getCancellationReason().isBlank())
+            order.setCancellationReason(reason);
         if (order.getBooking() != null) {
             order.getBooking().setStatus(BookingStatus.CANCELLED);
-            order.getBooking().setCancelledAt(LocalDateTime.now());
+            order.getBooking().setCancelledAt(now);
             order.getBooking().setCancelledBy(actor);
             order.getBooking().setCancellationReason(reason);
             bookings.save(order.getBooking());

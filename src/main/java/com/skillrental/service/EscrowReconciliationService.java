@@ -42,19 +42,22 @@ public class EscrowReconciliationService {
         boolean completion = "COMPLETION".equals(entry.getKind());
         boolean customerCancellation = "CUSTOMER_CANCELLATION".equals(entry.getKind());
         boolean providerCancellation = "PROVIDER_CANCELLATION".equals(entry.getKind());
+        boolean customerEarlyCancel = "CUSTOMER_CANCEL_EARLY".equals(entry.getKind());
         boolean adminDispute = "ADMIN_DISPUTE".equals(entry.getKind());
-        if (!completion && !customerCancellation && !providerCancellation && !adminDispute) return false;
+        if (!completion && !customerCancellation && !providerCancellation && !customerEarlyCancel && !adminDispute) return false;
         if (completion && order.getStatus() != OrderStatus.COMPLETED) return false;
         if (!completion && order.getStatus() != OrderStatus.CANCELLED) return false;
 
         List<WalletTransaction> rows = transactions.findByOrderIdOrderByIdAsc(order.getId());
         Long customerId = order.getCustomer().getId(), providerId = order.getProvider().getId();
-        if (providerCancellation) {
-            // Provider cancellation is a REFUND ONLY: no gross debit, platform fee or Provider credit.
+        if (providerCancellation || customerEarlyCancel) {
+            // Early Customer or Provider cancellation: REFUND ONLY, without fees or Provider credit.
+            Long expectedActorId = providerCancellation ? providerId : customerId;
             return order.getCancelledBy() != null
-                    && Objects.equals(order.getCancelledBy().getId(), providerId)
+                    && Objects.equals(order.getCancelledBy().getId(), expectedActorId)
                     && entry.getSettledBy() != null
-                    && Objects.equals(entry.getSettledBy().getId(), providerId)
+                    && Objects.equals(entry.getSettledBy().getId(), expectedActorId)
+                    && (!customerEarlyCancel || order.getWorkStartedAt() == null)
                     && entry.getGrossAmount().signum() == 0
                     && entry.getPlatformFeeAmount().signum() == 0
                     && entry.getProviderNetAmount().signum() == 0
@@ -62,6 +65,7 @@ public class EscrowReconciliationService {
                     && expectedCount(rows, "UNHOLD_REFUND", customerId, entry.getCustomerRefundAmount())
                     && expectedCount(rows, "SETTLEMENT_OUT", customerId, BigDecimal.ZERO)
                     && expectedCount(rows, "CANCELLATION_REFUND", customerId, BigDecimal.ZERO)
+                    && expectedCount(rows, "ADMIN_DISPUTE_OUT", customerId, BigDecimal.ZERO)
                     && expectedCount(rows, "SETTLEMENT_IN", providerId, BigDecimal.ZERO);
         }
         if (adminDispute) {

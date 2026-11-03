@@ -76,9 +76,40 @@ class EscrowCustomerCancellationIntegrationTest {
         assertEquals(0, wallets.findByUser(s.customer()).orElseThrow().getLockedAmount().signum());
         assertEquals(1, walletTransactions.findByOrderIdOrderByIdAsc(o.getId()).stream()
                 .filter(t -> "UNHOLD_REFUND".equals(t.getType())).count());
+        var earlyRefund = settlements.findByOrderId(o.getId()).orElseThrow();
+        assertEquals("CUSTOMER_CANCEL_EARLY", earlyRefund.getKind());
+        assertEquals(PRICE, earlyRefund.getCustomerRefundAmount());
+        assertEquals(0, earlyRefund.getProviderNetAmount().signum());
+        assertEquals(0, earlyRefund.getPlatformFeeAmount().signum());
+        assertTrue(reconciliation.reconcile(earlyRefund));
         assertThrows(IllegalStateException.class,
                 () -> escrow.cancelByCustomer(o.getId(), s.customer(), "Nhấn lần nữa"));
         assertEquals(new BigDecimal("1000000.00"), wallets.findByUser(s.customer()).orElseThrow().getBalance());
+    }
+
+    @Test void earlyRefundLedgerRejectsMissingWalletTransaction() {
+        Scenario s = make(OrderStatus.PENDING_PROVIDER_ACCEPTANCE, false);
+        Long orderId = s.order().getId();
+        escrow.cancelByCustomer(orderId, s.customer(), "Hủy trước khi làm");
+        var ledger = settlements.findByOrderId(orderId).orElseThrow();
+        assertTrue(reconciliation.reconcile(ledger));
+        var refundEntry = walletTransactions.findByOrderIdOrderByIdAsc(orderId).stream()
+                .filter(t -> "UNHOLD_REFUND".equals(t.getType())).findFirst().orElseThrow();
+        walletTransactions.deleteById(refundEntry.getId());
+        assertFalse(reconciliation.reconcile(ledger),
+                "Thiếu bút toán hoàn tiền phải được Admin phát hiện.");
+    }
+
+    @Test void earlyCancellationCreatesExactlyOneSettlementAndNoProviderCredit() {
+        Scenario s = make(OrderStatus.PENDING_START_CONFIRMATION, false);
+        Long orderId = s.order().getId();
+        escrow.cancelByCustomer(orderId, s.customer(), "Chưa bắt đầu công việc");
+        assertEquals(1L, settlements.findAll().stream()
+                .filter(entry -> entry.getOrder().getId().equals(orderId)).count());
+        assertTrue(walletTransactions.findByOrderIdOrderByIdAsc(orderId).stream()
+                .noneMatch(tx -> "SETTLEMENT_IN".equals(tx.getType())));
+        assertThrows(IllegalStateException.class,
+                () -> escrow.cancelByCustomer(orderId, s.customer(), "Hủy lại"));
     }
 
     @Test void oneSideStartedStillRefundsAllBecauseBothHaveNotConfirmed() {
@@ -91,6 +122,9 @@ class EscrowCustomerCancellationIntegrationTest {
         assertEquals(OrderStatus.CANCELLED, orders.findById(o.getId()).orElseThrow().getStatus());
         assertEquals(new BigDecimal("1000000.00"), wallets.findByUser(s.customer()).orElseThrow().getBalance());
         assertNull(orders.findById(o.getId()).orElseThrow().getStartDepositAmount());
+        var ledger = settlements.findByOrderId(o.getId()).orElseThrow();
+        assertEquals("CUSTOMER_CANCEL_EARLY", ledger.getKind());
+        assertTrue(reconciliation.reconcile(ledger));
     }
 
     @Test void afterBothStartedCancellationHoldsEscrowAndRequestsProviderProof() {
