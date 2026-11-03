@@ -59,6 +59,8 @@ import java.util.Optional;
         int quantity = cartItem == null ? f.getQuantity() : cartItem.getQuantity();
         ServicePriceCalculator.PriceBreakdown price =
                 priceCalculator.calculate(service, quantity, f.getDurationHours(), f.isPremium());
+        // Không tạo booking/order nếu Customer thiếu tiền. Giá được tính lại từ dịch vụ trên server.
+        escrow.requireSufficientBalance(customer, price.total());
         var b=bookings.saveAndFlush(Booking.builder().customer(customer).provider(p.getUser()).service(service)
                 .serviceName(service.getName()).bookingDate(f.getBookingDate()).timeSlot(f.getTimeSlot())
                 .scheduleMode(f.getScheduleMode()).deliveryDueAt(plannedCompletion(f))

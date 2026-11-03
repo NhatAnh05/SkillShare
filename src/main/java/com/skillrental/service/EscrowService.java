@@ -228,20 +228,72 @@ public class EscrowService {
         providerWithdrawals.save(withdrawal);
     }
 
+    /** Số tiền có thể dùng để đặt đơn, không bao gồm phần đang giữ ký quỹ. */
+    @Transactional(readOnly = true)
+    public BigDecimal availableBalance(User customer) {
+        if (customer == null || customer.getRole() != Role.CUSTOMER) return ZERO;
+        return wallets.findByUser(customer).map(UserWallet::getBalance).map(this::safe).orElse(ZERO);
+    }
+
+    /** Kiểm tra trước khi tạo booking; thao tác giữ tiền sẽ kiểm tra lại dưới khóa database. */
+    @Transactional(readOnly = true)
+    public void requireSufficientBalance(User customer, BigDecimal required) {
+        BigDecimal amount = validHoldAmount(required);
+        BigDecimal available = availableBalance(customer);
+        if (available.compareTo(amount) < 0) {
+            throw new InsufficientWalletBalanceException(amount, available);
+        }
+    }
+
     @Transactional
     public void reserveForBooking(RentalOrder order) {
-        UserWallet wallet = lockWallet(order.getCustomer());
-        BigDecimal amount = safe(order.getTotal());
-        if (wallet.getBalance().compareTo(amount) < 0) {
-            throw new IllegalStateException("Số dư khả dụng không đủ. Cần " + amount.toPlainString()
-                    + "đ, hiện có " + wallet.getBalance().toPlainString() + "đ. Vui lòng nạp ví trước khi đặt.");
+        if (order == null || order.getCustomer() == null || order.getCustomer().getRole() != Role.CUSTOMER) {
+            throw new IllegalArgumentException("Chỉ đơn của Customer mới được giữ tiền ký quỹ.");
         }
-        wallet.setBalance(wallet.getBalance().subtract(amount));
-        wallet.setLockedAmount(wallet.getLockedAmount().add(amount));
+        if (order.getId() == null || order.getStatus() != OrderStatus.PENDING_PROVIDER_ACCEPTANCE) {
+            throw new IllegalStateException("Trạng thái đơn không hợp lệ để giữ tiền.");
+        }
+        if (safe(order.getLockedAmount()).signum() != 0) {
+            throw new IllegalStateException("Đơn này đã có khoản tiền ký quỹ; không được khóa hai lần.");
+        }
+        BigDecimal amount = validHoldAmount(order.getTotal());
+        // Khóa dòng ví trước khi kiểm tra cuối cùng để hai booking đồng thời không thể chi vượt số dư.
+        UserWallet wallet = wallets.findByUserForUpdate(order.getCustomer()).orElse(null);
+        BigDecimal available = wallet == null ? ZERO : safe(wallet.getBalance());
+        if (available.compareTo(amount) < 0) {
+            throw new InsufficientWalletBalanceException(amount, available);
+        }
+        wallet.setBalance(available.subtract(amount));
+        wallet.setLockedAmount(safe(wallet.getLockedAmount()).add(amount));
         wallets.save(wallet);
         order.setLockedAmount(amount);
         orders.save(order);
-        record(wallet, order, "HOLD", amount, "Khóa tiền bảo đảm cho đơn DH" + order.getId());
+        record(wallet, order, "HOLD", amount, "Khóa tiền bảo đảm cho đơn DH" + order.getId()
+                + "; chưa chuyển tiền cho Provider.");
+    }
+
+    private BigDecimal validHoldAmount(BigDecimal required) {
+        if (required == null || required.signum() <= 0 || required.scale() > 2) {
+            throw new IllegalArgumentException("Giá trị đơn phải lớn hơn 0 và có tối đa 2 chữ số thập phân.");
+        }
+        return safe(required);
+    }
+
+    public static final class InsufficientWalletBalanceException extends IllegalStateException {
+        private final BigDecimal required;
+        private final BigDecimal available;
+
+        public InsufficientWalletBalanceException(BigDecimal required, BigDecimal available) {
+            super("Số dư ví không đủ để đặt Provider. Cần " + required.toPlainString()
+                    + "đ, hiện có " + available.toPlainString() + "đ, thiếu "
+                    + required.subtract(available).toPlainString() + "đ. Vui lòng nạp tiền vào ví.");
+            this.required = required;
+            this.available = available;
+        }
+
+        public BigDecimal getRequired() { return required; }
+        public BigDecimal getAvailable() { return available; }
+        public BigDecimal getShortfall() { return required.subtract(available); }
     }
 
     @Transactional

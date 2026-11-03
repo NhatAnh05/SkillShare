@@ -14,6 +14,10 @@
         const next = document.getElementById('calendar-next');
         const premium = document.getElementById('booking-premium');
         const summary = document.querySelector('.booking-summary');
+        const walletAvailable = Number(summary?.dataset.walletAvailable || 0);
+        const walletStatus = document.getElementById('booking-wallet-status');
+        const walletShortfall = document.getElementById('booking-wallet-shortfall');
+        const bookingSubmit = bookingForm.querySelector('.booking-submit');
         const serviceField = document.getElementById('service');
         const quantityField = document.getElementById('booking-quantity') ||
             document.getElementById('quantity');
@@ -143,7 +147,16 @@
             updateSchedule();
             document.getElementById('booking-base').textContent = money(base);
             document.getElementById('booking-extra').textContent = money(extra);
-            document.getElementById('booking-total').textContent = money(base + extra);
+            const total = Math.round((base + extra) * 100) / 100;
+            document.getElementById('booking-total').textContent = money(total);
+            const insufficient = Number.isFinite(total) && total > 0 && walletAvailable < total;
+            if (walletStatus) {
+                walletStatus.hidden = !insufficient;
+                if (walletShortfall) walletShortfall.textContent = insufficient
+                    ? ` Cần ${money(total)}, hiện có ${money(walletAvailable)}, thiếu ${money(total - walletAvailable)}.`
+                    : '';
+            }
+            if (bookingSubmit) bookingSubmit.disabled = !Number.isFinite(total) || total <= 0 || insufficient;
         }
         premium?.addEventListener('change', updatePrice);
         serviceField?.addEventListener('change', () => {

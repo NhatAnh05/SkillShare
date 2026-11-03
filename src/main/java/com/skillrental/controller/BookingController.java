@@ -30,6 +30,7 @@ import org.springframework.web.servlet.mvc.support.RedirectAttributes;
     private final CartRepository carts;
     private final CartItemRepository cartItems;
     private final ServicePriceCalculator priceCalculator;
+    private final EscrowService escrow;
     @GetMapping("/booking/provider/{id}") String form(@PathVariable("id") Long id,
             @RequestParam(defaultValue="false") boolean premium,
             @RequestParam(required=false) Long serviceId,
@@ -81,6 +82,7 @@ import org.springframework.web.servlet.mvc.support.RedirectAttributes;
         m.addAttribute("provider",provider);
         m.addAttribute("availableServices",availableServices);
         addPriceModel(m, f, availableServices);
+        addWalletModel(m, user);
         return "booking/booking";
     }
     @PostMapping("/booking/provider/{id}") String submit(@PathVariable("id") Long id,
@@ -103,6 +105,11 @@ import org.springframework.web.servlet.mvc.support.RedirectAttributes;
             populateBookingModel(id, f, user, m);
             m.addAttribute("bookingError", e.getMessage());
             return "booking/booking";
+        } catch (EscrowService.InsufficientWalletBalanceException e) {
+            populateBookingModel(id, f, user, m);
+            m.addAttribute("bookingError", e.getMessage());
+            m.addAttribute("walletShortfall", e.getShortfall());
+            return "booking/booking";
         } catch (BookingUnavailableException | ServiceUnavailableException e) {
             ra.addFlashAttribute("error", e.getMessage());
             return "redirect:/marketplace";
@@ -120,8 +127,9 @@ import org.springframework.web.servlet.mvc.support.RedirectAttributes;
             ra.addFlashAttribute("error", "Không thể lưu yêu cầu đặt dịch vụ. Vui lòng kiểm tra dữ liệu và thử lại.");
             return "redirect:/marketplace";
         } catch (IllegalStateException e) {
-            ra.addFlashAttribute("error", e.getMessage());
-            return "redirect:/customer/wallet";
+            populateBookingModel(id, f, user, m);
+            m.addAttribute("bookingError", e.getMessage());
+            return "booking/booking";
         } catch (IllegalArgumentException e) {
             populateBookingModel(id, f, user, m);
             m.addAttribute("bookingError", e.getMessage());
@@ -146,6 +154,11 @@ import org.springframework.web.servlet.mvc.support.RedirectAttributes;
         }
         model.addAttribute("form", form);
         addPriceModel(model, form, availableServices);
+        addWalletModel(model, customer);
+    }
+
+    private void addWalletModel(Model model, User customer) {
+        model.addAttribute("walletAvailable", escrow.availableBalance(customer));
     }
 
     private void addPriceModel(Model model, BookingForm form,

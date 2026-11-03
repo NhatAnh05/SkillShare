@@ -34,7 +34,7 @@
        2
       </b>
       <span>
-       Thanh toán
+       Giữ tiền ký quỹ
       </span>
      </div>
      <span>
@@ -205,12 +205,21 @@
        Đặt kỹ năng cao (+25%)
       </label>
       <th:block th:replace="~{fragments :: policyConsent(${bookingPolicyRequired}, 'booking')}"></th:block>
+      <p th:if="${walletShortfall != null}">
+       <a class="btn btn-secondary" th:href="@{/customer/wallet}">Nạp tiền vào ví để tiếp tục</a>
+      </p>
+      <div id="booking-wallet-status" class="alert danger" role="status" aria-live="polite" hidden>
+        <strong>Ví không đủ tiền để đặt Provider.</strong>
+        <span id="booking-wallet-shortfall"></span>
+        <a class="btn btn-secondary" th:href="@{/customer/wallet}" style="margin-top:10px">Nạp tiền vào ví</a>
+      </div>
       <button class="btn btn-primary booking-submit" type="submit">
-       Gửi yêu cầu &amp; ký quỹ →
+       Gửi yêu cầu &amp; khóa tiền ký quỹ →
       </button>
      </form>
      <aside class="card booking-summary"
-            th:attr="data-unit-price=${selectedService != null ? selectedService.price : 0},
+            th:attr="data-wallet-available=${walletAvailable != null ? walletAvailable : 0},
+                     data-unit-price=${selectedService != null ? selectedService.price : 0},
                      data-pricing-type=${selectedService != null ? selectedService.pricingType.name() : 'FIXED'},
                      data-service-name=${selectedService != null ? selectedService.name : ''},
                      data-service-provider=${selectedService != null ? selectedService.provider.fullName : provider.user.fullName},
@@ -262,9 +271,15 @@
        </span>
        <strong id="booking-total" th:text="${priceBreakdown != null ? (#numbers.formatDecimal(priceBreakdown.total,1,2) + 'đ') : '—'}"></strong>
       </div>
-      <p class="booking-demo-notice">
-       Thanh toán ở phiên bản demo, chưa có dịch vụ giữ tiền trung gian thực tế.
+      <div class="price-line">
+       <span>Số dư ví khả dụng</span>
+       <strong id="booking-wallet-available" th:text="${#numbers.formatDecimal(walletAvailable,0,'POINT',0,'COMMA') + 'đ'}">0đ</strong>
+      </div>
+      <p class="muted" style="margin-top:12px">
+       Khi đặt, hệ thống chỉ khóa 100% giá trị đơn trong ví SkillShare, không chuyển cho Provider.
+       Tiền được giữ cho đến khi đơn được quyết toán hoặc xử lý hủy theo quy trình.
       </p>
+      <p class="muted">Số dư có thể thay đổi nếu bạn sử dụng ví ở tab khác. Hệ thống luôn kiểm tra lại khi xác nhận đặt.</p>
      </aside>
     </div>
    </div>
