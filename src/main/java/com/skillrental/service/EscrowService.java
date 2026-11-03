@@ -35,6 +35,7 @@ public class EscrowService {
     private final DeliverySubmissionRepository deliveries;
     private final UserWalletRepository wallets;
     private final WalletTransactionRepository transactions;
+    private final EscrowSettlementRepository settlements;
     private final ProviderWithdrawalRepository providerWithdrawals;
     private final CommissionPolicy commissionPolicy;
     private final RentalOrderStatusHistoryRepository orderHistory;
@@ -587,7 +588,7 @@ public class EscrowService {
 
     @Transactional
     public void proposeCancellationCompensation(Long orderId, User provider, BigDecimal amount, String note) {
-        RentalOrder order = providerOrder(orderId, provider);
+        RentalOrder order = providerOrderForUpdate(orderId, provider);
         requireStatus(order, OrderStatus.CANCELLATION_REQUESTED_BY_CUSTOMER);
         BigDecimal proposed = safe(amount);
         if (proposed.signum() < 0 || proposed.compareTo(safe(order.getLockedAmount())) > 0) {
@@ -603,7 +604,7 @@ public class EscrowService {
 
     @Transactional
     public void customerResolveCompensation(Long orderId, User customer, boolean accept) {
-        RentalOrder order = customerOrder(orderId, customer);
+        RentalOrder order = customerOrderForUpdate(orderId, customer);
         requireStatus(order, OrderStatus.CANCELLATION_COMPENSATION_PENDING_CUSTOMER);
         OrderStatus previousStatus = order.getStatus();
         if (accept) {
@@ -629,45 +630,101 @@ public class EscrowService {
         }
     }
 
+    /**
+     * Atomic escrow settlement. The 1/3 starting milestone is an earmark only;
+     * it is NOT debited or paid separately here.
+     *
+     * Both wallets, the one-per-order accounting snapshot and all wallet transaction
+     * rows are committed in the same database transaction as the order transition.
+     */
     private void settle(RentalOrder order, BigDecimal providerAmount, boolean completed, User actor) {
-        BigDecimal held = safe(order.getLockedAmount());
-        BigDecimal payout = safe(providerAmount);
-        if (payout.compareTo(held) > 0) throw new IllegalStateException("Số tiền chi trả vượt khoản ký quỹ.");
+        if (order == null || order.getId() == null || order.getSettledAt() != null
+                || settlements.existsByOrderId(order.getId())) {
+            throw new IllegalStateException("Đơn đã được quyết toán; không thể chi trả lần hai.");
+        }
+        if (order.getCustomer() == null || order.getProvider() == null
+                || order.getCustomer().getId() == null || order.getProvider().getId() == null
+                || order.getCustomer().getId().equals(order.getProvider().getId())) {
+            throw new IllegalStateException("Đơn thiếu thông tin hai bên nhận/chuyển tiền hợp lệ.");
+        }
+        if (completed && order.getStatus() != OrderStatus.PENDING_PAYMENT_OTP) {
+            throw new IllegalStateException("Chỉ quyết toán đơn đã nghiệm thu và xác minh OTP.");
+        }
+        if (!completed && order.getStatus() != OrderStatus.CANCELLATION_COMPENSATION_PENDING_CUSTOMER) {
+            throw new IllegalStateException("Chưa có thỏa thuận bồi hoàn được Customer xác nhận.");
+        }
+        EscrowSettlementMath amounts = EscrowSettlementMath.calculate(
+                order.getLockedAmount(), providerAmount, commissionPolicy.rate());
+        if (completed && amounts.gross().compareTo(amounts.held()) != 0) {
+            throw new IllegalStateException("Quyết toán hoàn thành phải sử dụng đủ khoản ký quỹ của đơn.");
+        }
+        if (completed && amounts.gross().compareTo(order.getTotal()) != 0) {
+            throw new IllegalStateException("Ký quỹ của đơn không khớp với giá trị hợp đồng.");
+        }
+
         UserWallet customerWallet = lockWallet(order.getCustomer());
         UserWallet providerWallet = lockWallet(order.getProvider());
-        if (customerWallet.getLockedAmount().compareTo(held) < 0) {
+        if (customerWallet.getId().equals(providerWallet.getId())) {
+            throw new IllegalStateException("Không thể chuyển khoản ký quỹ vào cùng ví Customer.");
+        }
+        if (safe(customerWallet.getLockedAmount()).compareTo(amounts.held()) < 0) {
             throw new IllegalStateException("Số dư ký quỹ không khớp với đơn hàng; đã chặn quyết toán để bảo vệ tiền.");
         }
-        customerWallet.setLockedAmount(customerWallet.getLockedAmount().subtract(held));
-        BigDecimal returned = held.subtract(payout);
-        BigDecimal platformFee = commissionPolicy.fee(payout);
-        BigDecimal providerNet = payout.subtract(platformFee).setScale(2, RoundingMode.HALF_UP);
-        customerWallet.setBalance(customerWallet.getBalance().add(returned));
-        providerWallet.setBalance(providerWallet.getBalance().add(providerNet));
+        if (safe(customerWallet.getBalance()).signum() < 0 || safe(providerWallet.getBalance()).signum() < 0) {
+            throw new IllegalStateException("Số dư ví bất thường; cần Admin đối soát trước khi quyết toán.");
+        }
+        customerWallet.setLockedAmount(safe(customerWallet.getLockedAmount()).subtract(amounts.held()));
+        customerWallet.setBalance(safe(customerWallet.getBalance()).add(amounts.refund()));
+        providerWallet.setBalance(safe(providerWallet.getBalance()).add(amounts.providerNet()));
         wallets.save(customerWallet);
         wallets.save(providerWallet);
-        record(customerWallet, order, completed ? "SETTLEMENT_OUT" : "CANCELLATION_REFUND", payout.negate(),
-                completed ? "Quyết toán tổng DH" + order.getId() + " sau OTP Customer." : "Chi trả tổng phần việc theo thỏa thuận hủy DH" + order.getId());
-        if (returned.signum() > 0) record(customerWallet, order, "UNHOLD_REFUND", returned, "Hoàn phần ký quỹ còn lại của đơn DH" + order.getId());
-        if (providerNet.signum() > 0) record(providerWallet, order, "SETTLEMENT_IN", providerNet,
-                "Provider thực nhận từ DH" + order.getId() + " sau phí sàn " + platformFee.toPlainString() + "đ (" + commissionPolicy.rate().multiply(new BigDecimal("100")).stripTrailingZeros().toPlainString() + "% cấu hình). Tổng tính phí: " + payout.toPlainString() + "đ.");
-        order.setPlatformFeeAmount(platformFee);
-        order.setProviderNetAmount(providerNet);
-        order.setLockedAmount(BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP));
+        // Ledger quantities deliberately distinguish held funds from spendable balance.
+        record(customerWallet, order, completed ? "SETTLEMENT_OUT" : "CANCELLATION_REFUND",
+                amounts.gross().negate(), completed
+                ? "Quyết toán DH" + order.getId() + " sau OTP Customer."
+                : "Chi trả phần việc theo thỏa thuận hủy DH" + order.getId());
+        if (amounts.refund().signum() > 0) {
+            record(customerWallet, order, "UNHOLD_REFUND", amounts.refund(),
+                    "Hoàn phần ký quỹ còn lại của đơn DH" + order.getId());
+        }
+        if (amounts.providerNet().signum() > 0) {
+            record(providerWallet, order, "SETTLEMENT_IN", amounts.providerNet(),
+                    "Provider thực nhận từ DH" + order.getId() + "; phí sàn: "
+                    + amounts.fee().toPlainString() + "đ; giá trị tính phí: "
+                    + amounts.gross().toPlainString() + "đ.");
+        }
+
+        // Immutable, one-row-per-order accounting record with DB unique constraint.
+        // Platform fee is recorded here; it is NOT an extra debit from Customer.
+        LocalDateTime settledTime = LocalDateTime.now();
+        EscrowSettlement snapshot = EscrowSettlement.builder()
+                .order(order).settledBy(actor)
+                .kind(completed ? "COMPLETION" : "CUSTOMER_CANCELLATION")
+                .heldBefore(amounts.held()).grossAmount(amounts.gross())
+                .customerRefundAmount(amounts.refund()).platformFeeAmount(amounts.fee())
+                .providerNetAmount(amounts.providerNet()).commissionRate(amounts.rate())
+                .settledAt(settledTime).build();
+        if (!snapshot.isBalanced()) throw new IllegalStateException("Sổ quyết toán không cân bằng.");
+        settlements.save(snapshot);
+
+        order.setPlatformFeeAmount(amounts.fee());
+        order.setProviderNetAmount(amounts.providerNet());
+        order.setLockedAmount(ZERO);
         closeStartMilestone(order);
-        order.setSettledAt(LocalDateTime.now());
+        order.setSettledAt(settledTime);
         order.setCompletionOtpHash(null);
         order.setCompletionOtpExpiresAt(null);
         order.setCompletionOtpLastSentAt(null);
         if (completed) {
             OrderStatus previousStatus = order.getStatus();
             order.setStatus(OrderStatus.COMPLETED);
-            order.setCompletedAt(LocalDateTime.now());
+            order.setCompletedAt(settledTime);
             if (order.getBooking() != null) {
                 order.getBooking().setStatus(BookingStatus.COMPLETED);
                 bookings.save(order.getBooking());
             }
-            recordStatusChange(order, previousStatus, actor, "Customer xác nhận OTP; đơn được quyết toán hoàn tất.");
+            recordStatusChange(order, previousStatus, actor,
+                    "Customer xác minh OTP; escrow đã quyết toán một lần, phí và thu nhập đã ghi sổ.");
         }
         orders.save(order);
     }

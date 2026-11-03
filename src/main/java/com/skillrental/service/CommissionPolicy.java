@@ -13,7 +13,12 @@ public class CommissionPolicy {
     private BigDecimal rate;
 
     public BigDecimal rate() {
-        return rate == null ? new BigDecimal("0.05") : rate;
+        BigDecimal configured = rate == null ? new BigDecimal("0.05") : rate;
+        if (configured.signum() < 0 || configured.compareTo(BigDecimal.ONE) > 0
+                || configured.stripTrailingZeros().scale() > 8) {
+            throw new IllegalStateException("skillshare.commission.rate phải từ 0 đến 1 và có tối đa 8 chữ số thập phân.");
+        }
+        return configured;
     }
 
     public BigDecimal fee(BigDecimal grossAmount) {

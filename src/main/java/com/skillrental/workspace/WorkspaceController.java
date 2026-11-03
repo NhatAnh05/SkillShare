@@ -5,6 +5,7 @@ import com.skillrental.repository.*;
 import com.skillrental.service.CommissionPolicy;
 import com.skillrental.service.CurrentUserService;
 import com.skillrental.service.EscrowService;
+import com.skillrental.service.EscrowReconciliationService;
 import com.skillrental.service.AdminCatalogManagementService;
 import com.skillrental.service.AdminCatalogManagementService.CatalogManagementException;
 import com.skillrental.service.AdminOrderManagementService;
@@ -65,6 +66,7 @@ public class WorkspaceController {
     private final RentalOrderStatusHistoryRepository orderHistory;
     private final PaymentRepository payments;
     private final WalletTransactionRepository walletTransactions;
+    private final EscrowReconciliationService escrowReconciliation;
     private final ProviderWithdrawalRepository providerWithdrawalRepository;
     private final CommissionPolicy commissionPolicy;
     private final ReviewRepository reviews;
@@ -1097,7 +1099,7 @@ public class WorkspaceController {
     private void fillAdminDashboard(Model model) {
         long userCount = users.count();
         long providerCount = providers.count();
-        BigDecimal inflow = walletTransactions.findAll().stream().filter(t -> "DEMO_TOPUP".equals(t.getType()))
+        BigDecimal inflow = walletTransactions.findAll().stream().filter(t -> ("DEMO_TOPUP".equals(t.getType()) || "VNPAY_TOPUP".equals(t.getType())))
                 .map(WalletTransaction::getAmount).filter(Objects::nonNull).reduce(BigDecimal.ZERO, BigDecimal::add);
         BigDecimal escrow = orders.findAll().stream().map(RentalOrder::getLockedAmount).filter(Objects::nonNull).reduce(BigDecimal.ZERO, BigDecimal::add);
         long pendingProviders = providers.findAll().stream().filter(p -> !Boolean.TRUE.equals(p.getApproved())).count();
@@ -1247,7 +1249,7 @@ public class WorkspaceController {
                 .filter(t -> t.getCreatedAt() != null)
                 .filter(t -> !t.getCreatedAt().toLocalDate().isBefore(rangeFrom) && !t.getCreatedAt().toLocalDate().isAfter(rangeTo))
                 .toList();
-        BigDecimal inflow = periodTransactions.stream().filter(t -> "DEMO_TOPUP".equals(t.getType()))
+        BigDecimal inflow = periodTransactions.stream().filter(t -> ("DEMO_TOPUP".equals(t.getType()) || "VNPAY_TOPUP".equals(t.getType())))
                 .map(WalletTransaction::getAmount).filter(Objects::nonNull).reduce(BigDecimal.ZERO, BigDecimal::add);
         BigDecimal outflow = periodTransactions.stream().filter(t -> "SETTLEMENT_IN".equals(t.getType()))
                 .map(WalletTransaction::getAmount).filter(Objects::nonNull).reduce(BigDecimal.ZERO, BigDecimal::add);
@@ -1268,7 +1270,7 @@ public class WorkspaceController {
             LocalDate endDay = startDay.plusDays(bucketDays - 1L);
             if (endDay.isAfter(to)) endDay = to;
             final LocalDate bucketStart = startDay, bucketEnd = endDay;
-            BigDecimal bucketIn = periodTransactions.stream().filter(t -> "DEMO_TOPUP".equals(t.getType()))
+            BigDecimal bucketIn = periodTransactions.stream().filter(t -> ("DEMO_TOPUP".equals(t.getType()) || "VNPAY_TOPUP".equals(t.getType())))
                     .filter(t -> inDateRange(t.getCreatedAt(), bucketStart, bucketEnd)).map(WalletTransaction::getAmount)
                     .filter(Objects::nonNull).reduce(BigDecimal.ZERO, BigDecimal::add);
             BigDecimal bucketOut = periodTransactions.stream().filter(t -> "SETTLEMENT_IN".equals(t.getType()))
@@ -1298,6 +1300,7 @@ public class WorkspaceController {
         model.addAttribute("escrow", escrow);
         model.addAttribute("financePoints", financePoints);
         model.addAttribute("commissionPoints", commissionPoints);
+        model.addAttribute("settlementLedgerRows", escrowReconciliation.latest());
         model.addAttribute("withdrawals", adminWithdrawals());
     }
 
