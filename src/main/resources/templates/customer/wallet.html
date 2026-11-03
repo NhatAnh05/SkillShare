@@ -36,6 +36,29 @@
           </form>
         </details>
       </div>
+      <div class="card" style="margin-bottom:16px">
+        <h2>Giao dịch nạp tiền VNPay gần đây</h2>
+        <p class="muted">Tiền chỉ được ghi có sau khi VNPay gửi thông báo IPN hợp lệ đến máy chủ. Quay về trang ví không có nghĩa là đã nạp thành công.</p>
+        <div class="tablewrap" th:if="${!#lists.isEmpty(recentTopUps)}" style="margin-top:12px">
+          <table>
+            <thead><tr><th>Thời gian tạo</th><th>Mã nạp tiền</th><th>Số tiền</th><th>Trạng thái IPN</th><th>Thời điểm ghi có</th></tr></thead>
+            <tbody>
+              <tr th:each="topUp : ${recentTopUps}">
+                <td th:text="${#temporals.format(topUp.createdAt,'dd/MM/yyyy HH:mm')}">03/11/2026 09:00</td>
+                <td th:text="${topUp.txnRef}">WS...</td>
+                <td th:text="${#numbers.formatDecimal(topUp.amount,0,'POINT',0,'COMMA') + 'đ'}">100.000đ</td>
+                <td>
+                  <span th:if="${topUp.status == 'PAID'}" style="color:#15803d;font-weight:600">Đã ghi có</span>
+                  <span th:if="${topUp.status == 'PENDING'}" style="color:#b45309;font-weight:600">Chờ IPN xác minh</span>
+                  <span th:if="${topUp.status == 'FAILED'}" style="color:#b91c1c;font-weight:600">Thất bại</span>
+                </td>
+                <td th:text="${topUp.paidAt != null ? #temporals.format(topUp.paidAt,'dd/MM/yyyy HH:mm') : '-'}">-</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="muted" th:if="${#lists.isEmpty(recentTopUps)}">Chưa có giao dịch nạp tiền qua VNPay.</p>
+      </div>
       <div class="card"><h2>Lịch sử ví</h2><div class="tablewrap" style="margin-top:12px"><table><thead><tr><th>Thời gian</th><th>Mã đơn</th><th>Loại giao dịch</th><th>Số tiền</th><th>Số dư khả dụng</th><th>Đang khóa</th><th>Diễn giải</th></tr></thead><tbody>
         <tr th:each="t : ${transactions}"><td th:text="${#temporals.format(t.createdAt,'dd/MM/yyyy HH:mm')}">18/10/2026</td><td th:text="${t.order != null ? '#SR-' + t.order.id : '-'}">-</td><td th:text="${t.type}">HOLD</td><td th:text="${#numbers.formatDecimal(t.amount,0,'POINT',0,'COMMA') + 'đ'}">0đ</td><td th:text="${#numbers.formatDecimal(t.balanceAfter,0,'POINT',0,'COMMA') + 'đ'}">0đ</td><td th:text="${#numbers.formatDecimal(t.lockedAfter,0,'POINT',0,'COMMA') + 'đ'}">0đ</td><td th:text="${t.description}">Diễn giải</td></tr>
       </tbody></table></div><p class="muted" th:if="${#lists.isEmpty(transactions)}">Chưa phát sinh giao dịch.</p></div>

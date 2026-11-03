@@ -34,7 +34,7 @@ public class SecurityConfig {
                                      @Value("${SKILLSHARE_REMEMBER_ME_KEY:}") String rememberKey)throws Exception {
         http.addFilterBefore(new PromotedAdminSessionFilter(users), org.springframework.security.web.access.intercept.AuthorizationFilter.class);
         http.authorizeHttpRequests(a->a
-                .requestMatchers("/","/login","/register","/register/send-otp","/forgot-password","/reset-password","/css/**","/js/**", "/customer/wallet/vnpay/return", "/verify-email", "/verify-otp", "/registration-otp/send", "/resend-registration-otp", "/policies/**").permitAll()
+                .requestMatchers("/","/login","/register","/register/send-otp","/forgot-password","/reset-password","/css/**","/js/**", "/customer/wallet/vnpay/return", "/customer/wallet/vnpay/ipn", "/verify-email", "/verify-otp", "/registration-otp/send", "/resend-registration-otp", "/policies/**").permitAll()
                 .requestMatchers("/oauth2/**", "/login/oauth2/**").permitAll()
                 .requestMatchers("/h2-console/**").hasRole("ADMIN")
                 .requestMatchers("/admin/**").hasRole("ADMIN")

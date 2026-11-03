@@ -238,6 +238,7 @@ public class OrderController {
         model.addAttribute("transactions", escrow.transactions(user));
         model.addAttribute("demoTopupEnabled", escrow.isDemoTopupEnabled());
         model.addAttribute("vnpayConfigured", walletTopUp.configured());
+        model.addAttribute("recentTopUps", walletTopUp.recentTopUps(user));
         return "customer/wallet";
     }
 
@@ -246,26 +247,40 @@ public class OrderController {
         var user = current.require(auth);
         if (user.getRole() != Role.CUSTOMER) return "redirect:/workspace";
         try {
-            String ip = request.getHeader("X-Forwarded-For");
-            if (ip != null && ip.contains(",")) ip = ip.split(",")[0].trim();
-            if (ip == null || ip.isBlank()) ip = request.getRemoteAddr();
-            return "redirect:" + walletTopUp.createPayment(user, amount, ip);
+            // Do not trust arbitrary X-Forwarded-For values supplied by browsers.
+            return "redirect:" + walletTopUp.createPayment(user, amount, request.getRemoteAddr());
         } catch (RuntimeException e) {
             ra.addFlashAttribute("error", e.getMessage());
             return "redirect:/customer/wallet";
         }
     }
 
+    /** Browser Return is read-only. Only the verified VNPay IPN can credit the wallet. */
     @GetMapping("/customer/wallet/vnpay/return")
-    String walletVnPayReturn(@RequestParam Map<String, String> params, RedirectAttributes ra) {
-        try {
-            boolean paid = walletTopUp.processReturn(params);
-            if (paid) ra.addFlashAttribute("success", "VNPay đã xác nhận giao dịch Sandbox. Số dư ví được cập nhật.");
-            else ra.addFlashAttribute("error", "Giao dịch nạp ví không thành công hoặc dữ liệu xác minh không hợp lệ. Ví không được cộng tiền.");
-        } catch (RuntimeException e) {
-            ra.addFlashAttribute("error", "Không thể xác minh kết quả nạp ví. Ví chưa được cộng tiền.");
+    String walletVnPayReturn(@RequestParam Map<String, String> params, Authentication auth, RedirectAttributes ra) {
+        if (auth == null || auth instanceof org.springframework.security.authentication.AnonymousAuthenticationToken)
+            return "redirect:/login";
+        var user = current.require(auth);
+        if (user.getRole() != Role.CUSTOMER) return "redirect:/workspace";
+        switch (walletTopUp.statusForReturn(params, user)) {
+            case "PAID" -> ra.addFlashAttribute("success", "VNPay đã xác nhận giao dịch qua IPN. Số dư ví đã cập nhật.");
+            case "FAILED" -> ra.addFlashAttribute("error", "Giao dịch VNPay không thành công. Ví không được cộng tiền.");
+            case "PENDING" -> ra.addFlashAttribute("info", "Đã quay về từ VNPay. Hệ thống đang chờ IPN xác minh; vui lòng tải lại trang ví để xem trạng thái.");
+            default -> ra.addFlashAttribute("error", "Thông tin trả về từ VNPay không hợp lệ hoặc không thuộc tài khoản của bạn.");
         }
         return "redirect:/customer/wallet";
+    }
+
+    /** VNPay calls this server-to-server endpoint over public HTTPS in the Sandbox. */
+    @GetMapping(value = "/customer/wallet/vnpay/ipn", produces = "application/json")
+    @ResponseBody
+    Map<String, String> walletVnPayIpn(@RequestParam Map<String, String> params) {
+        try {
+            return walletTopUp.processIpn(params).asMap();
+        } catch (RuntimeException ex) {
+            // Returning 99 asks VNPay to retry. The @Transactional service rolls back.
+            return Map.of("RspCode", "99", "Message", "Internal error");
+        }
     }
 
     @PostMapping("/customer/wallet/topup-demo")

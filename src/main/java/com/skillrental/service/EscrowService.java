@@ -55,9 +55,13 @@ public class EscrowService {
 
     @Transactional
     public void topUpDemo(User user, BigDecimal amount) {
+        if (user == null || user.getRole() != Role.CUSTOMER)
+            throw new IllegalArgumentException("Chỉ Customer mới được nạp ví.");
         if (!demoTopupEnabled) throw new IllegalStateException("Nạp ví demo đã bị tắt trong môi trường này.");
-        if (amount == null || amount.compareTo(new BigDecimal("10000")) < 0 || amount.compareTo(new BigDecimal("50000000")) > 0) {
-            throw new IllegalArgumentException("Số tiền nạp demo phải từ 10.000đ đến 50.000.000đ.");
+        if (amount == null || amount.compareTo(new BigDecimal("10000")) < 0
+                || amount.compareTo(new BigDecimal("50000000")) > 0
+                || amount.stripTrailingZeros().scale() > 0) {
+            throw new IllegalArgumentException("Số tiền nạp demo phải là số nguyên từ 10.000đ đến 50.000.000đ.");
         }
         UserWallet wallet = lockWallet(user);
         wallet.setBalance(wallet.getBalance().add(amount));

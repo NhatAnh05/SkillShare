@@ -6,7 +6,10 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "wallet_topups", uniqueConstraints = @UniqueConstraint(name = "uq_wallet_topup_ref", columnNames = "txn_ref"))
+@Table(name = "wallet_topups", uniqueConstraints = {
+        @UniqueConstraint(name = "uq_wallet_topup_ref", columnNames = "txn_ref"),
+        @UniqueConstraint(name = "uq_wallet_topups_gateway_txn_no", columnNames = "gateway_transaction_no")
+})
 @Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
 public class WalletTopUp {
     @Id @GeneratedValue(strategy = GenerationType.IDENTITY) private Long id;
