@@ -76,7 +76,11 @@ public class NotificationAutomationService {
             case "PENDING_CUSTOMER_ACCEPTANCE" -> "Provider đã gửi sản phẩm bàn giao và đang chờ bạn nghiệm thu.";
             case "PENDING_PAYMENT_OTP" -> "Customer đã nghiệm thu; đơn đang chờ OTP quyết toán.";
             case "COMPLETED" -> "Đơn hàng đã hoàn tất và được quyết toán.";
-            case "CANCELLED" -> "Đơn hàng đã bị hủy.";
+            case "CANCELLED" -> order.getCancelledBy() != null
+                    && order.getCancelledBy().getRole() == Role.PROVIDER
+                    && order.getSettledAt() != null
+                    ? "Provider đã hủy đơn. Customer được hoàn 100% tiền ký quỹ về ví; Provider nhận 0đ, phí sàn 0đ."
+                    : "Đơn hàng đã bị hủy.";
             case "CANCELLATION_REQUESTED_BY_CUSTOMER" -> "Customer đã yêu cầu hủy đơn hàng.";
             case "CANCELLATION_COMPENSATION_PENDING_CUSTOMER" -> "Provider đã đề xuất chi phí "
                     + (order.getCancellationCompensation() == null ? "" : order.getCancellationCompensation().toPlainString() + "đ")

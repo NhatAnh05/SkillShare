@@ -374,7 +374,7 @@ CREATE TABLE IF NOT EXISTS escrow_settlements (
         ON UPDATE CASCADE ON DELETE RESTRICT,
     CONSTRAINT fk_escrow_settlement_actor FOREIGN KEY (settled_by_user_id) REFERENCES users(id)
         ON UPDATE CASCADE ON DELETE RESTRICT,
-    CONSTRAINT ck_escrow_settlement_kind CHECK (kind IN ('COMPLETION','CUSTOMER_CANCELLATION')),
+    CONSTRAINT ck_escrow_settlement_kind CHECK (kind IN ('COMPLETION','CUSTOMER_CANCELLATION','PROVIDER_CANCELLATION')),
     CONSTRAINT ck_escrow_settlement_nonnegative CHECK (held_before >= 0 AND gross_amount >= 0
         AND customer_refund_amount >= 0 AND platform_fee_amount >= 0 AND provider_net_amount >= 0),
     CONSTRAINT ck_escrow_settlement_balance CHECK (held_before = gross_amount + customer_refund_amount

@@ -324,7 +324,7 @@ public class EscrowService {
         String why = (reason == null || reason.isBlank())
                 ? "Provider từ chối yêu cầu trước khi nhận việc; hoàn lại toàn bộ khoản ký quỹ cho Customer."
                 : reason.trim();
-        cancelAndRelease(order, provider, why);
+        refundAndCloseProviderCancellation(order, provider, why);
     }
 
     /**
@@ -607,13 +607,74 @@ public class EscrowService {
 
     @Transactional
     public void cancelByProvider(Long orderId, User provider, String reason) {
+        // Pessimistic lock serializes cancellation with Customer OTP settlement and dispute resolution.
         RentalOrder order = providerOrderForUpdate(orderId, provider);
-        if (isTerminal(order) || order.getStatus() == OrderStatus.PENDING_PAYMENT_OTP) {
-            throw new IllegalStateException("Đơn đã kết thúc hoặc đang quyết toán, không thể hủy ở bước này.");
-        }
         String why = (reason == null || reason.isBlank()) ? "Provider chủ động hủy."
                 : CancellationCompensationPolicy.description(reason, 1, 500, "Lý do hủy của Provider");
-        cancelAndRelease(order, provider, "Provider hủy đơn: hoàn 100% khoản đang ký quỹ cho khách. " + why);
+        refundAndCloseProviderCancellation(order, provider, why);
+    }
+
+    /**
+     * A Provider-initiated cancellation must never pay a commission or Provider compensation.
+     * Even when Customer has already requested cancellation, disputed compensation, or
+     * approved delivery (but has NOT settled via OTP), the full outstanding escrow is refunded.
+     * Order, wallet, ledger snapshot, booking and history commit atomically.
+     */
+    private void refundAndCloseProviderCancellation(RentalOrder order, User provider, String reason) {
+        BigDecimal refund = ProviderCancellationPolicy.refundableAmount(
+                order.getStatus(), order.getLockedAmount(), order.getTotal(),
+                order.getSettledAt() != null || settlements.existsByOrderId(order.getId()));
+        UserWallet customerWallet = wallets.findByUserForUpdate(order.getCustomer())
+                .orElseThrow(() -> new IllegalStateException("Không tìm thấy ví Customer; cần đối soát trước khi hoàn tiền."));
+        BigDecimal lockedInWallet = safe(customerWallet.getLockedAmount());
+        if (lockedInWallet.compareTo(refund) < 0 || safe(customerWallet.getBalance()).signum() < 0) {
+            throw new IllegalStateException("Số tiền ký quỹ không khớp; cần Admin đối soát trước khi hoàn tiền.");
+        }
+
+        OrderStatus previousStatus = order.getStatus();
+        LocalDateTime now = LocalDateTime.now();
+        customerWallet.setLockedAmount(lockedInWallet.subtract(refund));
+        customerWallet.setBalance(safe(customerWallet.getBalance()).add(refund));
+        wallets.save(customerWallet);
+        record(customerWallet, order, "UNHOLD_REFUND", refund,
+                "Provider hủy DH" + order.getId() + "; hoàn đủ 100% ký quỹ; không thu phí.");
+
+        // One accounting snapshot per order; the starting 1/3 was only earmarked, not paid out.
+        EscrowSettlement snapshot = EscrowSettlement.builder()
+                .order(order).settledBy(provider).kind("PROVIDER_CANCELLATION")
+                .heldBefore(refund).grossAmount(ZERO).customerRefundAmount(refund)
+                .platformFeeAmount(ZERO).providerNetAmount(ZERO).commissionRate(ZERO)
+                .settledAt(now).build();
+        if (!snapshot.isBalanced()) throw new IllegalStateException("Sổ hoàn tiền không cân bằng.");
+        settlements.save(snapshot);
+
+        order.setLockedAmount(ZERO);
+        order.setProviderNetAmount(ZERO);
+        order.setPlatformFeeAmount(ZERO);
+        order.setSettledAt(now);
+        closeStartMilestone(order);
+        order.setCompletionOtpHash(null);
+        order.setCompletionOtpExpiresAt(null);
+        order.setCompletionOtpLastSentAt(null);
+        order.setCompletionOtpAttempts(0);
+        order.setCompletionOtpResendCount(0);
+        order.setStatus(OrderStatus.CANCELLED);
+        order.setCancelledBy(provider);
+        order.setCancelledAt(now);
+        // Preserve Customer's original cancellation explanation in cancellationCustomerReason;
+        // cancellationReason must describe who ACTUALLY ended the order.
+        order.setCancellationReason("Provider hủy và hoàn 100% ký quỹ: " + reason);
+        if (order.getBooking() != null) {
+            order.getBooking().setStatus(BookingStatus.CANCELLED);
+            order.getBooking().setCancelledAt(now);
+            order.getBooking().setCancelledBy(provider);
+            order.getBooking().setCancellationReason(order.getCancellationReason());
+            bookings.save(order.getBooking());
+        }
+        orders.save(order);
+        recordStatusChange(order, previousStatus, provider,
+                "Provider hủy; Customer được hoàn " + refund.toPlainString()
+                        + "đ (100% tiền ký quỹ), phí 0đ, Provider nhận 0đ.");
     }
 
     /** Provider must explain completed work and identify its evidence before asking for a payout. */

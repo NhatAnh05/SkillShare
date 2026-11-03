@@ -39,12 +39,29 @@ public class EscrowReconciliationService {
             return false;
         }
         boolean completion = "COMPLETION".equals(entry.getKind());
-        if (!completion && !"CUSTOMER_CANCELLATION".equals(entry.getKind())) return false;
+        boolean customerCancellation = "CUSTOMER_CANCELLATION".equals(entry.getKind());
+        boolean providerCancellation = "PROVIDER_CANCELLATION".equals(entry.getKind());
+        if (!completion && !customerCancellation && !providerCancellation) return false;
         if (completion && order.getStatus() != OrderStatus.COMPLETED) return false;
         if (!completion && order.getStatus() != OrderStatus.CANCELLED) return false;
 
         List<WalletTransaction> rows = transactions.findByOrderIdOrderByIdAsc(order.getId());
         Long customerId = order.getCustomer().getId(), providerId = order.getProvider().getId();
+        if (providerCancellation) {
+            // Provider cancellation is a REFUND ONLY: no gross debit, platform fee or Provider credit.
+            return order.getCancelledBy() != null
+                    && Objects.equals(order.getCancelledBy().getId(), providerId)
+                    && entry.getSettledBy() != null
+                    && Objects.equals(entry.getSettledBy().getId(), providerId)
+                    && entry.getGrossAmount().signum() == 0
+                    && entry.getPlatformFeeAmount().signum() == 0
+                    && entry.getProviderNetAmount().signum() == 0
+                    && entry.getCustomerRefundAmount().compareTo(entry.getHeldBefore()) == 0
+                    && expectedCount(rows, "UNHOLD_REFUND", customerId, entry.getCustomerRefundAmount())
+                    && expectedCount(rows, "SETTLEMENT_OUT", customerId, BigDecimal.ZERO)
+                    && expectedCount(rows, "CANCELLATION_REFUND", customerId, BigDecimal.ZERO)
+                    && expectedCount(rows, "SETTLEMENT_IN", providerId, BigDecimal.ZERO);
+        }
         String debitType = completion ? "SETTLEMENT_OUT" : "CANCELLATION_REFUND";
         BigDecimal grossDebit = entry.getGrossAmount().negate();
         return exactlyOne(rows, debitType, customerId, grossDebit)

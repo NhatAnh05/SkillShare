@@ -168,7 +168,11 @@
             </form>
             <span class="sub" th:if="${o.status.name() == 'CANCELLATION_COMPENSATION_PENDING_CUSTOMER'}">Đã gửi đề xuất; đang chờ Customer chấp thuận, tiền vẫn bị khóa.</span>
             <span class="sub" th:if="${o.status.name() == 'CANCELLATION_DISPUTED'}">Customer phản đối mức đề xuất; tiền đang được giữ để giải quyết tranh chấp.</span>
-            <form th:if="${o.status.name() != 'PENDING_PROVIDER_ACCEPTANCE' and o.status.name() != 'COMPLETED' and o.status.name() != 'CANCELLED' and o.status.name() != 'PENDING_PAYMENT_OTP'}" method="post" th:action="@{'/provider/orders/' + ${o.id} + '/cancel'}"><input name="reason" type="hidden" value="Provider hủy việc; hoàn toàn bộ số dư ký quỹ cho Customer."/><button class="wk-btn small danger" type="submit" onclick="return confirm('Provider xác nhận hủy? Tiền ký quỹ sẽ được hoàn lại cho Customer.')">Hủy việc / hoàn tiền</button></form>
+            <form th:if="${o.status.name() != 'PENDING_PROVIDER_ACCEPTANCE' and o.status.name() != 'COMPLETED' and o.status.name() != 'CANCELLED' and o.status.name() != 'PAID' and o.status.name() != 'PENDING_PAYMENT'}" method="post" th:action="@{'/provider/orders/' + ${o.id} + '/cancel'}" class="wk-form-grid">
+              <label>Lý do Provider hủy (không bắt buộc)<textarea name="reason" maxlength="500" rows="2" placeholder="Mô tả lý do không tiếp tục công việc"></textarea></label>
+              <span class="sub" th:text="${'Nếu xác nhận, hoàn đủ ' + #numbers.formatDecimal(o.lockedAmount,0,'POINT',0,'COMMA') + 'đ (100%) về ví Customer, Provider nhận 0đ, phí 0đ.'}"></span>
+              <button class="wk-btn small danger" type="submit" onclick="return confirm('Bạn chắc chắn muốn HỦY đơn? Customer được hoàn 100% số tiền đang ký quỹ, kể cả khi đang chờ OTP hoặc tranh chấp.')">Provider hủy · hoàn 100%</button>
+            </form>
             <a class="wk-btn small" th:if="${o.status.name() != 'CANCELLED'}" th:href="@{'/orders/' + ${o.id} + '/complaint'}">Báo cáo Customer</a>
             <span class="wk-chip green" th:if="${o.status.name() == 'PENDING_CUSTOMER_ACCEPTANCE'}">Chờ Customer nghiệm thu</span>
             <span class="wk-chip green" th:if="${o.status.name() == 'PENDING_PAYMENT_OTP'}">Chờ OTP quyết toán</span>

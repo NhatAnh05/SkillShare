@@ -228,7 +228,7 @@
           <div class="wk-table-wrap"><table class="wk-table"><thead><tr><th>Đơn</th><th>Loại</th><th>Đã giữ</th><th>Quyết toán</th><th>Hoàn Customer</th><th>Phí sàn</th><th>Provider thực nhận</th><th>Đối soát</th><th>Thời điểm</th></tr></thead><tbody>
             <tr th:each="row : ${settlementLedgerRows}" th:with="e=${row.settlement}">
               <td th:text="${'DH' + e.order.id}">DH1</td>
-              <td th:text="${e.kind == 'COMPLETION' ? 'Nghiệm thu + OTP' : 'Bồi hoàn khi hủy'}">Loại</td>
+              <td th:text="${e.kind == 'COMPLETION' ? 'Nghiệm thu + OTP' : (e.kind == 'PROVIDER_CANCELLATION' ? 'Provider hủy · hoàn 100%' : 'Bồi hoàn khi hủy')}">Loại</td>
               <td th:text="${#numbers.formatDecimal(e.heldBefore,0,'POINT',0,'COMMA') + 'đ'}">0đ</td>
               <td th:text="${#numbers.formatDecimal(e.grossAmount,0,'POINT',0,'COMMA') + 'đ'}">0đ</td>
               <td th:text="${#numbers.formatDecimal(e.customerRefundAmount,0,'POINT',0,'COMMA') + 'đ'}">0đ</td>
