@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+ <head>
+  <meta charset="utf-8"/>
+  <meta content="width=device-width, initial-scale=1" name="viewport"/>
+  <title>
+   Đăng nhập · Skill Rental
+  </title>
+  <th:block th:replace="~{fragments :: customerStyles}"></th:block>
+ </head>
+ <body class="login-v2">
+  <div class="login-split">
+   <section class="login-story">
+    <a class="auth-brand" th:href="@{/marketplace}">
+     <span class="logo-mark">
+      S
+     </span>
+     <span>
+      Skill Rental
+     </span>
+    </a>
+    <div class="login-story-body">
+     <h2>
+      Thuê đúng kỹ năng.
+      <br/>
+      Hoàn thành đúng việc.
+     </h2>
+     <p>
+      Kết nối khách hàng với Provider phù hợp trên một nền tảng thống nhất.
+     </p>
+     <div aria-hidden="true" class="login-decoration">
+      <span class="deco-cube">
+      </span>
+      <span class="deco-orbit">
+      </span>
+     </div>
+     <div class="login-expert">
+      <img alt="" src="https://i.pravatar.cc/100?img=11"/>
+      <span>
+       Nguyễn Văn Minh
+       <br/>
+       <small>
+        <span class="rating-star">
+         ★
+        </span>
+        4.9 · Provider demo
+       </small>
+      </span>
+     </div>
+     <div class="login-stat">
+      <strong>
+       10,000+
+      </strong>
+      <span>
+       Chuyên gia · Minh họa thiết kế
+      </span>
+     </div>
+    </div>
+    <div class="login-copyright">
+     © 2026 Skill Rental. Nền tảng kết nối kỹ năng.
+    </div>
+   </section>
+   <main class="login-panel">
+    <section class="login-form-card">
+     <h1>
+      Đăng nhập vào Skill Rental
+     </h1>
+     <div class="alert success" th:if="${param.roleChanged}">Tài khoản của bạn đã được cấp quyền Admin. Vui lòng đăng nhập lại để cập nhật quyền.</div>
+     <p class="muted">Chưa hoàn tất đăng ký? <a th:href="@{/register}">Tiếp tục trên trang đăng ký</a>.</p>
+     <p class="muted">
+      Vui lòng đăng nhập để sử dụng dịch vụ
+     </p>
+     <div class="alert danger" th:if="${param.error}">
+      Email hoặc mật khẩu không đúng.
+     </div>
+     <div class="alert danger" th:if="${param.oauthError != null and param.oauthError[0] == 'linkRequired'}">
+      Email Google đã có tài khoản SkillShare. Để liên kết an toàn, hãy đăng nhập bằng email và mật khẩu SkillShare của chính tài khoản này ở biểu mẫu bên dưới. Sau khi đăng nhập, bạn có thể dùng Google cho các lần tiếp theo.
+     </div>
+     <div class="alert danger" th:if="${param.oauthError != null and param.oauthError[0] == 'emailUnverified'}">
+      Google chưa xác nhận email của tài khoản này. Vui lòng kiểm tra tài khoản Google.
+     </div>
+     <div class="alert danger" th:if="${param.oauthError != null and param.oauthError[0] == 'accountDisabled'}">
+      Tài khoản SkillShare chưa xác minh hoặc đang bị khóa. Vui lòng liên hệ quản trị viên.
+     </div>
+     <div class="alert danger" th:if="${param.oauthError != null and param.oauthError[0] == 'unsupportedAccount'}">
+      Đăng nhập Google hiện hỗ trợ tài khoản Customer. Hãy sử dụng đăng nhập email/mật khẩu cho tài khoản khác.
+     </div>
+     <div class="alert danger" th:if="${param.oauthError != null and param.oauthError[0] != 'linkRequired' and param.oauthError[0] != 'emailUnverified' and param.oauthError[0] != 'accountDisabled' and param.oauthError[0] != 'unsupportedAccount'}">
+      Đăng nhập Google chưa thành công. Hãy thử lại; nếu vẫn lỗi, kiểm tra log máy chủ (Google OIDC reasonCode) và cấu hình Google Cloud.
+     </div>
+     <div class="alert success" th:if="${param.logout}">
+      Bạn đã đăng xuất.
+     </div>
+     <div th:replace="~{fragments :: flash}">
+     </div>
+     <form method="post" th:action="@{/login}">
+      <div class="form-group">
+       <label for="email">
+        Email
+       </label>
+       <input autocomplete="username" class="input" id="email" name="username" placeholder="Nhập email của bạn" required="" type="email"/>
+      </div>
+      <div class="form-group">
+       <div class="label-between">
+        <label for="password">
+         Mật khẩu
+        </label>
+        <a th:href="@{/forgot-password}">
+         Quên mật khẩu?
+        </a>
+       </div>
+       <input autocomplete="current-password" class="input" id="password" name="password" placeholder="Nhập mật khẩu" required="" type="password"/>
+      </div>
+      <label class="checkbox-label">
+       <input name="remember-me" type="checkbox" value="on"/>
+       Ghi nhớ đăng nhập
+      </label>
+      <button class="btn btn-primary login-submit" type="submit">
+       Đăng nhập ngay
+      </button>
+     </form>
+     <div class="login-divider">
+      <span>
+       Hoặc đăng nhập với
+      </span>
+     </div>
+     <div class="login-socials">
+      <a class="btn btn-primary" th:if="${googleLoginEnabled}" th:href="@{/oauth2/authorization/google}">
+       G
+       <span>Đăng nhập với Google</span>
+      </a>
+      <button disabled="" th:unless="${googleLoginEnabled}"
+              title="Cấu hình GOOGLE_CLIENT_ID và GOOGLE_CLIENT_SECRET để bật Google Login" type="button">
+       G
+       <span>Google Login chưa được cấu hình</span>
+      </button>
+      <button disabled="" title="Chưa tích hợp Facebook OAuth" type="button">
+       f
+      </button>
+      <button disabled="" title="Chưa tích hợp LinkedIn OAuth" type="button">
+       in
+      </button>
+     </div>
+     <p class="login-signup">
+      Chưa có tài khoản?
+      <a th:href="@{/register}">
+       Đăng ký miễn phí
+      </a>
+     </p>
+    </section>
+   </main>
+  </div>
+ <div th:replace="~{fragments :: footer}"></div>
+</body>
+</html>

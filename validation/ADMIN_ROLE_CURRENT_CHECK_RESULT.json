@@ -1,0 +1,11 @@
+{
+  "tests": 11,
+  "failures": 0,
+  "errors": 0,
+  "skipped": 0,
+  "date": "2026-11-03",
+  "build": "SUCCESS",
+  "suite": "AdminUserManagementTest",
+  "browser_rerun": false,
+  "source_matches_previous_browser_run": true
+}

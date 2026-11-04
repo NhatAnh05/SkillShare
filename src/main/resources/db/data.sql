@@ -1,0 +1,4 @@
+-- Demo data is seeded by DemoDataConfig when the users table is empty.
+-- For a MySQL database that should be populated directly from SQL, run
+-- seed-demo-data.sql once after schema-mysql.sql and before starting the application.
+-- Exactly three login accounts are seeded: customer, provider1 and admin.

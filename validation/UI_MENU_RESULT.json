@@ -1,0 +1,10 @@
+{
+  "status": "PASS",
+  "checks": [
+    "customer notification menu stays in viewport",
+    "provider1 notification menu stays in viewport",
+    "provider1 mobile sidebar opens and closes with Escape",
+    "admin notification menu stays in viewport",
+    "admin mobile sidebar opens and closes with Escape"
+  ]
+}

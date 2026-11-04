@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+ <head>
+  <meta charset="utf-8"/>
+  <meta content="width=device-width,initial-scale=1" name="viewport"/>
+  <title>
+   Tiến độ đơn hàng · Skill Rental
+  </title>
+  <th:block th:replace="~{fragments :: customerStyles}"></th:block>
+  <meta name="_csrf" th:content="${_csrf.token}"/>
+  <meta name="_csrf_header" th:content="${_csrf.headerName}"/>
+ </head>
+ <body>
+  <div th:replace="~{fragments :: icons}">
+  </div>
+  <header th:replace="~{fragments :: header}"></header>
+  <main class="page">
+   <div class="container layout management-layout">
+    <div th:replace="~{fragments :: sidebar}">
+    </div>
+    <section class="page-content">
+     <a class="btn btn-secondary" th:href="@{/orders}">
+      ← Quay lại đơn hàng
+     </a>
+     <div th:replace="~{fragments :: flash}"></div>
+     <div class="card" style="margin-top:16px">
+      <div class="order-details" th:fragment="details" th:attr="data-order-status=${order.status.name()}">
+       <h3 th:text="${'Đơn hàng #SR-'+order.id}">Đơn hàng</h3>
+       <p class="muted" th:text="${(order.booking != null ? order.booking.serviceName : 'Dịch vụ trong giỏ hàng')+' · '+(order.provider != null ? order.provider.fullName : 'Nhiều Provider')}">Dịch vụ · Provider</p>
+       <div th:if="${order.booking != null}" class="work-schedule">
+        <p>Hình thức: <strong th:text="${order.booking.scheduleMode.name() == 'DEADLINE' ? 'Theo hạn giao sản phẩm' : 'Hẹn giờ cố định'}"></strong></p>
+        <p th:if="${order.booking.scheduleMode.name() == 'APPOINTMENT'}">Lịch hẹn: <strong th:text="${#temporals.format(order.booking.bookingDate,'dd/MM/yyyy') + ' lúc ' + #temporals.format(order.booking.timeSlot,'HH:mm') + ' · ' + order.booking.durationHours + ' giờ'}"></strong></p>
+        <p>Hạn theo thỏa thuận: <strong th:text="${order.booking.deliveryDueAt != null ? #temporals.format(order.booking.deliveryDueAt,'dd/MM/yyyy HH:mm') : 'Theo lịch hẹn đã lưu'}"></strong></p>
+        <p class="error" th:if="${order.booking.deliveryDueAt != null && order.booking.deliveryDueAt.isBefore(T(java.time.LocalDateTime).now()) && order.deliveredAt == null && order.status.name() != 'CANCELLED' && order.status.name() != 'COMPLETED'}">Đã quá hạn dự kiến; hai bên cần trao đổi trong đơn. Hệ thống không tự hoàn thành hoặc tự quyết toán.</p>
+       </div>
+       <section class="delivery-section work-progress">
+        <h3>Tiến độ thực hiện</h3>
+        <p>Provider đã nhận việc: <strong th:text="${order.providerAccepted ? 'Đã nhận' : 'Chưa nhận'}"></strong></p>
+        <p>Customer xác nhận bắt đầu: <strong th:text="${order.customerStarted ? 'Đã xác nhận' : 'Chưa xác nhận'}"></strong>
+         <span class="muted" th:if="${order.customerStartConfirmedAt != null}" th:text="${'(' + #temporals.format(order.customerStartConfirmedAt,'dd/MM/yyyy HH:mm') + ')'}"></span>
+         · Provider: <strong th:text="${order.providerStarted ? 'Đã xác nhận' : 'Chưa xác nhận'}"></strong>
+         <span class="muted" th:if="${order.providerStartConfirmedAt != null}" th:text="${'(' + #temporals.format(order.providerStartConfirmedAt,'dd/MM/yyyy HH:mm') + ')'}"></span></p>
+        <p>Bắt đầu thực tế: <strong th:text="${order.workStartedAt != null ? #temporals.format(order.workStartedAt,'dd/MM/yyyy HH:mm') : (order.providerStarted and order.customerStarted ? 'Đã bắt đầu; đơn cũ chưa lưu thời điểm' : 'Chờ hai bên xác nhận')}"></strong></p>
+        <p>Tiến độ Provider báo cáo: <strong th:text="${order.progressPercent + '%'}"></strong></p>
+        <progress max="100" th:value="${order.progressPercent}" style="width:100%"></progress>
+        <p>Dự kiến hoàn thành hiện tại: <strong th:text="${order.estimatedCompletionAt != null ? #temporals.format(order.estimatedCompletionAt,'dd/MM/yyyy HH:mm') : 'Chưa cập nhật'}"></strong></p>
+        <p th:if="${order.deliveredAt != null}">Đã nộp sản phẩm: <strong th:text="${#temporals.format(order.deliveredAt,'dd/MM/yyyy HH:mm')}"></strong> · Chờ/đã nghiệm thu theo trạng thái đơn.</p>
+        <form class="document-compose work-update-form" method="post" th:action="@{/orders/{id}/work-updates(id=${order.id})}" th:if="${currentUser.role.name() == 'PROVIDER' && order.status.name() == 'PROCESSING'}">
+         <label>Đã hoàn thành (%)<input name="percent" type="number" min="0" max="99" th:value="${order.progressPercent}" required/></label>
+         <label>Đã làm được những gì?<textarea name="description" maxlength="2000" rows="3" required></textarea></label>
+         <label>Dự kiến hoàn thành<input name="estimatedCompletionAt" type="datetime-local" th:value="${order.estimatedCompletionAt}" required/></label>
+         <button class="btn btn-primary" type="submit">Cập nhật và báo cho Customer</button>
+        </form>
+        <article class="delivery-version" th:each="update : ${workUpdates}">
+         <strong th:text="${update.progressPercent + '% · ' + update.provider.fullName}"></strong>
+         <p class="delivery-copy" th:text="${update.description}"></p>
+         <small th:text="${'Cập nhật: ' + #temporals.format(update.createdAt,'dd/MM/yyyy HH:mm') + ' · Dự kiến hoàn thành: ' + #temporals.format(update.estimatedCompletionAt,'dd/MM/yyyy HH:mm')}"></small>
+        </article>
+        <p class="muted">100% nghĩa là Provider đã nộp sản phẩm; đơn chỉ hoàn tất sau khi Customer nghiệm thu và xác nhận OTP.</p>
+       </section>
+       <p>Giá trị hợp đồng: <strong class="price" th:text="${#numbers.formatDecimal(order.total,0,'POINT',0,'COMMA')+'đ'}">0đ</strong></p>
+       <p>Đã khóa trong Escrow: <strong th:text="${#numbers.formatDecimal(order.lockedAmount,0,'POINT',0,'COMMA')+'đ'}">0đ</strong></p>
+       <p th:if="${order.startDepositAmount != null}">Mốc 1/3 được bảo đảm trong tiền đã khóa: <strong th:text="${#numbers.formatDecimal(order.startDepositAmount,0,'POINT',0,'COMMA')+'đ'}">0đ</strong>
+        <span class="muted" th:if="${order.startDepositState != null and order.startDepositState.name() == 'RESERVED'}">(đang giữ trong Escrow; Provider chưa nhận/rút tiền)</span>
+        <span class="muted" th:if="${order.startDepositState != null and order.startDepositState.name() == 'CLOSED'}">(đã xử lý trong quyết toán hoặc hoàn tiền; không chi lần hai)</span>
+        <span class="muted" th:if="${order.startDepositState == null}">(đơn cũ: chưa lưu trạng thái mốc; không mặc định đã giải ngân)</span></p>
+       <p class="muted" th:if="${order.startDepositReservedAt != null}" th:text="${'Ghi nhận mốc bảo đảm: ' + #temporals.format(order.startDepositReservedAt,'dd/MM/yyyy HH:mm')}"></p>
+       <p>Trạng thái: <span class="badge info" th:text="${order.status.displayName}">PENDING_PROVIDER_ACCEPTANCE</span></p>
+       <div class="card" th:if="${order.status.name() == 'CANCELLED' and order.cancelledBy != null and order.cancelledBy.role.name() == 'PROVIDER' and order.settledAt != null}">
+        <strong>Provider đã hủy – Customer được hoàn 100% tiền ký quỹ</strong>
+        <p class="muted">Toàn bộ giá trị đơn đã được trả lại vào số dư khả dụng của Customer. Mốc 1/3 (nếu có) đã đóng; Provider không nhận tiền và hệ thống không thu phí.</p>
+        <p th:if="${order.cancellationReason != null}" th:text="${order.cancellationReason}"></p>
+       </div>
+       <section class="delivery-section work-documents" th:attr="data-order-id=${order.id}">
+        <h3>Trao đổi và tài liệu giữa hai bên</h3><p class="muted">Tài liệu trao đổi không tự hoàn tất đơn và không thay thế bản bàn giao chính thức.</p>
+        <div id="order-document-list" class="document-list" aria-live="polite"></div><button id="order-document-more" type="button" class="btn" hidden>Tải thêm tài liệu</button>
+        <form id="order-document-form" class="document-compose" enctype="multipart/form-data" th:if="${order.status.name() != 'COMPLETED' && order.status.name() != 'CANCELLED' && order.status.name() != 'PENDING_PAYMENT_OTP'}">
+         <label>Mô tả yêu cầu / tài liệu<textarea name="description" required maxlength="2000" rows="3"></textarea></label>
+         <label>Liên kết (mỗi dòng một URL)<textarea name="documentLinks" rows="2"></textarea></label>
+         <label>Tệp đính kèm (tối đa 5 tệp, 10 MB/tệp)<input name="files" type="file" accept=".txt,.md,.csv,.json,.pdf,.png,.jpg,.jpeg,.webp,.docx,.xlsx,.pptx,.zip" multiple/></label>
+         <button class="btn btn-primary" type="submit">Gửi tài liệu trao đổi</button><p data-document-status role="status" class="muted"></p>
+        </form>
+       </section>
+       <section class="delivery-section" aria-labelledby="delivery-title">
+        <h3 id="delivery-title">Sản phẩm bàn giao</h3>
+        <p class="muted">Cần ít nhất một tệp hoặc liên kết sản phẩm trước khi báo hoàn tất. Bản bàn giao được lưu theo từng phiên bản. Tệp chỉ tải được bởi Customer và Provider của đơn.</p>
+        <form class="delivery-form" method="post" enctype="multipart/form-data" th:action="@{/orders/{id}/deliveries(id=${order.id})}"
+              th:if="${currentUser.role.name() == 'PROVIDER' && order.status.name() == 'PROCESSING'}">
+         <label>Mô tả kết quả<textarea name="description" maxlength="4000" required></textarea></label>
+         <label>Ghi chú sử dụng<textarea name="usageNotes" maxlength="4000"></textarea></label>
+         <label>Liên kết kết quả<input name="links" type="url" maxlength="1000" placeholder="https://..."/></label>
+         <label>Tệp bàn giao (tối đa 5 tệp, 10 MB/tệp)<input name="files" type="file" accept=".txt,.md,.csv,.json,.pdf,.png,.jpg,.jpeg,.webp,.docx,.xlsx,.pptx,.zip" multiple/></label>
+         <button class="btn btn-primary" type="submit">Nộp sản phẩm &amp; báo hoàn tất</button>
+        </form>
+        <div class="delivery-version" th:each="delivery : ${deliveries}">
+         <div class="delivery-version-head"><strong th:text="${'Phiên bản ' + delivery.version}">Phiên bản 1</strong><span class="badge info" th:text="${delivery.status}">SUBMITTED</span><time th:text="${#temporals.format(delivery.sentAt,'dd/MM/yyyy HH:mm')}">Thời điểm gửi</time></div>
+         <p class="delivery-copy" th:text="${delivery.description}">Mô tả sản phẩm bàn giao.</p>
+         <p th:if="${delivery.usageNotes != null}" class="muted"><strong>Ghi chú sử dụng:</strong> <span th:text="${delivery.usageNotes}"></span></p>
+         <ul class="delivery-links"><li th:each="link : ${delivery.links}"><a th:href="${link.url}" target="_blank" rel="noopener noreferrer" th:text="${link.url}">Liên kết</a></li></ul>
+         <ul class="delivery-files"><li th:each="file : ${delivery.files}"><a th:href="@{/orders/{orderId}/deliveries/{deliveryId}/files/{fileId}(orderId=${order.id},deliveryId=${delivery.id},fileId=${file.id})}" th:text="${file.originalName}">Tải tệp</a><small th:text="${#numbers.formatDecimal(file.fileSize / 1024.0,1,1) + ' KB'}">0 KB</small><small th:text="${' · Người gửi: ' + delivery.provider.fullName + ' · ' + #temporals.format(delivery.sentAt,'dd/MM/yyyy HH:mm')}"></small></li></ul>
+         <form method="post" class="delivery-revision-form" th:action="@{/orders/{id}/deliveries/{deliveryId}/revision(id=${order.id},deliveryId=${delivery.id})}"
+               th:if="${currentUser.role.name() == 'CUSTOMER' && order.status.name() == 'PENDING_CUSTOMER_ACCEPTANCE'}">
+          <label>Yêu cầu chỉnh sửa<textarea name="reason" maxlength="2000" required></textarea></label><button class="btn btn-outline" type="submit">Yêu cầu chỉnh sửa</button>
+         </form>
+        </div>
+        <p class="muted" th:if="${deliveries.isEmpty()}">Chưa có sản phẩm bàn giao cho đơn này.</p>
+        <div class="delivery-version" th:each="revision : ${deliveryRevisions}">
+         <strong th:text="${'Yêu cầu chỉnh sửa cho phiên bản ' + revision.delivery.version}">Yêu cầu chỉnh sửa</strong>
+         <span class="badge info" th:text="${revision.status}">OPEN</span>
+         <p class="delivery-copy" th:text="${revision.reason}">Nội dung yêu cầu.</p>
+         <small class="muted" th:text="${#temporals.format(revision.createdAt,'dd/MM/yyyy HH:mm')}">Thời điểm gửi</small>
+        </div>
+       </section>
+       <div class="card" style="margin:12px 0;background:#f8fafc"><strong>Quy tắc trung gian</strong><p class="muted" style="margin:6px 0 0">Tiền được khóa trong ví Customer. Provider không nhận tiền khi khách vừa đặt. Sau khi Provider báo hoàn tất, Customer nghiệm thu và nhập OTP, tiền mới được chuyển sang ví Provider.</p></div>
+       <div class="timeline modal-timeline">
+        <div class="step on"><div class="dot">1</div><strong>Yêu cầu</strong></div>
+        <div class="step" th:classappend="${order.providerAccepted ? 'on' : ''}"><div class="dot">2</div><strong>Provider nhận</strong></div>
+        <div class="step" th:classappend="${order.status.name()=='PROCESSING' || order.status.name()=='PENDING_CUSTOMER_ACCEPTANCE' || order.status.name()=='PENDING_PAYMENT_OTP' || order.status.name()=='COMPLETED' ? 'on' : ''}"><div class="dot">3</div><strong>Thực hiện</strong></div>
+        <div class="step" th:classappend="${order.status.name()=='COMPLETED' ? 'on' : ''}"><div class="dot">4</div><strong>Quyết toán</strong></div>
+       </div>
+       <div class="modal-actions" style="display:flex;gap:10px;flex-wrap:wrap">
+        <form method="post" th:action="@{/orders/{id}/start-confirmation(id=${order.id})}" th:if="${order.status.name()=='PENDING_START_CONFIRMATION' && (currentUser.role.name() == 'CUSTOMER' ? !order.customerStarted : !order.providerStarted)}" onsubmit="return confirm('Xác nhận bắt đầu công việc? Mốc 1/3 chỉ được ghi nhận trong tiền ký quỹ sau khi cả hai bên xác nhận, chưa giải ngân cho Provider.')"><button class="btn btn-primary" type="submit">Tôi xác nhận bắt đầu</button></form>
+        <span class="muted" th:if="${order.status.name()=='PENDING_START_CONFIRMATION' && (currentUser.role.name() == 'CUSTOMER' ? order.customerStarted : order.providerStarted)}">Bạn đã xác nhận. Đang chờ bên còn lại xác nhận bắt đầu.</span>
+        <span class="muted" th:if="${currentUser.role.name() == 'PROVIDER' && order.status.name()=='PENDING_CUSTOMER_ACCEPTANCE'}">Đã gửi sản phẩm. Chờ Customer nghiệm thu; chưa phát sinh thanh toán.</span>
+        <form method="post" th:action="@{/orders/{id}/accept-completion(id=${order.id})}" th:if="${currentUser.role.name() == 'CUSTOMER' && order.status.name()=='PENDING_CUSTOMER_ACCEPTANCE'}" onsubmit="return confirm('Bạn đã kiểm tra và chấp nhận kết quả công việc?')"><button class="btn btn-primary" type="submit">Nghiệm thu và nhận OTP</button></form>
+        <div class="card" th:if="${currentUser.role.name() == 'CUSTOMER' && order.status.name()=='PENDING_PAYMENT_OTP'}" style="background:#f0f9ff;border:1px solid #bfdbfe">
+         <strong>Đã nghiệm thu — chờ OTP quyết toán</strong>
+         <p class="muted">Mã gồm 6 chữ số đã được gửi đến email tài khoản Customer, có hiệu lực 10 phút. Hãy đợi 60 giây trước khi gửi lại mã; tối đa 3 lần gửi lại. Tiền vẫn nằm trong ký quỹ cho đến khi xác thực thành công.</p>
+         <p class="muted" th:if="${order.completionOtpLastSentAt != null}" th:text="${'Gửi OTP gần nhất: ' + #temporals.format(order.completionOtpLastSentAt,'dd/MM/yyyy HH:mm:ss') + ' · Đã gửi lại: ' + (order.completionOtpResendCount != null ? order.completionOtpResendCount : 0) + '/3'}">Thời điểm OTP</p>
+        </div>
+        <form method="post" th:action="@{/orders/{id}/verify-otp(id=${order.id})}" th:if="${currentUser.role.name() == 'CUSTOMER' && order.status.name()=='PENDING_PAYMENT_OTP'}" style="display:flex;gap:8px;align-items:end;flex-wrap:wrap"><div><label for="otp-code">OTP xác nhận quyết toán</label><input id="otp-code" name="otp" pattern="[0-9]{6}" maxlength="6" inputmode="numeric" required placeholder="Nhập 6 chữ số"/></div><button class="btn btn-primary" type="submit">Xác nhận &amp; quyết toán</button></form>
+        <form method="post" th:action="@{/orders/{id}/resend-otp(id=${order.id})}" th:if="${currentUser.role.name() == 'CUSTOMER' && order.status.name()=='PENDING_PAYMENT_OTP'}"><button class="btn btn-outline" type="submit">Gửi lại mã OTP</button></form>
+        <form method="post" th:action="@{/orders/{id}/cancel(id=${order.id})}" th:if="${currentUser.role.name() == 'CUSTOMER' && (order.status.name()=='PENDING_PROVIDER_ACCEPTANCE' || order.status.name()=='PENDING_START_CONFIRMATION' || order.status.name()=='PROCESSING' || order.status.name()=='PENDING_CUSTOMER_ACCEPTANCE')}" onsubmit="return confirm('Xác nhận yêu cầu hủy? Trước khi hai bên bắt đầu, toàn bộ tiền ký quỹ sẽ được hoàn khóa. Sau khi bắt đầu, tiền tiếp tục được giữ để xác định chi phí phần việc đã làm.')">
+          <label>Lý do hủy (không bắt buộc)<textarea name="reason" maxlength="500" rows="2" placeholder="Mô tả ngắn gọn lý do muốn hủy"></textarea></label>
+          <button class="btn btn-outline" type="submit">Yêu cầu hủy dịch vụ</button>
+        </form>
+        <div class="card" th:if="${order.status.name()=='CANCELLATION_REQUESTED_BY_CUSTOMER'}">
+          <strong>Đã yêu cầu hủy – chờ Provider đề xuất</strong>
+          <p class="muted" th:text="${order.cancellationCustomerReason}"></p>
+          <p class="muted">Tiền vẫn nằm trong escrow; không được tự động chuyển cho Provider.</p>
+        </div>
+        <div class="card" th:if="${order.status.name()=='CANCELLATION_COMPENSATION_PENDING_CUSTOMER'}">
+          <strong>Đề xuất bồi hoàn cho phần việc đã thực hiện</strong>
+          <p><strong>Provider đề xuất:</strong> <span th:text="${#numbers.formatDecimal(order.cancellationCompensation,0,'POINT',0,'COMMA')+'đ'}">0đ</span></p>
+          <p><strong>Phần việc:</strong> <span th:text="${order.cancellationWorkSummary}"></span></p>
+          <p><strong>Bằng chứng:</strong> <span th:text="${order.cancellationEvidence}"></span></p>
+          <p class="muted">Các bản cập nhật tiến độ và lịch sử bàn giao ở trên cũng là tài liệu tham khảo. Tiền chưa được chuyển cho Provider.</p>
+          <form method="post" th:action="@{/orders/{id}/cancellation-compensation/resolve(id=${order.id})}" th:if="${currentUser.role.name()=='CUSTOMER'}">
+            <button class="btn btn-primary" type="submit" name="accept" value="true" onclick="return confirm('Bạn đồng ý chi trả số tiền Provider đề xuất từ escrow và hoàn phần còn lại?')">Chấp nhận và quyết toán</button>
+          </form>
+          <form method="post" th:action="@{/orders/{id}/cancellation-compensation/resolve(id=${order.id})}" th:if="${currentUser.role.name()=='CUSTOMER'}">
+            <label>Lý do không đồng ý<textarea name="reason" minlength="10" maxlength="1000" rows="3" required placeholder="Nêu rõ phần công việc hoặc chi phí chưa thống nhất"></textarea></label>
+            <input type="hidden" name="accept" value="false"/>
+            <button class="btn btn-outline" type="submit" onclick="return confirm('Gửi tranh chấp để giữ nguyên khoản ký quỹ và nhờ Admin hỗ trợ?')">Phản đối và yêu cầu xử lý</button>
+          </form>
+        </div>
+        <div class="card" th:if="${order.status.name()=='CANCELLATION_DISPUTED'}">
+          <strong>Đang tranh chấp chi phí hủy</strong>
+          <p class="muted" th:text="${order.cancellationDisputeReason}">Lý do phản đối</p>
+          <p class="muted">Hệ thống giữ nguyên tiền ký quỹ, chưa chi trả hoặc hoàn tiền. Admin đã được thông báo; bạn có thể gửi thêm khiếu nại/bằng chứng qua mục bên dưới.</p>
+          <a class="btn btn-outline" th:href="@{/orders/{id}/complaint(id=${order.id})}">Gửi khiếu nại / bổ sung bằng chứng</a>
+        </div>
+        <div class="card" th:if="${disputeDecision != null}" style="background:#ecfdf5;border:1px solid #a7f3d0">
+          <strong>Admin đã giải quyết tranh chấp ký quỹ</strong>
+          <p th:text="${'Quyết định ngày ' + #temporals.format(disputeDecision.decidedAt,'dd/MM/yyyy HH:mm')}">Ngày quyết định</p>
+          <p><strong>Giá trị công việc được duyệt:</strong> <span th:text="${#numbers.formatDecimal(disputeDecision.providerAwarded,0,'POINT',0,'COMMA')+'đ'}">0đ</span></p>
+          <p><strong>Tiền hoàn về Customer:</strong> <span th:text="${#numbers.formatDecimal(disputeDecision.customerRefunded,0,'POINT',0,'COMMA')+'đ'}">0đ</span></p>
+          <p><strong>Provider thực nhận sau phí:</strong> <span th:text="${#numbers.formatDecimal(order.providerNetAmount,0,'POINT',0,'COMMA')+'đ'}">0đ</span></p>
+          <p><strong>Lý do phán quyết:</strong> <span th:text="${disputeDecision.decisionReason}">Căn cứ</span></p>
+          <p class="muted">Tiền đã được xử lý từ khoản ký quỹ theo quyết định Admin; không phải lệnh chuyển ngân hàng thật.</p>
+        </div>
+        <a class="btn btn-outline" th:href="@{/orders/{id}/review(id=${order.id})}" th:if="${currentUser.role.name() == 'CUSTOMER' && order.status.name()=='COMPLETED'}">Đánh giá</a>
+       </div>
+     </div>
+     </div>
+    </section>
+   </div>
+  </main>
+  <div th:replace="~{fragments :: footer}">
+  </div>
+  <div th:replace="~{fragments :: floatingChat}">
+  </div>
+  <script defer="" src="/js/app.js">
+  </script>
+<script defer src="/js/workflow.js"></script>
+ </body>
+</html>

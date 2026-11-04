@@ -1,0 +1,45 @@
+/* ============================================================
+   SKILL RENTAL DESIGN TOKENS
+   Shared by Customer, Provider and Admin.
+   ============================================================ */
+:root {
+    /* Brand / semantic colors */
+    --primary: #16A34A;
+    --primary-dark: #15803D;
+    --primary-light: #DCFCE7;
+    --secondary: #0F172A;
+    --bg: #F8FAFC;
+    --surface: #FFFFFF;
+    --text: #1E293B;
+    --muted: #64748B;
+    --border: #E2E8F0;
+    --success: #22C55E;
+    --warning: #F59E0B;
+    --error: #EF4444;
+    --info: #3B82F6;
+
+    /* Workspace-specific brand colors. These are still centralized here. */
+    --admin: #065F46;
+    --admin-dark: #044B38;
+    --workspace-sidebar: 205px;
+
+    /* Unified typography scale */
+    --text-xs: 12px;
+    --text-sm: 13px;
+    --text-base: 15px;
+    --text-md: 17px;
+    --text-lg: 20px;
+    --text-xl: 26px;
+    --text-2xl: 36px;
+    --text-3xl: 48px;
+
+    /* Only two responsive heading formulas are allowed project-wide. */
+    --text-page-fluid: clamp(var(--text-lg), 2.2vw, var(--text-xl));
+    --text-hero-fluid: clamp(var(--text-2xl), 4vw, var(--text-3xl));
+
+    /* Shared line-height scale */
+    --leading-tight: 1.18;
+    --leading-snug: 1.35;
+    --leading-normal: 1.55;
+    --leading-relaxed: 1.65;
+}

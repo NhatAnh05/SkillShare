@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="utf-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>Request đang tìm Provider · Skill Rental</title>
+    <th:block th:replace="~{fragments :: customerStyles}"></th:block>
+</head>
+<body class="public-page marketplace-page">
+<div th:replace="~{fragments :: icons}"></div>
+<div th:replace="~{fragments :: header}"></div>
+
+<main class="page">
+    <div class="container public-content">
+        <section class="market-section request-board-page">
+            <div class="request-board-hero">
+                <div>
+                    <span class="eyebrow">CƠ HỘI HỢP TÁC</span>
+                    <h1>Request đang tìm Provider</h1>
+                    <p>Khám phá yêu cầu công việc đang mở và kết nối với khách hàng có nhu cầu thực tế.</p>
+                </div>
+                <div class="request-board-hero-actions">
+                    <a class="btn btn-outline" th:href="@{/marketplace}">← Về trang chủ</a>
+                    <a class="btn btn-primary" th:if="${currentRole == 'PROVIDER'}" th:href="@{/provider/offers}">Quản lý ứng tuyển</a>
+                    <a class="btn btn-primary" th:if="${currentRole == 'CUSTOMER'}" th:href="@{/requests/create}">+ Đăng Request</a>
+                    <a class="btn btn-primary" th:if="${currentRole == 'ADMIN'}" th:href="@{/admin/dashboard}">Trang quản trị</a>
+                </div>
+            </div>
+
+            <div class="request-board-summary">
+                <div>
+                    <strong th:text="${openRequests.size()}">0</strong>
+                    <span>Request đang nhận ứng tuyển</span>
+                </div>
+                <p th:if="${currentRole == 'PROVIDER'}">Chọn một yêu cầu để đọc chi tiết hoặc gửi báo giá. Chỉ Request đang mở mới nhận ứng tuyển.</p>
+                <p th:if="${currentRole != 'PROVIDER'}">Các Request bên dưới được lấy từ dữ liệu thực tế của hệ thống.</p>
+            </div>
+
+            <div class="request-grid request-browse-grid" th:if="${!#lists.isEmpty(openRequests)}">
+                <article class="request-card" th:each="r : ${openRequests}">
+                    <div class="request-top">
+                        <h3 th:text="${r.title}">Hoàn thiện website đặt lịch</h3>
+                        <span class="request-status">ĐANG MỞ</span>
+                    </div>
+                    <p th:text="${r.description}">Mô tả công việc đang cần hỗ trợ.</p>
+                    <div class="request-meta">
+                        <span th:text="${r.requiredSkills}">Java, Spring Boot</span>
+                        <span th:text="${'Hạn ' + #temporals.format(r.deadline, 'dd/MM/yyyy')}">Hạn hoàn thành</span>
+                        <span th:if="${r.createdAt != null}" th:text="${'Đăng ngày ' + #temporals.format(r.createdAt, 'dd/MM/yyyy')}">Ngày đăng</span>
+                    </div>
+                    <div class="request-bottom">
+                        <div class="request-price">
+                            <strong th:text="${#numbers.formatDecimal(r.budget,0,'POINT',0,'COMMA') + 'đ'}">5.000.000đ</strong>
+                            <span>Ngân sách dự kiến</span>
+                        </div>
+                        <div class="request-applicants">
+                            <strong th:text="${requestApplyCounts[r.id] == null ? 0 : requestApplyCounts[r.id]}">0</strong>
+                            <br/>Provider đã ứng tuyển
+                        </div>
+                    </div>
+                    <div class="request-card-actions" th:if="${currentRole == 'PROVIDER'}">
+                        <a class="btn btn-outline btn-sm" th:href="@{/provider/requests/{id}(id=${r.id})}">Xem chi tiết</a>
+                        <a class="btn btn-primary btn-sm" th:href="@{/provider/requests/{id}/apply(id=${r.id})}">Ứng tuyển &amp; báo giá</a>
+                    </div>
+                    <div class="request-card-actions" th:if="${currentRole == 'CUSTOMER' and r.customer.id == currentUser.id}">
+                        <a class="btn btn-outline btn-sm" th:href="@{/requests/{id}/edit(id=${r.id})}">Chỉnh sửa Request</a>
+                    </div>
+                </article>
+            </div>
+
+            <div class="request-board-empty" th:if="${#lists.isEmpty(openRequests)}">
+                <div class="request-board-empty-icon">⌕</div>
+                <strong>Chưa có Request nào đang mở</strong>
+                <p>Khi khách hàng đăng yêu cầu tìm Provider, Request sẽ xuất hiện tại đây.</p>
+                <a class="btn btn-primary" th:if="${currentRole == 'CUSTOMER'}" th:href="@{/requests/create}">+ Tạo Request đầu tiên</a>
+                <a class="btn btn-outline" th:if="${currentRole == 'PROVIDER'}" th:href="@{/provider/offers}">Tải lại cơ hội</a>
+            </div>
+        </section>
+    </div>
+</main>
+
+<div th:replace="~{fragments :: footer}"></div>
+<div th:replace="~{fragments :: floatingChat}"></div>
+<script defer="" th:src="@{/js/app.js}"></script>
+<script defer="" th:src="@{/js/figma-ui.js}"></script>
+</body>
+</html>

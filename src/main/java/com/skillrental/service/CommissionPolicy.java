@@ -1,0 +1,59 @@
+package com.skillrental.service;
+
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Component;
+
+import java.math.BigDecimal;
+import java.math.RoundingMode;
+
+/** One fee policy shared by settlement, Provider income and Admin finance screens. */
+@Component
+public class CommissionPolicy {
+    @Value("${skillshare.commission.rate:0.05}")
+    private BigDecimal rate;
+
+    public BigDecimal rate() {
+        BigDecimal configured = rate == null ? new BigDecimal("0.05") : rate;
+        if (configured.signum() < 0 || configured.compareTo(BigDecimal.ONE) > 0
+                || configured.stripTrailingZeros().scale() > 8) {
+            throw new IllegalStateException("skillshare.commission.rate phải từ 0 đến 1 và có tối đa 8 chữ số thập phân.");
+        }
+        return configured;
+    }
+
+    public BigDecimal fee(BigDecimal grossAmount) {
+        if (grossAmount == null || grossAmount.signum() <= 0) return BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
+        return grossAmount.multiply(rate()).setScale(2, RoundingMode.HALF_UP);
+    }
+
+    public BigDecimal providerNet(BigDecimal grossAmount) {
+        BigDecimal gross = grossAmount == null ? BigDecimal.ZERO : grossAmount;
+        return gross.subtract(fee(gross)).setScale(2, RoundingMode.HALF_UP);
+    }
+
+    public BigDecimal grossSettledAmount(com.skillrental.entity.RentalOrder order) {
+        if (order == null) return BigDecimal.ZERO;
+        // Persisted fee + net is the authoritative gross for final settlements,
+        // including Admin awards that differ from the Provider's initial proposal.
+        if (order.getSettledAt() != null && order.getPlatformFeeAmount() != null
+                && order.getProviderNetAmount() != null
+                && order.getPlatformFeeAmount().signum() >= 0 && order.getProviderNetAmount().signum() >= 0)
+            return order.getPlatformFeeAmount().add(order.getProviderNetAmount());
+        if (order.getStatus() == com.skillrental.entity.OrderStatus.CANCELLED) {
+            return order.getCancellationCompensation() == null ? BigDecimal.ZERO : order.getCancellationCompensation();
+        }
+        return order.getTotal() == null ? BigDecimal.ZERO : order.getTotal();
+    }
+
+    public BigDecimal feeFor(com.skillrental.entity.RentalOrder order) {
+        if (order == null || order.getSettledAt() == null) return BigDecimal.ZERO;
+        if (order.getPlatformFeeAmount() != null && order.getPlatformFeeAmount().signum() >= 0) return order.getPlatformFeeAmount();
+        return fee(grossSettledAmount(order));
+    }
+
+    public BigDecimal providerNetFor(com.skillrental.entity.RentalOrder order) {
+        if (order == null || order.getSettledAt() == null) return BigDecimal.ZERO;
+        if (order.getProviderNetAmount() != null && order.getProviderNetAmount().signum() >= 0) return order.getProviderNetAmount();
+        return providerNet(grossSettledAmount(order));
+    }
+}

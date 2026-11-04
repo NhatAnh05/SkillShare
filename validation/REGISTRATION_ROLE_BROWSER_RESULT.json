@@ -1,0 +1,8 @@
+{
+  "status": "PASS",
+  "checks": [
+    "CUSTOMER: choose role → local SMTP OTP → reload preserves role → verify → login → correct workspace",
+    "PROVIDER: choose role → local SMTP OTP → reload preserves role → verify → login → correct workspace"
+  ],
+  "gmailDeliveryVerified": false
+}

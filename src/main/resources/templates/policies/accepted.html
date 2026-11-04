@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>Điều khoản đã chấp nhận · SkillShare</title>
+  <th:block th:replace="~{fragments :: customerStyles}"></th:block>
+</head>
+<body>
+  <div th:replace="~{fragments :: icons}"></div>
+  <header th:replace="~{fragments :: header}"></header>
+  <main class="page">
+    <section class="container policy-page card">
+      <h1 class="title">Điều khoản đã chấp nhận</h1>
+      <p class="muted">Lịch sử chấp thuận được lưu cùng tài khoản, phiên bản và thời điểm.</p>
+      <div class="policy-acceptance" th:each="acceptance : ${acceptedPolicies}">
+        <strong th:text="${acceptance.policyType}">TERMS_OF_USE</strong>
+        <span th:text="${'Phiên bản ' + acceptance.policyVersion}">Phiên bản</span>
+        <time th:text="${#temporals.format(acceptance.acceptedAt,'dd/MM/yyyy HH:mm')}">Thời điểm</time>
+        <a th:href="@{/terms/accepted/{id}(id=${acceptance.id})}" rel="noopener" target="_blank">Xem điều khoản</a>
+      </div>
+      <p class="muted" th:if="${acceptedPolicies.isEmpty()}">Chưa có bản ghi chấp thuận trong hệ thống.</p>
+    </section>
+  </main>
+  <div th:replace="~{fragments :: footer}"></div>
+  <div th:replace="~{fragments :: floatingChat}"></div>
+  <script defer src="/js/app.js"></script>
+<script defer src="/js/workflow.js"></script>
+</body>
+</html>

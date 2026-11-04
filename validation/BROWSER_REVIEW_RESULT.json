@@ -1,0 +1,11 @@
+{
+  "status": "PASS",
+  "results": [
+    "Request is scoped to an assigned complaint; second Admin sees approval request without reload",
+    "Independent allowlisted Admin approves; requester receives live decision",
+    "Approved UI reads scoped private history and attachment; file download is authorized",
+    "Grant does not open ordinary private-chat APIs; Customer cannot access Admin review APIs",
+    "Explicitly approved export produces a downloadable evidence file",
+    "Audit UI records decision, message view, attachment download and export"
+  ]
+}

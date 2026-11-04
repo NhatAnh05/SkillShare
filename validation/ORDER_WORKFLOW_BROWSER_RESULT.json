@@ -1,0 +1,23 @@
+{
+  "main_workflow_checks": [
+    "Customer books a fixed-price product by delivery deadline without a time slot",
+    "Provider accepts; both parties confirm start; work becomes active",
+    "Customer receives provider progress, work description and ETA without refresh",
+    "Completion rejected when no product file or link exists",
+    "Product upload and completion are atomic; Customer sees product and pending acceptance",
+    "Revision returns work to processing and requires a second product version",
+    "Fixed appointment persists a real start time and selected duration",
+    "Chat keeps text messaging and removes new file/product uploads"
+  ],
+  "main_workflow_status": "PASS",
+  "mobile": {
+    "status": "PASS",
+    "viewport": 390,
+    "document_width": 390
+  },
+  "notes": [
+    "The initial run passed eight functional workflows and found a mobile layout overflow.",
+    "After the CSS fix, mobile was verified separately on an existing processing order; successful functional workflows were not replayed.",
+    "External fonts and avatar/chart assets were blocked during browser testing."
+  ]
+}

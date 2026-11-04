@@ -1,0 +1,1572 @@
+-- ============================================================================
+-- SkillShare demo data for MySQL 8.0.16+
+-- IMPORTANT: Run only once against a NEW, empty skill_rental schema after
+-- schema-mysql.sql. The application also seeds this data through DemoDataConfig
+-- if users is empty; do not execute this file after the application has seeded.
+-- Three primary login accounts remain active; synthetic test users are locked. Every table is seeded with at least 50 rows.
+-- The three primary login accounts use password: 123456.
+-- Synthetic seed users appended below are LOCKED and have random BCrypt hashes.
+-- All gateway / OAuth / refund values below are DEMO placeholders, not real transactions.
+-- ============================================================================
+USE skill_rental;
+SET NAMES utf8mb4;
+START TRANSACTION;
+
+-- 1. Three primary demo logins; supplemental locked test users are appended below.
+INSERT INTO users
+(id, full_name, email, password, phone, role, avatar_url, bio, email_verified,
+ account_status, two_factor_preference, created_at, updated_at)
+VALUES
+(1, 'Lê Tuấn Anh', 'customer@skillrental.vn', '$2a$10$rxwcTrONsqaIP6tR1qoIle7NxWoteSsVJzvpgao1gSQBBLiotRKFm', '0901234567', 'CUSTOMER', 'https://i.pravatar.cc/150?img=33', 'Khách hàng demo của SkillShare.', b'1', 'ACTIVE', b'0', NOW(6), NOW(6)),
+(2, 'Nguyễn Văn Minh', 'provider1@skillrental.vn', '$2a$10$rxwcTrONsqaIP6tR1qoIle7NxWoteSsVJzvpgao1gSQBBLiotRKFm', '0902345678', 'PROVIDER', 'https://i.pravatar.cc/150?img=11', 'Lập trình viên backend Java và Spring Boot.', b'1', 'ACTIVE', b'0', NOW(6), NOW(6)),
+(3, 'Nguyễn Văn Admin', 'admin@skillrental.vn', '$2a$10$rxwcTrONsqaIP6tR1qoIle7NxWoteSsVJzvpgao1gSQBBLiotRKFm', '0903456789', 'ADMIN', 'https://i.pravatar.cc/150?img=68', 'Quản trị viên hệ thống SkillShare.', b'1', 'ACTIVE', b'0', NOW(6), NOW(6));
+
+-- 2. Profiles and OAuth identity. OAuth subject is a placeholder for demo only.
+INSERT INTO customer_profiles (id, user_id, location, preferred_skills)
+VALUES (1, 1, 'TP. Hồ Chí Minh', 'Java, Spring Boot, UI/UX');
+
+INSERT INTO provider_profiles
+(id, user_id, headline, hourly_rate, rating, review_count, premium, introduction, availability, is_approved, profile_status, created_at, updated_at)
+VALUES
+(1, 2, 'Senior Java / Spring Boot Developer', 250000, 4.5, 2, b'1',
+ 'Thiết kế database, xây dựng REST API và tối ưu backend Java.',
+ 'Thứ 2–Thứ 7, 18:00–22:00', b'1', 'ACTIVE', NOW(6), NOW(6));
+
+INSERT INTO oauth_identities (id, user_id, identity_provider, provider_subject, email_at_provider, created_at)
+VALUES (1, 1, 'GOOGLE', 'DEMO-GOOGLE-SUBJECT-CUSTOMER-001', 'customer@skillrental.vn', NOW(6));
+
+-- 3. Skills and provider-to-skill relations.
+INSERT INTO skills (id, name, description, created_at) VALUES
+(1, 'Java', 'Lập trình Java core và hướng đối tượng.', NOW(6)),
+(2, 'Spring Boot', 'Phát triển REST API và backend bằng Spring Boot.', NOW(6)),
+(3, 'SQL & Database', 'Thiết kế ERD, chuẩn hóa dữ liệu và truy vấn SQL.', NOW(6)),
+(4, 'Figma', 'Thiết kế giao diện và prototype.', NOW(6)),
+(5, 'UI/UX Design', 'Thiết kế trải nghiệm và giao diện người dùng.', NOW(6)),
+(6, 'Digital Marketing', 'SEO, quảng cáo và nội dung số.', NOW(6)),
+(7, 'Project Management', 'Lập kế hoạch và theo dõi tiến độ dự án.', NOW(6));
+
+INSERT INTO provider_skills (provider_profile_id, skill_id) VALUES
+(1, 1), (1, 2), (1, 3), (1, 4), (1, 5);
+
+-- 4. Services catalogue and their required skills.
+INSERT INTO services
+(id, provider_id, name, category, description, pricing_type, price, duration_minutes, cover_image_url,
+ status, rating, review_count, created_at, updated_at, published_at)
+VALUES
+(1, 2, 'Phát triển REST API bằng Spring Boot', 'Lập trình Web',
+ 'Thiết kế REST API, phân quyền, validation, kết nối database và tài liệu endpoint.',
+ 'FIXED', 3200000, 420, 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3',
+ 'PUBLISHED', 4.0, 1, DATE_SUB(NOW(6), INTERVAL 20 DAY), NOW(6), DATE_SUB(NOW(6), INTERVAL 30 DAY)),
+(2, 2, 'Mentoring Java và review code', 'Lập trình',
+ 'Hướng dẫn Java, phân tích lỗi và review chất lượng code.',
+ 'HOURLY', 250000, 60, 'https://images.unsplash.com/photo-1519389950473-47ba0277781c',
+ 'PUBLISHED', 0.0, 0, DATE_SUB(NOW(6), INTERVAL 15 DAY), NOW(6), DATE_SUB(NOW(6), INTERVAL 15 DAY)),
+(3, 2, 'Thiết kế UI/UX trên Figma', 'Thiết kế',
+ 'Thiết kế giao diện responsive, component và prototype cho website.',
+ 'FIXED', 1500000, 240, 'https://images.unsplash.com/photo-1586717791821-3f44a563fa4c',
+ 'PUBLISHED', 5.0, 1, DATE_SUB(NOW(6), INTERVAL 10 DAY), NOW(6), DATE_SUB(NOW(6), INTERVAL 10 DAY));
+
+INSERT INTO service_skills (service_id, skill_id) VALUES
+(1, 1), (1, 2), (1, 3), (2, 1), (2, 2), (3, 4), (3, 5);
+
+-- 5. Service request and proposal.
+INSERT INTO service_requests
+(id, customer_id, title, required_skills, description, budget, deadline, status, selected_provider_id, created_at, updated_at)
+VALUES
+(1, 1, 'Hoàn thiện website đặt lịch dịch vụ', 'Java, Spring Boot, SQL & Database',
+ 'Hoàn thiện API đặt lịch, validation và lưu lịch sử đơn hàng.', 5000000,
+ DATE_ADD(CURDATE(), INTERVAL 14 DAY), 'OPEN', NULL, NOW(6), NOW(6));
+
+INSERT INTO service_request_skills (request_id, skill_id) VALUES (1, 1), (1, 2), (1, 3);
+
+INSERT INTO applies (id, request_id, provider_id, proposal, proposed_price, status, applied_at)
+VALUES (1, 1, 2,
+ 'Hoàn thiện API và thiết kế database trong 7 ngày; bàn giao source cùng tài liệu.',
+ 4500000, 'PENDING', DATE_SUB(NOW(6), INTERVAL 3 HOUR));
+
+-- 6. Cart with two services.
+INSERT INTO carts (id, customer_id, status, created_at, updated_at, checked_out_at)
+VALUES (1, 1, 'ACTIVE', DATE_SUB(NOW(6), INTERVAL 2 HOUR), DATE_SUB(NOW(6), INTERVAL 10 MINUTE), NULL);
+
+INSERT INTO cart_items (id, cart_id, service_id, quantity, unit_price_snapshot, added_at) VALUES
+(1, 1, 2, 1, 250000, DATE_SUB(NOW(6), INTERVAL 30 MINUTE)),
+(2, 1, 3, 1, 1500000, DATE_SUB(NOW(6), INTERVAL 20 MINUTE));
+
+-- 7. Bookings.
+INSERT INTO bookings
+(id, customer_id, provider_id, service_id, service_name, booking_date, time_slot, note, premium, direct_booking,
+ amount, status, cancellation_reason, cancelled_by_user_id, cancelled_at, created_at, updated_at)
+VALUES
+(1, 1, 2, 1, 'Phát triển REST API bằng Spring Boot', DATE_SUB(CURDATE(), INTERVAL 1 DAY), '19:00:00',
+ 'Hoàn thiện REST API và rà soát quyền truy cập.', b'1', b'1', 3200000, 'IN_PROGRESS', NULL, NULL, NULL,
+ DATE_SUB(NOW(6), INTERVAL 3 DAY), DATE_SUB(NOW(6), INTERVAL 5 HOUR)),
+(2, 1, 2, 3, 'Thiết kế UI/UX trên Figma', DATE_SUB(CURDATE(), INTERVAL 8 DAY), '10:00:00',
+ 'Thiết kế màn hình trang chủ và trang dịch vụ.', b'0', b'1', 1500000, 'COMPLETED', NULL, NULL, NULL,
+ DATE_SUB(NOW(6), INTERVAL 10 DAY), DATE_SUB(NOW(6), INTERVAL 7 DAY)),
+(3, 1, 2, 2, 'Mentoring Java và review code', DATE_ADD(CURDATE(), INTERVAL 2 DAY), '20:00:00',
+ 'Buổi mentoring Java 60 phút.', b'0', b'1', 250000, 'PENDING', NULL, NULL, NULL,
+ DATE_SUB(NOW(6), INTERVAL 1 HOUR), NOW(6)),
+(4, 1, 2, 2, 'Mentoring Java và review code', DATE_SUB(CURDATE(), INTERVAL 12 DAY), '18:00:00',
+ 'Đơn demo đã hủy và hoàn tiền.', b'0', b'1', 250000, 'CANCELLED',
+ 'Khách thay đổi lịch, hai bên đồng ý hủy.', 1, DATE_SUB(NOW(6), INTERVAL 12 DAY),
+ DATE_SUB(NOW(6), INTERVAL 14 DAY), DATE_SUB(NOW(6), INTERVAL 12 DAY)),
+(5, 1, 2, 1, 'Phát triển REST API bằng Spring Boot', DATE_SUB(CURDATE(), INTERVAL 20 DAY), '14:00:00',
+ 'Rà soát và tối ưu API cho phiên bản đầu.', b'0', b'1', 2800000, 'COMPLETED', NULL, NULL, NULL,
+ DATE_SUB(NOW(6), INTERVAL 21 DAY), DATE_SUB(NOW(6), INTERVAL 18 DAY));
+
+-- 8. Orders and line items.
+INSERT INTO rental_orders
+(id, booking_id, customer_id, provider_id, subtotal, discount, total, status, created_at, completed_at,
+ cancelled_at, cancellation_reason, cancelled_by_user_id)
+VALUES
+(1, 1, 1, 2, 3200000, 320000, 2880000, 'PROCESSING', DATE_SUB(NOW(6), INTERVAL 3 DAY), NULL, NULL, NULL, NULL),
+(2, 2, 1, 2, 1500000, 0, 1500000, 'COMPLETED', DATE_SUB(NOW(6), INTERVAL 10 DAY), DATE_SUB(NOW(6), INTERVAL 7 DAY), NULL, NULL, NULL),
+(3, 3, 1, 2, 250000, 0, 250000, 'PENDING_PAYMENT', DATE_SUB(NOW(6), INTERVAL 1 HOUR), NULL, NULL, NULL, NULL),
+(4, 4, 1, 2, 250000, 0, 250000, 'CANCELLED', DATE_SUB(NOW(6), INTERVAL 14 DAY), NULL, DATE_SUB(NOW(6), INTERVAL 12 DAY),
+ 'Khách thay đổi lịch, hai bên đồng ý hủy.', 1),
+(5, 5, 1, 2, 3200000, 400000, 2800000, 'COMPLETED', DATE_SUB(NOW(6), INTERVAL 21 DAY), DATE_SUB(NOW(6), INTERVAL 18 DAY), NULL, NULL, NULL);
+
+INSERT INTO rental_order_items
+(id, order_id, service_id, provider_id, booking_id, service_name_snapshot, quantity, unit_price, line_total, created_at)
+VALUES
+(1, 1, 1, 2, 1, 'Phát triển REST API bằng Spring Boot', 1, 3200000, 3200000, DATE_SUB(NOW(6), INTERVAL 3 DAY)),
+(2, 2, 3, 2, 2, 'Thiết kế UI/UX trên Figma', 1, 1500000, 1500000, DATE_SUB(NOW(6), INTERVAL 10 DAY)),
+(3, 3, 2, 2, 3, 'Mentoring Java và review code', 1, 250000, 250000, DATE_SUB(NOW(6), INTERVAL 1 HOUR)),
+(4, 4, 2, 2, 4, 'Mentoring Java và review code', 1, 250000, 250000, DATE_SUB(NOW(6), INTERVAL 14 DAY)),
+(5, 5, 1, 2, 5, 'Phát triển REST API bằng Spring Boot', 1, 3200000, 3200000, DATE_SUB(NOW(6), INTERVAL 21 DAY));
+
+INSERT INTO rental_order_status_history
+(id, order_id, previous_status, new_status, changed_by_user_id, note, created_at)
+VALUES
+(1, 1, 'PAID', 'PROCESSING', 2, 'Provider bắt đầu thực hiện dịch vụ.', DATE_SUB(NOW(6), INTERVAL 2 DAY)),
+(2, 2, 'PENDING_PAYMENT', 'PAID', 1, 'Thanh toán thành công.', DATE_SUB(NOW(6), INTERVAL 10 DAY)),
+(3, 2, 'PAID', 'PROCESSING', 2, 'Bắt đầu thiết kế giao diện.', DATE_SUB(NOW(6), INTERVAL 9 DAY)),
+(4, 2, 'PROCESSING', 'COMPLETED', 2, 'Đã bàn giao file thiết kế.', DATE_SUB(NOW(6), INTERVAL 7 DAY)),
+(5, 3, NULL, 'PENDING_PAYMENT', 1, 'Đơn hàng chờ thanh toán.', DATE_SUB(NOW(6), INTERVAL 1 HOUR)),
+(6, 4, 'PAID', 'CANCELLED', 1, 'Đã xác nhận hủy đơn.', DATE_SUB(NOW(6), INTERVAL 12 DAY)),
+(7, 5, 'PAID', 'PROCESSING', 2, 'Bắt đầu rà soát API.', DATE_SUB(NOW(6), INTERVAL 20 DAY)),
+(8, 5, 'PROCESSING', 'COMPLETED', 2, 'Đã bàn giao và nghiệm thu.', DATE_SUB(NOW(6), INTERVAL 18 DAY));
+
+-- 9. Payment records. These are fake/demo transactions only.
+INSERT INTO payments
+(id, order_id, method, gateway_name, gateway_transaction_id, idempotency_key, coupon_code, amount, currency,
+ status, failure_reason, paid_at, created_at, updated_at)
+VALUES
+(1, 1, 'MOMO', 'MOMO', 'DEMO-MOMO-TXN-001', 'DEMO-PAYMENT-KEY-001', 'WELCOME10', 2880000, 'VND', 'PAID', NULL, DATE_SUB(NOW(6), INTERVAL 3 DAY), DATE_SUB(NOW(6), INTERVAL 3 DAY), NOW(6)),
+(2, 2, 'VNPAY', 'VNPAY', 'DEMO-VNPAY-TXN-002', 'DEMO-PAYMENT-KEY-002', NULL, 1500000, 'VND', 'PAID', NULL, DATE_SUB(NOW(6), INTERVAL 10 DAY), DATE_SUB(NOW(6), INTERVAL 10 DAY), NOW(6)),
+(3, 3, 'VNPAY', 'VNPAY', NULL, 'DEMO-PAYMENT-KEY-003', NULL, 250000, 'VND', 'PENDING', NULL, NULL, DATE_SUB(NOW(6), INTERVAL 1 HOUR), NOW(6)),
+(4, 4, 'MOMO', 'MOMO', 'DEMO-MOMO-TXN-004', 'DEMO-PAYMENT-KEY-004', NULL, 250000, 'VND', 'REFUNDED', NULL, DATE_SUB(NOW(6), INTERVAL 14 DAY), DATE_SUB(NOW(6), INTERVAL 14 DAY), NOW(6)),
+(5, 5, 'BANK_TRANSFER', 'BANK_TRANSFER', 'DEMO-BANK-TXN-005', 'DEMO-PAYMENT-KEY-005', NULL, 2800000, 'VND', 'PAID', NULL, DATE_SUB(NOW(6), INTERVAL 21 DAY), DATE_SUB(NOW(6), INTERVAL 21 DAY), NOW(6));
+
+INSERT INTO payment_attempts
+(id, payment_id, attempt_number, gateway_name, merchant_reference, gateway_transaction_id, idempotency_key,
+ amount, currency, status, response_code, failure_reason, initiated_at, completed_at)
+VALUES
+(1, 1, 1, 'MOMO', 'DEMO-MERCHANT-001', 'DEMO-MOMO-TXN-001', 'DEMO-ATTEMPT-KEY-001', 2880000, 'VND', 'SUCCEEDED', '00', NULL, DATE_SUB(NOW(6), INTERVAL 3 DAY), DATE_SUB(NOW(6), INTERVAL 3 DAY)),
+(2, 2, 1, 'VNPAY', 'DEMO-MERCHANT-002', 'DEMO-VNPAY-TXN-002', 'DEMO-ATTEMPT-KEY-002', 1500000, 'VND', 'SUCCEEDED', '00', NULL, DATE_SUB(NOW(6), INTERVAL 10 DAY), DATE_SUB(NOW(6), INTERVAL 10 DAY)),
+(3, 3, 1, 'VNPAY', 'DEMO-MERCHANT-003', NULL, 'DEMO-ATTEMPT-KEY-003', 250000, 'VND', 'CREATED', NULL, NULL, DATE_SUB(NOW(6), INTERVAL 30 MINUTE), NULL),
+(4, 4, 1, 'MOMO', 'DEMO-MERCHANT-004', 'DEMO-MOMO-TXN-004', 'DEMO-ATTEMPT-KEY-004', 250000, 'VND', 'SUCCEEDED', '00', NULL, DATE_SUB(NOW(6), INTERVAL 14 DAY), DATE_SUB(NOW(6), INTERVAL 14 DAY)),
+(5, 5, 1, 'BANK_TRANSFER', 'DEMO-MERCHANT-005', 'DEMO-BANK-TXN-005', 'DEMO-ATTEMPT-KEY-005', 2800000, 'VND', 'SUCCEEDED', '00', NULL, DATE_SUB(NOW(6), INTERVAL 21 DAY), DATE_SUB(NOW(6), INTERVAL 21 DAY));
+
+INSERT INTO refunds
+(id, payment_id, requested_by_user_id, processed_by_admin_id, amount, reason, status, gateway_refund_id, admin_note, requested_at, processed_at)
+VALUES
+(1, 1, 1, NULL, 500000, 'Khách đề nghị hoàn một phần do phạm vi bàn giao thay đổi.', 'REQUESTED', NULL, NULL, DATE_SUB(NOW(6), INTERVAL 5 HOUR), NULL),
+(2, 4, 1, 3, 250000, 'Hoàn tiền cho đơn đã hủy theo thỏa thuận hai bên.', 'SUCCEEDED', 'DEMO-REFUND-004', 'Bản ghi hoàn tiền demo, không phát sinh giao dịch thật.', DATE_SUB(NOW(6), INTERVAL 12 DAY), DATE_SUB(NOW(6), INTERVAL 12 DAY));
+
+-- 10. Reviews and complaints.
+INSERT INTO reviews
+(id, order_id, service_id, customer_id, provider_id, rating, comment, provider_response, created_at, updated_at)
+VALUES
+(1, 2, 3, 1, 2, 5, 'Thiết kế chỉn chu, đúng yêu cầu và bàn giao đúng hạn.', 'Cảm ơn bạn đã tin tưởng và phản hồi tích cực!', DATE_SUB(NOW(6), INTERVAL 7 DAY), DATE_SUB(NOW(6), INTERVAL 7 DAY)),
+(2, 5, 1, 1, 2, 4, 'API hoạt động tốt, tài liệu rõ ràng; cần thêm ghi chú triển khai.', 'Cảm ơn góp ý, mình đã bổ sung ghi chú triển khai.', DATE_SUB(NOW(6), INTERVAL 18 DAY), DATE_SUB(NOW(6), INTERVAL 18 DAY));
+
+INSERT INTO complaints
+(id, customer_id, reporter_id, reported_user_id, handled_by_admin_id, order_id, complaint_type, subject, description, status, resolution_notes, created_at, resolved_at)
+VALUES
+(1, 1, 1, 2, NULL, 1, 'ORDER', 'Yêu cầu cập nhật tiến độ đơn hàng',
+ 'Khách muốn Admin hỗ trợ xác nhận các hạng mục còn lại và thời gian bàn giao.', 'OPEN', NULL, DATE_SUB(NOW(6), INTERVAL 6 HOUR), NULL),
+(2, 1, 1, 2, 3, 4, 'PAYMENT', 'Xác nhận hoàn tiền đơn đã hủy',
+ 'Khách gửi yêu cầu kiểm tra trạng thái hoàn tiền của đơn demo đã hủy.', 'RESOLVED',
+ 'Đã ghi nhận bản ghi hoàn tiền trong bảng refunds.', DATE_SUB(NOW(6), INTERVAL 12 DAY), DATE_SUB(NOW(6), INTERVAL 12 DAY));
+
+-- 11. Conversation and messages.
+INSERT INTO conversations (id, customer_id, provider_id, created_at)
+VALUES (1, 1, 2, DATE_SUB(NOW(6), INTERVAL 2 DAY));
+
+INSERT INTO messages (id, conversation_id, sender_id, content, sent_at) VALUES
+(1, 1, 2, 'Chào bạn, mình đã xem yêu cầu và đang rà soát các endpoint.', DATE_SUB(NOW(6), INTERVAL 20 MINUTE)),
+(2, 1, 1, 'Bạn gửi giúp mình danh sách endpoint và thời gian bàn giao dự kiến nhé.', DATE_SUB(NOW(6), INTERVAL 18 MINUTE)),
+(3, 1, 2, 'Mình sẽ gửi tài liệu API và bản cập nhật tiến độ trong hôm nay.', DATE_SUB(NOW(6), INTERVAL 15 MINUTE));
+
+
+-- Supplemental seed rows. Intended to run after the original 3-account demo seed.
+-- All synthetic user accounts are LOCKED; payment, OAuth and refund IDs are placeholders.
+
+-- 98 synthetic accounts are LOCKED; the original 3 main logins stay unchanged.
+INSERT INTO users (id, full_name, email, password, phone, role, avatar_url, bio, email_verified, account_status, two_factor_preference, created_at, updated_at) VALUES
+(4, 'Dữ liệu thử nghiệm Khách hàng 01', 'seed.customer01@skillshare.invalid', '$2a$10$nqmFaOD/zeTJ6kPlB8F89udgNuQKQ3dfgegtFtNJ..m2xiVZoeeUu', '0990000001', 'CUSTOMER', 'https://i.pravatar.cc/150?img=2', 'Tài khoản dữ liệu mẫu, đang khóa và không dùng để đăng nhập.', TRUE, 'LOCKED', FALSE, '2026-09-21 09:00:00.000000', '2026-09-21 09:00:00.000000'),
+(5, 'Dữ liệu thử nghiệm Khách hàng 02', 'seed.customer02@skillshare.invalid', '$2a$10$nqmFaOD/zeTJ6kPlB8F89udgNuQKQ3dfgegtFtNJ..m2xiVZoeeUu', '0990000002', 'CUSTOMER', 'https://i.pravatar.cc/150?img=3', 'Tài khoản dữ liệu mẫu, đang khóa và không dùng để đăng nhập.', TRUE, 'LOCKED', FALSE, '2026-09-20 09:00:00.000000', '2026-09-20 09:00:00.000000'),
+(6, 'Dữ liệu thử nghiệm Khách hàng 03', 'seed.customer03@skillshare.invalid', '$2a$10$nqmFaOD/zeTJ6kPlB8F89udgNuQKQ3dfgegtFtNJ..m2xiVZoeeUu', '0990000003', 'CUSTOMER', 'https://i.pravatar.cc/150?img=4', 'Tài khoản dữ liệu mẫu, đang khóa và không dùng để đăng nhập.', TRUE, 'LOCKED', FALSE, '2026-09-19 09:00:00.000000', '2026-09-19 09:00:00.000000'),
+(7, 'Dữ liệu thử nghiệm Khách hàng 04', 'seed.customer04@skillshare.invalid', '$2a$10$nqmFaOD/zeTJ6kPlB8F89udgNuQKQ3dfgegtFtNJ..m2xiVZoeeUu', '0990000004', 'CUSTOMER', 'https://i.pravatar.cc/150?img=5', 'Tài khoản dữ liệu mẫu, đang khóa và không dùng để đăng nhập.', TRUE, 'LOCKED', FALSE, '2026-09-18 09:00:00.000000', '2026-09-18 09:00:00.000000'),
+(8, 'Dữ liệu thử nghiệm Khách hàng 05', 'seed.customer05@skillshare.invalid', '$2a$10$nqmFaOD/zeTJ6kPlB8F89udgNuQKQ3dfgegtFtNJ..m2xiVZoeeUu', '0990000005', 'CUSTOMER', 'https://i.pravatar.cc/150?img=6', 'Tài khoản dữ liệu mẫu, đang khóa và không dùng để đăng nhập.', TRUE, 'LOCKED', FALSE, '2026-09-17 09:00:00.000000', '2026-09-17 09:00:00.000000'),
+(9, 'Dữ liệu thử nghiệm Khách hàng 06', 'seed.customer06@skillshare.invalid', '$2a$10$nqmFaOD/zeTJ6kPlB8F89udgNuQKQ3dfgegtFtNJ..m2xiVZoeeUu', '0990000006', 'CUSTOMER', 'https://i.pravatar.cc/150?img=7', 'Tài khoản dữ liệu mẫu, đang khóa và không dùng để đăng nhập.', TRUE, 'LOCKED', FALSE, '2026-09-16 09:00:00.000000', '2026-09-16 09:00:00.000000'),
+(10, 'Dữ liệu thử nghiệm Khách hàng 07', 'seed.customer07@skillshare.invalid', '$2a$10$nqmFaOD/zeTJ6kPlB8F89udgNuQKQ3dfgegtFtNJ..m2xiVZoeeUu', '0990000007', 'CUSTOMER', 'https://i.pravatar.cc/150?img=8', 'Tài khoản dữ liệu mẫu, đang khóa và không dùng để đăng nhập.', TRUE, 'LOCKED', FALSE, '2026-09-15 09:00:00.000000', '2026-09-15 09:00:00.000000'),
+(11, 'Dữ liệu thử nghiệm Khách hàng 08', 'seed.customer08@skillshare.invalid', '$2a$10$nqmFaOD/zeTJ6kPlB8F89udgNuQKQ3dfgegtFtNJ..m2xiVZoeeUu', '0990000008', 'CUSTOMER', 'https://i.pravatar.cc/150?img=9', 'Tài khoản dữ liệu mẫu, đang khóa và không dùng để đăng nhập.', TRUE, 'LOCKED', FALSE, '2026-09-14 09:00:00.000000', '2026-09-14 09:00:00.000000'),
+(12, 'Dữ liệu thử nghiệm Khách hàng 09', 'seed.customer09@skillshare.invalid', '$2a$10$nqmFaOD/zeTJ6kPlB8F89udgNuQKQ3dfgegtFtNJ..m2xiVZoeeUu', '0990000009', 'CUSTOMER', 'https://i.pravatar.cc/150?img=10', 'Tài khoản dữ liệu mẫu, đang khóa và không dùng để đăng nhập.', TRUE, 'LOCKED', FALSE, '2026-09-13 09:00:00.000000', '2026-09-13 09:00:00.000000'),
+(13, 'Dữ liệu thử nghiệm Khách hàng 10', 'seed.customer10@skillshare.invalid', '$2a$10$nqmFaOD/zeTJ6kPlB8F89udgNuQKQ3dfgegtFtNJ..m2xiVZoeeUu', '0990000010', 'CUSTOMER', 'https://i.pravatar.cc/150?img=11', 'Tài khoản dữ liệu mẫu, đang khóa và không dùng để đăng nhập.', TRUE, 'LOCKED', FALSE, '2026-09-12 09:00:00.000000', '2026-09-12 09:00:00.000000'),
+(14, 'Dữ liệu thử nghiệm Khách hàng 11', 'seed.customer11@skillshare.invalid', '$2a$10$nqmFaOD/zeTJ6kPlB8F89udgNuQKQ3dfgegtFtNJ..m2xiVZoeeUu', '0990000011', 'CUSTOMER', 'https://i.pravatar.cc/150?img=12', 'Tài khoản dữ liệu mẫu, đang khóa và không dùng để đăng nhập.', TRUE, 'LOCKED', FALSE, '2026-09-11 09:00:00.000000', '2026-09-11 09:00:00.000000'),
+(15, 'Dữ liệu thử nghiệm Khách hàng 12', 'seed.customer12@skillshare.invalid', '$2a$10$nqmFaOD/zeTJ6kPlB8F89udgNuQKQ3dfgegtFtNJ..m2xiVZoeeUu', '0990000012', 'CUSTOMER', 'https://i.pravatar.cc/150?img=13', 'Tài khoản dữ liệu mẫu, đang khóa và không dùng để đăng nhập.', TRUE, 'LOCKED', FALSE, '2026-09-10 09:00:00.000000', '2026-09-10 09:00:00.000000'),
+(16, 'Dữ liệu thử nghiệm Khách hàng 13', 'seed.customer13@skillshare.invalid', '$2a$10$nqmFaOD/zeTJ6kPlB8F89udgNuQKQ3dfgegtFtNJ..m2xiVZoeeUu', '0990000013', 'CUSTOMER', 'https://i.pravatar.cc/150?img=14', 'Tài khoản dữ liệu mẫu, đang khóa và không dùng để đăng nhập.', TRUE, 'LOCKED', FALSE, '2026-09-09 09:00:00.000000', '2026-09-09 09:00:00.000000'),
+(17, 'Dữ liệu thử nghiệm Khách hàng 14', 'seed.customer14@skillshare.invalid', '$2a$10$nqmFaOD/zeTJ6kPlB8F89udgNuQKQ3dfgegtFtNJ..m2xiVZoeeUu', '0990000014', 'CUSTOMER', 'https://i.pravatar.cc/150?img=15', 'Tài khoản dữ liệu mẫu, đang khóa và không dùng để đăng nhập.', TRUE, 'LOCKED', FALSE, '2026-09-08 09:00:00.000000', '2026-09-08 09:00:00.000000'),
+(18, 'Dữ liệu thử nghiệm Khách hàng 15', 'seed.customer15@skillshare.invalid', '$2a$10$nqmFaOD/zeTJ6kPlB8F89udgNuQKQ3dfgegtFtNJ..m2xiVZoeeUu', '0990000015', 'CUSTOMER', 'https://i.pravatar.cc/150?img=16', 'Tài khoản dữ liệu mẫu, đang khóa và không dùng để đăng nhập.', TRUE, 'LOCKED', FALSE, '2026-09-07 09:00:00.000000', '2026-09-07 09:00:00.000000'),
+(19, 'Dữ liệu thử nghiệm Khách hàng 16', 'seed.customer16@skillshare.invalid', '$2a$10$nqmFaOD/zeTJ6kPlB8F89udgNuQKQ3dfgegtFtNJ..m2xiVZoeeUu', '0990000016', 'CUSTOMER', 'https://i.pravatar.cc/150?img=17', 'Tài khoản dữ liệu mẫu, đang khóa và không dùng để đăng nhập.', TRUE, 'LOCKED', FALSE, '2026-09-06 09:00:00.000000', '2026-09-06 09:00:00.000000'),
+(20, 'Dữ liệu thử nghiệm Khách hàng 17', 'seed.customer17@skillshare.invalid', '$2a$10$nqmFaOD/zeTJ6kPlB8F89udgNuQKQ3dfgegtFtNJ..m2xiVZoeeUu', '0990000017', 'CUSTOMER', 'https://i.pravatar.cc/150?img=18', 'Tài khoản dữ liệu mẫu, đang khóa và không dùng để đăng nhập.', TRUE, 'LOCKED', FALSE, '2026-09-05 09:00:00.000000', '2026-09-05 09:00:00.000000'),
+(21, 'Dữ liệu thử nghiệm Khách hàng 18', 'seed.customer18@skillshare.invalid', '$2a$10$nqmFaOD/zeTJ6kPlB8F89udgNuQKQ3dfgegtFtNJ..m2xiVZoeeUu', '0990000018', 'CUSTOMER', 'https://i.pravatar.cc/150?img=19', 'Tài khoản dữ liệu mẫu, đang khóa và không dùng để đăng nhập.', TRUE, 'LOCKED', FALSE, '2026-09-04 09:00:00.000000', '2026-09-04 09:00:00.000000'),
+(22, 'Dữ liệu thử nghiệm Khách hàng 19', 'seed.customer19@skillshare.invalid', '$2a$10$nqmFaOD/zeTJ6kPlB8F89udgNuQKQ3dfgegtFtNJ..m2xiVZoeeUu', '0990000019', 'CUSTOMER', 'https://i.pravatar.cc/150?img=20', 'Tài khoản dữ liệu mẫu, đang khóa và không dùng để đăng nhập.', TRUE, 'LOCKED', FALSE, '2026-09-03 09:00:00.000000', '2026-09-03 09:00:00.000000'),
+(23, 'Dữ liệu thử nghiệm Khách hàng 20', 'seed.customer20@skillshare.invalid', '$2a$10$nqmFaOD/zeTJ6kPlB8F89udgNuQKQ3dfgegtFtNJ..m2xiVZoeeUu', '0990000020', 'CUSTOMER', 'https://i.pravatar.cc/150?img=21', 'Tài khoản dữ liệu mẫu, đang khóa và không dùng để đăng nhập.', TRUE, 'LOCKED', FALSE, '2026-09-02 09:00:00.000000', '2026-09-02 09:00:00.000000');
+INSERT INTO users (id, full_name, email, password, phone, role, avatar_url, bio, email_verified, account_status, two_factor_preference, created_at, updated_at) VALUES
+(24, 'Dữ liệu thử nghiệm Khách hàng 21', 'seed.customer21@skillshare.invalid', '$2a$10$nqmFaOD/zeTJ6kPlB8F89udgNuQKQ3dfgegtFtNJ..m2xiVZoeeUu', '0990000021', 'CUSTOMER', 'https://i.pravatar.cc/150?img=22', 'Tài khoản dữ liệu mẫu, đang khóa và không dùng để đăng nhập.', TRUE, 'LOCKED', FALSE, '2026-09-01 09:00:00.000000', '2026-09-01 09:00:00.000000'),
+(25, 'Dữ liệu thử nghiệm Khách hàng 22', 'seed.customer22@skillshare.invalid', '$2a$10$nqmFaOD/zeTJ6kPlB8F89udgNuQKQ3dfgegtFtNJ..m2xiVZoeeUu', '0990000022', 'CUSTOMER', 'https://i.pravatar.cc/150?img=23', 'Tài khoản dữ liệu mẫu, đang khóa và không dùng để đăng nhập.', TRUE, 'LOCKED', FALSE, '2026-08-31 09:00:00.000000', '2026-08-31 09:00:00.000000'),
+(26, 'Dữ liệu thử nghiệm Khách hàng 23', 'seed.customer23@skillshare.invalid', '$2a$10$nqmFaOD/zeTJ6kPlB8F89udgNuQKQ3dfgegtFtNJ..m2xiVZoeeUu', '0990000023', 'CUSTOMER', 'https://i.pravatar.cc/150?img=24', 'Tài khoản dữ liệu mẫu, đang khóa và không dùng để đăng nhập.', TRUE, 'LOCKED', FALSE, '2026-08-30 09:00:00.000000', '2026-08-30 09:00:00.000000'),
+(27, 'Dữ liệu thử nghiệm Khách hàng 24', 'seed.customer24@skillshare.invalid', '$2a$10$nqmFaOD/zeTJ6kPlB8F89udgNuQKQ3dfgegtFtNJ..m2xiVZoeeUu', '0990000024', 'CUSTOMER', 'https://i.pravatar.cc/150?img=25', 'Tài khoản dữ liệu mẫu, đang khóa và không dùng để đăng nhập.', TRUE, 'LOCKED', FALSE, '2026-08-29 09:00:00.000000', '2026-08-29 09:00:00.000000'),
+(28, 'Dữ liệu thử nghiệm Khách hàng 25', 'seed.customer25@skillshare.invalid', '$2a$10$nqmFaOD/zeTJ6kPlB8F89udgNuQKQ3dfgegtFtNJ..m2xiVZoeeUu', '0990000025', 'CUSTOMER', 'https://i.pravatar.cc/150?img=26', 'Tài khoản dữ liệu mẫu, đang khóa và không dùng để đăng nhập.', TRUE, 'LOCKED', FALSE, '2026-08-28 09:00:00.000000', '2026-08-28 09:00:00.000000'),
+(29, 'Dữ liệu thử nghiệm Khách hàng 26', 'seed.customer26@skillshare.invalid', '$2a$10$nqmFaOD/zeTJ6kPlB8F89udgNuQKQ3dfgegtFtNJ..m2xiVZoeeUu', '0990000026', 'CUSTOMER', 'https://i.pravatar.cc/150?img=27', 'Tài khoản dữ liệu mẫu, đang khóa và không dùng để đăng nhập.', TRUE, 'LOCKED', FALSE, '2026-08-27 09:00:00.000000', '2026-08-27 09:00:00.000000'),
+(30, 'Dữ liệu thử nghiệm Khách hàng 27', 'seed.customer27@skillshare.invalid', '$2a$10$nqmFaOD/zeTJ6kPlB8F89udgNuQKQ3dfgegtFtNJ..m2xiVZoeeUu', '0990000027', 'CUSTOMER', 'https://i.pravatar.cc/150?img=28', 'Tài khoản dữ liệu mẫu, đang khóa và không dùng để đăng nhập.', TRUE, 'LOCKED', FALSE, '2026-08-26 09:00:00.000000', '2026-08-26 09:00:00.000000'),
+(31, 'Dữ liệu thử nghiệm Khách hàng 28', 'seed.customer28@skillshare.invalid', '$2a$10$nqmFaOD/zeTJ6kPlB8F89udgNuQKQ3dfgegtFtNJ..m2xiVZoeeUu', '0990000028', 'CUSTOMER', 'https://i.pravatar.cc/150?img=29', 'Tài khoản dữ liệu mẫu, đang khóa và không dùng để đăng nhập.', TRUE, 'LOCKED', FALSE, '2026-08-25 09:00:00.000000', '2026-08-25 09:00:00.000000'),
+(32, 'Dữ liệu thử nghiệm Khách hàng 29', 'seed.customer29@skillshare.invalid', '$2a$10$nqmFaOD/zeTJ6kPlB8F89udgNuQKQ3dfgegtFtNJ..m2xiVZoeeUu', '0990000029', 'CUSTOMER', 'https://i.pravatar.cc/150?img=30', 'Tài khoản dữ liệu mẫu, đang khóa và không dùng để đăng nhập.', TRUE, 'LOCKED', FALSE, '2026-08-24 09:00:00.000000', '2026-08-24 09:00:00.000000'),
+(33, 'Dữ liệu thử nghiệm Khách hàng 30', 'seed.customer30@skillshare.invalid', '$2a$10$nqmFaOD/zeTJ6kPlB8F89udgNuQKQ3dfgegtFtNJ..m2xiVZoeeUu', '0990000030', 'CUSTOMER', 'https://i.pravatar.cc/150?img=31', 'Tài khoản dữ liệu mẫu, đang khóa và không dùng để đăng nhập.', TRUE, 'LOCKED', FALSE, '2026-08-23 09:00:00.000000', '2026-08-23 09:00:00.000000'),
+(34, 'Dữ liệu thử nghiệm Khách hàng 31', 'seed.customer31@skillshare.invalid', '$2a$10$nqmFaOD/zeTJ6kPlB8F89udgNuQKQ3dfgegtFtNJ..m2xiVZoeeUu', '0990000031', 'CUSTOMER', 'https://i.pravatar.cc/150?img=32', 'Tài khoản dữ liệu mẫu, đang khóa và không dùng để đăng nhập.', TRUE, 'LOCKED', FALSE, '2026-08-22 09:00:00.000000', '2026-08-22 09:00:00.000000'),
+(35, 'Dữ liệu thử nghiệm Khách hàng 32', 'seed.customer32@skillshare.invalid', '$2a$10$nqmFaOD/zeTJ6kPlB8F89udgNuQKQ3dfgegtFtNJ..m2xiVZoeeUu', '0990000032', 'CUSTOMER', 'https://i.pravatar.cc/150?img=33', 'Tài khoản dữ liệu mẫu, đang khóa và không dùng để đăng nhập.', TRUE, 'LOCKED', FALSE, '2026-08-21 09:00:00.000000', '2026-08-21 09:00:00.000000'),
+(36, 'Dữ liệu thử nghiệm Khách hàng 33', 'seed.customer33@skillshare.invalid', '$2a$10$nqmFaOD/zeTJ6kPlB8F89udgNuQKQ3dfgegtFtNJ..m2xiVZoeeUu', '0990000033', 'CUSTOMER', 'https://i.pravatar.cc/150?img=34', 'Tài khoản dữ liệu mẫu, đang khóa và không dùng để đăng nhập.', TRUE, 'LOCKED', FALSE, '2026-08-20 09:00:00.000000', '2026-08-20 09:00:00.000000'),
+(37, 'Dữ liệu thử nghiệm Khách hàng 34', 'seed.customer34@skillshare.invalid', '$2a$10$nqmFaOD/zeTJ6kPlB8F89udgNuQKQ3dfgegtFtNJ..m2xiVZoeeUu', '0990000034', 'CUSTOMER', 'https://i.pravatar.cc/150?img=35', 'Tài khoản dữ liệu mẫu, đang khóa và không dùng để đăng nhập.', TRUE, 'LOCKED', FALSE, '2026-08-19 09:00:00.000000', '2026-08-19 09:00:00.000000'),
+(38, 'Dữ liệu thử nghiệm Khách hàng 35', 'seed.customer35@skillshare.invalid', '$2a$10$nqmFaOD/zeTJ6kPlB8F89udgNuQKQ3dfgegtFtNJ..m2xiVZoeeUu', '0990000035', 'CUSTOMER', 'https://i.pravatar.cc/150?img=36', 'Tài khoản dữ liệu mẫu, đang khóa và không dùng để đăng nhập.', TRUE, 'LOCKED', FALSE, '2026-08-18 09:00:00.000000', '2026-08-18 09:00:00.000000'),
+(39, 'Dữ liệu thử nghiệm Khách hàng 36', 'seed.customer36@skillshare.invalid', '$2a$10$nqmFaOD/zeTJ6kPlB8F89udgNuQKQ3dfgegtFtNJ..m2xiVZoeeUu', '0990000036', 'CUSTOMER', 'https://i.pravatar.cc/150?img=37', 'Tài khoản dữ liệu mẫu, đang khóa và không dùng để đăng nhập.', TRUE, 'LOCKED', FALSE, '2026-08-17 09:00:00.000000', '2026-08-17 09:00:00.000000'),
+(40, 'Dữ liệu thử nghiệm Khách hàng 37', 'seed.customer37@skillshare.invalid', '$2a$10$nqmFaOD/zeTJ6kPlB8F89udgNuQKQ3dfgegtFtNJ..m2xiVZoeeUu', '0990000037', 'CUSTOMER', 'https://i.pravatar.cc/150?img=38', 'Tài khoản dữ liệu mẫu, đang khóa và không dùng để đăng nhập.', TRUE, 'LOCKED', FALSE, '2026-08-16 09:00:00.000000', '2026-08-16 09:00:00.000000'),
+(41, 'Dữ liệu thử nghiệm Khách hàng 38', 'seed.customer38@skillshare.invalid', '$2a$10$nqmFaOD/zeTJ6kPlB8F89udgNuQKQ3dfgegtFtNJ..m2xiVZoeeUu', '0990000038', 'CUSTOMER', 'https://i.pravatar.cc/150?img=39', 'Tài khoản dữ liệu mẫu, đang khóa và không dùng để đăng nhập.', TRUE, 'LOCKED', FALSE, '2026-08-15 09:00:00.000000', '2026-08-15 09:00:00.000000'),
+(42, 'Dữ liệu thử nghiệm Khách hàng 39', 'seed.customer39@skillshare.invalid', '$2a$10$nqmFaOD/zeTJ6kPlB8F89udgNuQKQ3dfgegtFtNJ..m2xiVZoeeUu', '0990000039', 'CUSTOMER', 'https://i.pravatar.cc/150?img=40', 'Tài khoản dữ liệu mẫu, đang khóa và không dùng để đăng nhập.', TRUE, 'LOCKED', FALSE, '2026-08-14 09:00:00.000000', '2026-08-14 09:00:00.000000'),
+(43, 'Dữ liệu thử nghiệm Khách hàng 40', 'seed.customer40@skillshare.invalid', '$2a$10$nqmFaOD/zeTJ6kPlB8F89udgNuQKQ3dfgegtFtNJ..m2xiVZoeeUu', '0990000040', 'CUSTOMER', 'https://i.pravatar.cc/150?img=41', 'Tài khoản dữ liệu mẫu, đang khóa và không dùng để đăng nhập.', TRUE, 'LOCKED', FALSE, '2026-08-13 09:00:00.000000', '2026-08-13 09:00:00.000000');
+INSERT INTO users (id, full_name, email, password, phone, role, avatar_url, bio, email_verified, account_status, two_factor_preference, created_at, updated_at) VALUES
+(44, 'Dữ liệu thử nghiệm Khách hàng 41', 'seed.customer41@skillshare.invalid', '$2a$10$nqmFaOD/zeTJ6kPlB8F89udgNuQKQ3dfgegtFtNJ..m2xiVZoeeUu', '0990000041', 'CUSTOMER', 'https://i.pravatar.cc/150?img=42', 'Tài khoản dữ liệu mẫu, đang khóa và không dùng để đăng nhập.', TRUE, 'LOCKED', FALSE, '2026-08-12 09:00:00.000000', '2026-08-12 09:00:00.000000'),
+(45, 'Dữ liệu thử nghiệm Khách hàng 42', 'seed.customer42@skillshare.invalid', '$2a$10$nqmFaOD/zeTJ6kPlB8F89udgNuQKQ3dfgegtFtNJ..m2xiVZoeeUu', '0990000042', 'CUSTOMER', 'https://i.pravatar.cc/150?img=43', 'Tài khoản dữ liệu mẫu, đang khóa và không dùng để đăng nhập.', TRUE, 'LOCKED', FALSE, '2026-08-11 09:00:00.000000', '2026-08-11 09:00:00.000000'),
+(46, 'Dữ liệu thử nghiệm Khách hàng 43', 'seed.customer43@skillshare.invalid', '$2a$10$nqmFaOD/zeTJ6kPlB8F89udgNuQKQ3dfgegtFtNJ..m2xiVZoeeUu', '0990000043', 'CUSTOMER', 'https://i.pravatar.cc/150?img=44', 'Tài khoản dữ liệu mẫu, đang khóa và không dùng để đăng nhập.', TRUE, 'LOCKED', FALSE, '2026-08-10 09:00:00.000000', '2026-08-10 09:00:00.000000'),
+(47, 'Dữ liệu thử nghiệm Khách hàng 44', 'seed.customer44@skillshare.invalid', '$2a$10$nqmFaOD/zeTJ6kPlB8F89udgNuQKQ3dfgegtFtNJ..m2xiVZoeeUu', '0990000044', 'CUSTOMER', 'https://i.pravatar.cc/150?img=45', 'Tài khoản dữ liệu mẫu, đang khóa và không dùng để đăng nhập.', TRUE, 'LOCKED', FALSE, '2026-08-09 09:00:00.000000', '2026-08-09 09:00:00.000000'),
+(48, 'Dữ liệu thử nghiệm Khách hàng 45', 'seed.customer45@skillshare.invalid', '$2a$10$nqmFaOD/zeTJ6kPlB8F89udgNuQKQ3dfgegtFtNJ..m2xiVZoeeUu', '0990000045', 'CUSTOMER', 'https://i.pravatar.cc/150?img=46', 'Tài khoản dữ liệu mẫu, đang khóa và không dùng để đăng nhập.', TRUE, 'LOCKED', FALSE, '2026-08-08 09:00:00.000000', '2026-08-08 09:00:00.000000'),
+(49, 'Dữ liệu thử nghiệm Khách hàng 46', 'seed.customer46@skillshare.invalid', '$2a$10$nqmFaOD/zeTJ6kPlB8F89udgNuQKQ3dfgegtFtNJ..m2xiVZoeeUu', '0990000046', 'CUSTOMER', 'https://i.pravatar.cc/150?img=47', 'Tài khoản dữ liệu mẫu, đang khóa và không dùng để đăng nhập.', TRUE, 'LOCKED', FALSE, '2026-08-07 09:00:00.000000', '2026-08-07 09:00:00.000000'),
+(50, 'Dữ liệu thử nghiệm Khách hàng 47', 'seed.customer47@skillshare.invalid', '$2a$10$nqmFaOD/zeTJ6kPlB8F89udgNuQKQ3dfgegtFtNJ..m2xiVZoeeUu', '0990000047', 'CUSTOMER', 'https://i.pravatar.cc/150?img=48', 'Tài khoản dữ liệu mẫu, đang khóa và không dùng để đăng nhập.', TRUE, 'LOCKED', FALSE, '2026-08-06 09:00:00.000000', '2026-08-06 09:00:00.000000'),
+(51, 'Dữ liệu thử nghiệm Khách hàng 48', 'seed.customer48@skillshare.invalid', '$2a$10$nqmFaOD/zeTJ6kPlB8F89udgNuQKQ3dfgegtFtNJ..m2xiVZoeeUu', '0990000048', 'CUSTOMER', 'https://i.pravatar.cc/150?img=49', 'Tài khoản dữ liệu mẫu, đang khóa và không dùng để đăng nhập.', TRUE, 'LOCKED', FALSE, '2026-08-05 09:00:00.000000', '2026-08-05 09:00:00.000000'),
+(52, 'Dữ liệu thử nghiệm Khách hàng 49', 'seed.customer49@skillshare.invalid', '$2a$10$nqmFaOD/zeTJ6kPlB8F89udgNuQKQ3dfgegtFtNJ..m2xiVZoeeUu', '0990000049', 'CUSTOMER', 'https://i.pravatar.cc/150?img=50', 'Tài khoản dữ liệu mẫu, đang khóa và không dùng để đăng nhập.', TRUE, 'LOCKED', FALSE, '2026-08-04 09:00:00.000000', '2026-08-04 09:00:00.000000'),
+(53, 'Dữ liệu thử nghiệm Provider 01', 'seed.provider01@skillshare.invalid', '$2a$10$nqmFaOD/zeTJ6kPlB8F89udgNuQKQ3dfgegtFtNJ..m2xiVZoeeUu', '0880000001', 'PROVIDER', 'https://i.pravatar.cc/150?img=22', 'Hồ sơ provider dữ liệu mẫu, tài khoản đang khóa.', TRUE, 'LOCKED', FALSE, '2026-10-01 09:00:00.000000', '2026-10-01 09:00:00.000000'),
+(54, 'Dữ liệu thử nghiệm Provider 02', 'seed.provider02@skillshare.invalid', '$2a$10$nqmFaOD/zeTJ6kPlB8F89udgNuQKQ3dfgegtFtNJ..m2xiVZoeeUu', '0880000002', 'PROVIDER', 'https://i.pravatar.cc/150?img=23', 'Hồ sơ provider dữ liệu mẫu, tài khoản đang khóa.', TRUE, 'LOCKED', FALSE, '2026-09-30 09:00:00.000000', '2026-09-30 09:00:00.000000'),
+(55, 'Dữ liệu thử nghiệm Provider 03', 'seed.provider03@skillshare.invalid', '$2a$10$nqmFaOD/zeTJ6kPlB8F89udgNuQKQ3dfgegtFtNJ..m2xiVZoeeUu', '0880000003', 'PROVIDER', 'https://i.pravatar.cc/150?img=24', 'Hồ sơ provider dữ liệu mẫu, tài khoản đang khóa.', TRUE, 'LOCKED', FALSE, '2026-09-29 09:00:00.000000', '2026-09-29 09:00:00.000000'),
+(56, 'Dữ liệu thử nghiệm Provider 04', 'seed.provider04@skillshare.invalid', '$2a$10$nqmFaOD/zeTJ6kPlB8F89udgNuQKQ3dfgegtFtNJ..m2xiVZoeeUu', '0880000004', 'PROVIDER', 'https://i.pravatar.cc/150?img=25', 'Hồ sơ provider dữ liệu mẫu, tài khoản đang khóa.', TRUE, 'LOCKED', FALSE, '2026-09-28 09:00:00.000000', '2026-09-28 09:00:00.000000'),
+(57, 'Dữ liệu thử nghiệm Provider 05', 'seed.provider05@skillshare.invalid', '$2a$10$nqmFaOD/zeTJ6kPlB8F89udgNuQKQ3dfgegtFtNJ..m2xiVZoeeUu', '0880000005', 'PROVIDER', 'https://i.pravatar.cc/150?img=26', 'Hồ sơ provider dữ liệu mẫu, tài khoản đang khóa.', TRUE, 'LOCKED', FALSE, '2026-09-27 09:00:00.000000', '2026-09-27 09:00:00.000000'),
+(58, 'Dữ liệu thử nghiệm Provider 06', 'seed.provider06@skillshare.invalid', '$2a$10$nqmFaOD/zeTJ6kPlB8F89udgNuQKQ3dfgegtFtNJ..m2xiVZoeeUu', '0880000006', 'PROVIDER', 'https://i.pravatar.cc/150?img=27', 'Hồ sơ provider dữ liệu mẫu, tài khoản đang khóa.', TRUE, 'LOCKED', FALSE, '2026-09-26 09:00:00.000000', '2026-09-26 09:00:00.000000'),
+(59, 'Dữ liệu thử nghiệm Provider 07', 'seed.provider07@skillshare.invalid', '$2a$10$nqmFaOD/zeTJ6kPlB8F89udgNuQKQ3dfgegtFtNJ..m2xiVZoeeUu', '0880000007', 'PROVIDER', 'https://i.pravatar.cc/150?img=28', 'Hồ sơ provider dữ liệu mẫu, tài khoản đang khóa.', TRUE, 'LOCKED', FALSE, '2026-09-25 09:00:00.000000', '2026-09-25 09:00:00.000000'),
+(60, 'Dữ liệu thử nghiệm Provider 08', 'seed.provider08@skillshare.invalid', '$2a$10$nqmFaOD/zeTJ6kPlB8F89udgNuQKQ3dfgegtFtNJ..m2xiVZoeeUu', '0880000008', 'PROVIDER', 'https://i.pravatar.cc/150?img=29', 'Hồ sơ provider dữ liệu mẫu, tài khoản đang khóa.', TRUE, 'LOCKED', FALSE, '2026-09-24 09:00:00.000000', '2026-09-24 09:00:00.000000'),
+(61, 'Dữ liệu thử nghiệm Provider 09', 'seed.provider09@skillshare.invalid', '$2a$10$nqmFaOD/zeTJ6kPlB8F89udgNuQKQ3dfgegtFtNJ..m2xiVZoeeUu', '0880000009', 'PROVIDER', 'https://i.pravatar.cc/150?img=30', 'Hồ sơ provider dữ liệu mẫu, tài khoản đang khóa.', TRUE, 'LOCKED', FALSE, '2026-09-23 09:00:00.000000', '2026-09-23 09:00:00.000000'),
+(62, 'Dữ liệu thử nghiệm Provider 10', 'seed.provider10@skillshare.invalid', '$2a$10$nqmFaOD/zeTJ6kPlB8F89udgNuQKQ3dfgegtFtNJ..m2xiVZoeeUu', '0880000010', 'PROVIDER', 'https://i.pravatar.cc/150?img=31', 'Hồ sơ provider dữ liệu mẫu, tài khoản đang khóa.', TRUE, 'LOCKED', FALSE, '2026-09-22 09:00:00.000000', '2026-09-22 09:00:00.000000'),
+(63, 'Dữ liệu thử nghiệm Provider 11', 'seed.provider11@skillshare.invalid', '$2a$10$nqmFaOD/zeTJ6kPlB8F89udgNuQKQ3dfgegtFtNJ..m2xiVZoeeUu', '0880000011', 'PROVIDER', 'https://i.pravatar.cc/150?img=32', 'Hồ sơ provider dữ liệu mẫu, tài khoản đang khóa.', TRUE, 'LOCKED', FALSE, '2026-09-21 09:00:00.000000', '2026-09-21 09:00:00.000000');
+INSERT INTO users (id, full_name, email, password, phone, role, avatar_url, bio, email_verified, account_status, two_factor_preference, created_at, updated_at) VALUES
+(64, 'Dữ liệu thử nghiệm Provider 12', 'seed.provider12@skillshare.invalid', '$2a$10$nqmFaOD/zeTJ6kPlB8F89udgNuQKQ3dfgegtFtNJ..m2xiVZoeeUu', '0880000012', 'PROVIDER', 'https://i.pravatar.cc/150?img=33', 'Hồ sơ provider dữ liệu mẫu, tài khoản đang khóa.', TRUE, 'LOCKED', FALSE, '2026-09-20 09:00:00.000000', '2026-09-20 09:00:00.000000'),
+(65, 'Dữ liệu thử nghiệm Provider 13', 'seed.provider13@skillshare.invalid', '$2a$10$nqmFaOD/zeTJ6kPlB8F89udgNuQKQ3dfgegtFtNJ..m2xiVZoeeUu', '0880000013', 'PROVIDER', 'https://i.pravatar.cc/150?img=34', 'Hồ sơ provider dữ liệu mẫu, tài khoản đang khóa.', TRUE, 'LOCKED', FALSE, '2026-09-19 09:00:00.000000', '2026-09-19 09:00:00.000000'),
+(66, 'Dữ liệu thử nghiệm Provider 14', 'seed.provider14@skillshare.invalid', '$2a$10$nqmFaOD/zeTJ6kPlB8F89udgNuQKQ3dfgegtFtNJ..m2xiVZoeeUu', '0880000014', 'PROVIDER', 'https://i.pravatar.cc/150?img=35', 'Hồ sơ provider dữ liệu mẫu, tài khoản đang khóa.', TRUE, 'LOCKED', FALSE, '2026-09-18 09:00:00.000000', '2026-09-18 09:00:00.000000'),
+(67, 'Dữ liệu thử nghiệm Provider 15', 'seed.provider15@skillshare.invalid', '$2a$10$nqmFaOD/zeTJ6kPlB8F89udgNuQKQ3dfgegtFtNJ..m2xiVZoeeUu', '0880000015', 'PROVIDER', 'https://i.pravatar.cc/150?img=36', 'Hồ sơ provider dữ liệu mẫu, tài khoản đang khóa.', TRUE, 'LOCKED', FALSE, '2026-09-17 09:00:00.000000', '2026-09-17 09:00:00.000000'),
+(68, 'Dữ liệu thử nghiệm Provider 16', 'seed.provider16@skillshare.invalid', '$2a$10$nqmFaOD/zeTJ6kPlB8F89udgNuQKQ3dfgegtFtNJ..m2xiVZoeeUu', '0880000016', 'PROVIDER', 'https://i.pravatar.cc/150?img=37', 'Hồ sơ provider dữ liệu mẫu, tài khoản đang khóa.', TRUE, 'LOCKED', FALSE, '2026-09-16 09:00:00.000000', '2026-09-16 09:00:00.000000'),
+(69, 'Dữ liệu thử nghiệm Provider 17', 'seed.provider17@skillshare.invalid', '$2a$10$nqmFaOD/zeTJ6kPlB8F89udgNuQKQ3dfgegtFtNJ..m2xiVZoeeUu', '0880000017', 'PROVIDER', 'https://i.pravatar.cc/150?img=38', 'Hồ sơ provider dữ liệu mẫu, tài khoản đang khóa.', TRUE, 'LOCKED', FALSE, '2026-09-15 09:00:00.000000', '2026-09-15 09:00:00.000000'),
+(70, 'Dữ liệu thử nghiệm Provider 18', 'seed.provider18@skillshare.invalid', '$2a$10$nqmFaOD/zeTJ6kPlB8F89udgNuQKQ3dfgegtFtNJ..m2xiVZoeeUu', '0880000018', 'PROVIDER', 'https://i.pravatar.cc/150?img=39', 'Hồ sơ provider dữ liệu mẫu, tài khoản đang khóa.', TRUE, 'LOCKED', FALSE, '2026-09-14 09:00:00.000000', '2026-09-14 09:00:00.000000'),
+(71, 'Dữ liệu thử nghiệm Provider 19', 'seed.provider19@skillshare.invalid', '$2a$10$nqmFaOD/zeTJ6kPlB8F89udgNuQKQ3dfgegtFtNJ..m2xiVZoeeUu', '0880000019', 'PROVIDER', 'https://i.pravatar.cc/150?img=40', 'Hồ sơ provider dữ liệu mẫu, tài khoản đang khóa.', TRUE, 'LOCKED', FALSE, '2026-09-13 09:00:00.000000', '2026-09-13 09:00:00.000000'),
+(72, 'Dữ liệu thử nghiệm Provider 20', 'seed.provider20@skillshare.invalid', '$2a$10$nqmFaOD/zeTJ6kPlB8F89udgNuQKQ3dfgegtFtNJ..m2xiVZoeeUu', '0880000020', 'PROVIDER', 'https://i.pravatar.cc/150?img=41', 'Hồ sơ provider dữ liệu mẫu, tài khoản đang khóa.', TRUE, 'LOCKED', FALSE, '2026-09-12 09:00:00.000000', '2026-09-12 09:00:00.000000'),
+(73, 'Dữ liệu thử nghiệm Provider 21', 'seed.provider21@skillshare.invalid', '$2a$10$nqmFaOD/zeTJ6kPlB8F89udgNuQKQ3dfgegtFtNJ..m2xiVZoeeUu', '0880000021', 'PROVIDER', 'https://i.pravatar.cc/150?img=42', 'Hồ sơ provider dữ liệu mẫu, tài khoản đang khóa.', TRUE, 'LOCKED', FALSE, '2026-09-11 09:00:00.000000', '2026-09-11 09:00:00.000000'),
+(74, 'Dữ liệu thử nghiệm Provider 22', 'seed.provider22@skillshare.invalid', '$2a$10$nqmFaOD/zeTJ6kPlB8F89udgNuQKQ3dfgegtFtNJ..m2xiVZoeeUu', '0880000022', 'PROVIDER', 'https://i.pravatar.cc/150?img=43', 'Hồ sơ provider dữ liệu mẫu, tài khoản đang khóa.', TRUE, 'LOCKED', FALSE, '2026-09-10 09:00:00.000000', '2026-09-10 09:00:00.000000'),
+(75, 'Dữ liệu thử nghiệm Provider 23', 'seed.provider23@skillshare.invalid', '$2a$10$nqmFaOD/zeTJ6kPlB8F89udgNuQKQ3dfgegtFtNJ..m2xiVZoeeUu', '0880000023', 'PROVIDER', 'https://i.pravatar.cc/150?img=44', 'Hồ sơ provider dữ liệu mẫu, tài khoản đang khóa.', TRUE, 'LOCKED', FALSE, '2026-09-09 09:00:00.000000', '2026-09-09 09:00:00.000000'),
+(76, 'Dữ liệu thử nghiệm Provider 24', 'seed.provider24@skillshare.invalid', '$2a$10$nqmFaOD/zeTJ6kPlB8F89udgNuQKQ3dfgegtFtNJ..m2xiVZoeeUu', '0880000024', 'PROVIDER', 'https://i.pravatar.cc/150?img=45', 'Hồ sơ provider dữ liệu mẫu, tài khoản đang khóa.', TRUE, 'LOCKED', FALSE, '2026-09-08 09:00:00.000000', '2026-09-08 09:00:00.000000'),
+(77, 'Dữ liệu thử nghiệm Provider 25', 'seed.provider25@skillshare.invalid', '$2a$10$nqmFaOD/zeTJ6kPlB8F89udgNuQKQ3dfgegtFtNJ..m2xiVZoeeUu', '0880000025', 'PROVIDER', 'https://i.pravatar.cc/150?img=46', 'Hồ sơ provider dữ liệu mẫu, tài khoản đang khóa.', TRUE, 'LOCKED', FALSE, '2026-09-07 09:00:00.000000', '2026-09-07 09:00:00.000000'),
+(78, 'Dữ liệu thử nghiệm Provider 26', 'seed.provider26@skillshare.invalid', '$2a$10$nqmFaOD/zeTJ6kPlB8F89udgNuQKQ3dfgegtFtNJ..m2xiVZoeeUu', '0880000026', 'PROVIDER', 'https://i.pravatar.cc/150?img=47', 'Hồ sơ provider dữ liệu mẫu, tài khoản đang khóa.', TRUE, 'LOCKED', FALSE, '2026-09-06 09:00:00.000000', '2026-09-06 09:00:00.000000'),
+(79, 'Dữ liệu thử nghiệm Provider 27', 'seed.provider27@skillshare.invalid', '$2a$10$nqmFaOD/zeTJ6kPlB8F89udgNuQKQ3dfgegtFtNJ..m2xiVZoeeUu', '0880000027', 'PROVIDER', 'https://i.pravatar.cc/150?img=48', 'Hồ sơ provider dữ liệu mẫu, tài khoản đang khóa.', TRUE, 'LOCKED', FALSE, '2026-09-05 09:00:00.000000', '2026-09-05 09:00:00.000000'),
+(80, 'Dữ liệu thử nghiệm Provider 28', 'seed.provider28@skillshare.invalid', '$2a$10$nqmFaOD/zeTJ6kPlB8F89udgNuQKQ3dfgegtFtNJ..m2xiVZoeeUu', '0880000028', 'PROVIDER', 'https://i.pravatar.cc/150?img=49', 'Hồ sơ provider dữ liệu mẫu, tài khoản đang khóa.', TRUE, 'LOCKED', FALSE, '2026-09-04 09:00:00.000000', '2026-09-04 09:00:00.000000'),
+(81, 'Dữ liệu thử nghiệm Provider 29', 'seed.provider29@skillshare.invalid', '$2a$10$nqmFaOD/zeTJ6kPlB8F89udgNuQKQ3dfgegtFtNJ..m2xiVZoeeUu', '0880000029', 'PROVIDER', 'https://i.pravatar.cc/150?img=50', 'Hồ sơ provider dữ liệu mẫu, tài khoản đang khóa.', TRUE, 'LOCKED', FALSE, '2026-09-03 09:00:00.000000', '2026-09-03 09:00:00.000000'),
+(82, 'Dữ liệu thử nghiệm Provider 30', 'seed.provider30@skillshare.invalid', '$2a$10$nqmFaOD/zeTJ6kPlB8F89udgNuQKQ3dfgegtFtNJ..m2xiVZoeeUu', '0880000030', 'PROVIDER', 'https://i.pravatar.cc/150?img=51', 'Hồ sơ provider dữ liệu mẫu, tài khoản đang khóa.', TRUE, 'LOCKED', FALSE, '2026-09-02 09:00:00.000000', '2026-09-02 09:00:00.000000'),
+(83, 'Dữ liệu thử nghiệm Provider 31', 'seed.provider31@skillshare.invalid', '$2a$10$nqmFaOD/zeTJ6kPlB8F89udgNuQKQ3dfgegtFtNJ..m2xiVZoeeUu', '0880000031', 'PROVIDER', 'https://i.pravatar.cc/150?img=52', 'Hồ sơ provider dữ liệu mẫu, tài khoản đang khóa.', TRUE, 'LOCKED', FALSE, '2026-09-01 09:00:00.000000', '2026-09-01 09:00:00.000000');
+INSERT INTO users (id, full_name, email, password, phone, role, avatar_url, bio, email_verified, account_status, two_factor_preference, created_at, updated_at) VALUES
+(84, 'Dữ liệu thử nghiệm Provider 32', 'seed.provider32@skillshare.invalid', '$2a$10$nqmFaOD/zeTJ6kPlB8F89udgNuQKQ3dfgegtFtNJ..m2xiVZoeeUu', '0880000032', 'PROVIDER', 'https://i.pravatar.cc/150?img=53', 'Hồ sơ provider dữ liệu mẫu, tài khoản đang khóa.', TRUE, 'LOCKED', FALSE, '2026-08-31 09:00:00.000000', '2026-08-31 09:00:00.000000'),
+(85, 'Dữ liệu thử nghiệm Provider 33', 'seed.provider33@skillshare.invalid', '$2a$10$nqmFaOD/zeTJ6kPlB8F89udgNuQKQ3dfgegtFtNJ..m2xiVZoeeUu', '0880000033', 'PROVIDER', 'https://i.pravatar.cc/150?img=54', 'Hồ sơ provider dữ liệu mẫu, tài khoản đang khóa.', TRUE, 'LOCKED', FALSE, '2026-08-30 09:00:00.000000', '2026-08-30 09:00:00.000000'),
+(86, 'Dữ liệu thử nghiệm Provider 34', 'seed.provider34@skillshare.invalid', '$2a$10$nqmFaOD/zeTJ6kPlB8F89udgNuQKQ3dfgegtFtNJ..m2xiVZoeeUu', '0880000034', 'PROVIDER', 'https://i.pravatar.cc/150?img=55', 'Hồ sơ provider dữ liệu mẫu, tài khoản đang khóa.', TRUE, 'LOCKED', FALSE, '2026-08-29 09:00:00.000000', '2026-08-29 09:00:00.000000'),
+(87, 'Dữ liệu thử nghiệm Provider 35', 'seed.provider35@skillshare.invalid', '$2a$10$nqmFaOD/zeTJ6kPlB8F89udgNuQKQ3dfgegtFtNJ..m2xiVZoeeUu', '0880000035', 'PROVIDER', 'https://i.pravatar.cc/150?img=56', 'Hồ sơ provider dữ liệu mẫu, tài khoản đang khóa.', TRUE, 'LOCKED', FALSE, '2026-08-28 09:00:00.000000', '2026-08-28 09:00:00.000000'),
+(88, 'Dữ liệu thử nghiệm Provider 36', 'seed.provider36@skillshare.invalid', '$2a$10$nqmFaOD/zeTJ6kPlB8F89udgNuQKQ3dfgegtFtNJ..m2xiVZoeeUu', '0880000036', 'PROVIDER', 'https://i.pravatar.cc/150?img=57', 'Hồ sơ provider dữ liệu mẫu, tài khoản đang khóa.', TRUE, 'LOCKED', FALSE, '2026-08-27 09:00:00.000000', '2026-08-27 09:00:00.000000'),
+(89, 'Dữ liệu thử nghiệm Provider 37', 'seed.provider37@skillshare.invalid', '$2a$10$nqmFaOD/zeTJ6kPlB8F89udgNuQKQ3dfgegtFtNJ..m2xiVZoeeUu', '0880000037', 'PROVIDER', 'https://i.pravatar.cc/150?img=58', 'Hồ sơ provider dữ liệu mẫu, tài khoản đang khóa.', TRUE, 'LOCKED', FALSE, '2026-08-26 09:00:00.000000', '2026-08-26 09:00:00.000000'),
+(90, 'Dữ liệu thử nghiệm Provider 38', 'seed.provider38@skillshare.invalid', '$2a$10$nqmFaOD/zeTJ6kPlB8F89udgNuQKQ3dfgegtFtNJ..m2xiVZoeeUu', '0880000038', 'PROVIDER', 'https://i.pravatar.cc/150?img=59', 'Hồ sơ provider dữ liệu mẫu, tài khoản đang khóa.', TRUE, 'LOCKED', FALSE, '2026-08-25 09:00:00.000000', '2026-08-25 09:00:00.000000'),
+(91, 'Dữ liệu thử nghiệm Provider 39', 'seed.provider39@skillshare.invalid', '$2a$10$nqmFaOD/zeTJ6kPlB8F89udgNuQKQ3dfgegtFtNJ..m2xiVZoeeUu', '0880000039', 'PROVIDER', 'https://i.pravatar.cc/150?img=60', 'Hồ sơ provider dữ liệu mẫu, tài khoản đang khóa.', TRUE, 'LOCKED', FALSE, '2026-08-24 09:00:00.000000', '2026-08-24 09:00:00.000000'),
+(92, 'Dữ liệu thử nghiệm Provider 40', 'seed.provider40@skillshare.invalid', '$2a$10$nqmFaOD/zeTJ6kPlB8F89udgNuQKQ3dfgegtFtNJ..m2xiVZoeeUu', '0880000040', 'PROVIDER', 'https://i.pravatar.cc/150?img=61', 'Hồ sơ provider dữ liệu mẫu, tài khoản đang khóa.', TRUE, 'LOCKED', FALSE, '2026-08-23 09:00:00.000000', '2026-08-23 09:00:00.000000'),
+(93, 'Dữ liệu thử nghiệm Provider 41', 'seed.provider41@skillshare.invalid', '$2a$10$nqmFaOD/zeTJ6kPlB8F89udgNuQKQ3dfgegtFtNJ..m2xiVZoeeUu', '0880000041', 'PROVIDER', 'https://i.pravatar.cc/150?img=62', 'Hồ sơ provider dữ liệu mẫu, tài khoản đang khóa.', TRUE, 'LOCKED', FALSE, '2026-08-22 09:00:00.000000', '2026-08-22 09:00:00.000000'),
+(94, 'Dữ liệu thử nghiệm Provider 42', 'seed.provider42@skillshare.invalid', '$2a$10$nqmFaOD/zeTJ6kPlB8F89udgNuQKQ3dfgegtFtNJ..m2xiVZoeeUu', '0880000042', 'PROVIDER', 'https://i.pravatar.cc/150?img=63', 'Hồ sơ provider dữ liệu mẫu, tài khoản đang khóa.', TRUE, 'LOCKED', FALSE, '2026-08-21 09:00:00.000000', '2026-08-21 09:00:00.000000'),
+(95, 'Dữ liệu thử nghiệm Provider 43', 'seed.provider43@skillshare.invalid', '$2a$10$nqmFaOD/zeTJ6kPlB8F89udgNuQKQ3dfgegtFtNJ..m2xiVZoeeUu', '0880000043', 'PROVIDER', 'https://i.pravatar.cc/150?img=64', 'Hồ sơ provider dữ liệu mẫu, tài khoản đang khóa.', TRUE, 'LOCKED', FALSE, '2026-08-20 09:00:00.000000', '2026-08-20 09:00:00.000000'),
+(96, 'Dữ liệu thử nghiệm Provider 44', 'seed.provider44@skillshare.invalid', '$2a$10$nqmFaOD/zeTJ6kPlB8F89udgNuQKQ3dfgegtFtNJ..m2xiVZoeeUu', '0880000044', 'PROVIDER', 'https://i.pravatar.cc/150?img=65', 'Hồ sơ provider dữ liệu mẫu, tài khoản đang khóa.', TRUE, 'LOCKED', FALSE, '2026-08-19 09:00:00.000000', '2026-08-19 09:00:00.000000'),
+(97, 'Dữ liệu thử nghiệm Provider 45', 'seed.provider45@skillshare.invalid', '$2a$10$nqmFaOD/zeTJ6kPlB8F89udgNuQKQ3dfgegtFtNJ..m2xiVZoeeUu', '0880000045', 'PROVIDER', 'https://i.pravatar.cc/150?img=66', 'Hồ sơ provider dữ liệu mẫu, tài khoản đang khóa.', TRUE, 'LOCKED', FALSE, '2026-08-18 09:00:00.000000', '2026-08-18 09:00:00.000000'),
+(98, 'Dữ liệu thử nghiệm Provider 46', 'seed.provider46@skillshare.invalid', '$2a$10$nqmFaOD/zeTJ6kPlB8F89udgNuQKQ3dfgegtFtNJ..m2xiVZoeeUu', '0880000046', 'PROVIDER', 'https://i.pravatar.cc/150?img=67', 'Hồ sơ provider dữ liệu mẫu, tài khoản đang khóa.', TRUE, 'LOCKED', FALSE, '2026-08-17 09:00:00.000000', '2026-08-17 09:00:00.000000'),
+(99, 'Dữ liệu thử nghiệm Provider 47', 'seed.provider47@skillshare.invalid', '$2a$10$nqmFaOD/zeTJ6kPlB8F89udgNuQKQ3dfgegtFtNJ..m2xiVZoeeUu', '0880000047', 'PROVIDER', 'https://i.pravatar.cc/150?img=68', 'Hồ sơ provider dữ liệu mẫu, tài khoản đang khóa.', TRUE, 'LOCKED', FALSE, '2026-08-16 09:00:00.000000', '2026-08-16 09:00:00.000000'),
+(100, 'Dữ liệu thử nghiệm Provider 48', 'seed.provider48@skillshare.invalid', '$2a$10$nqmFaOD/zeTJ6kPlB8F89udgNuQKQ3dfgegtFtNJ..m2xiVZoeeUu', '0880000048', 'PROVIDER', 'https://i.pravatar.cc/150?img=69', 'Hồ sơ provider dữ liệu mẫu, tài khoản đang khóa.', TRUE, 'LOCKED', FALSE, '2026-08-15 09:00:00.000000', '2026-08-15 09:00:00.000000'),
+(101, 'Dữ liệu thử nghiệm Provider 49', 'seed.provider49@skillshare.invalid', '$2a$10$nqmFaOD/zeTJ6kPlB8F89udgNuQKQ3dfgegtFtNJ..m2xiVZoeeUu', '0880000049', 'PROVIDER', 'https://i.pravatar.cc/150?img=70', 'Hồ sơ provider dữ liệu mẫu, tài khoản đang khóa.', TRUE, 'LOCKED', FALSE, '2026-08-14 09:00:00.000000', '2026-08-14 09:00:00.000000');
+
+-- 49 additional customer profiles; total 50.
+INSERT INTO customer_profiles (id, user_id, location, preferred_skills) VALUES
+(2, 4, 'TP. Hồ Chí Minh', 'Java, Spring Boot'),
+(3, 5, 'Hà Nội', 'UI/UX, Figma'),
+(4, 6, 'Đà Nẵng', 'SQL, Data Analytics'),
+(5, 7, 'Cần Thơ', 'Python, Machine Learning'),
+(6, 8, 'Bình Dương', 'Digital Marketing, SEO'),
+(7, 9, 'Đồng Nai', 'Java, Spring Boot'),
+(8, 10, 'Huế', 'UI/UX, Figma'),
+(9, 11, 'Hải Phòng', 'SQL, Data Analytics'),
+(10, 12, 'TP. Hồ Chí Minh', 'Python, Machine Learning'),
+(11, 13, 'Hà Nội', 'Digital Marketing, SEO'),
+(12, 14, 'Đà Nẵng', 'Java, Spring Boot'),
+(13, 15, 'Cần Thơ', 'UI/UX, Figma'),
+(14, 16, 'Bình Dương', 'SQL, Data Analytics'),
+(15, 17, 'Đồng Nai', 'Python, Machine Learning'),
+(16, 18, 'Huế', 'Digital Marketing, SEO'),
+(17, 19, 'Hải Phòng', 'Java, Spring Boot'),
+(18, 20, 'TP. Hồ Chí Minh', 'UI/UX, Figma'),
+(19, 21, 'Hà Nội', 'SQL, Data Analytics'),
+(20, 22, 'Đà Nẵng', 'Python, Machine Learning'),
+(21, 23, 'Cần Thơ', 'Digital Marketing, SEO'),
+(22, 24, 'Bình Dương', 'Java, Spring Boot'),
+(23, 25, 'Đồng Nai', 'UI/UX, Figma'),
+(24, 26, 'Huế', 'SQL, Data Analytics'),
+(25, 27, 'Hải Phòng', 'Python, Machine Learning'),
+(26, 28, 'TP. Hồ Chí Minh', 'Digital Marketing, SEO'),
+(27, 29, 'Hà Nội', 'Java, Spring Boot'),
+(28, 30, 'Đà Nẵng', 'UI/UX, Figma'),
+(29, 31, 'Cần Thơ', 'SQL, Data Analytics'),
+(30, 32, 'Bình Dương', 'Python, Machine Learning'),
+(31, 33, 'Đồng Nai', 'Digital Marketing, SEO');
+INSERT INTO customer_profiles (id, user_id, location, preferred_skills) VALUES
+(32, 34, 'Huế', 'Java, Spring Boot'),
+(33, 35, 'Hải Phòng', 'UI/UX, Figma'),
+(34, 36, 'TP. Hồ Chí Minh', 'SQL, Data Analytics'),
+(35, 37, 'Hà Nội', 'Python, Machine Learning'),
+(36, 38, 'Đà Nẵng', 'Digital Marketing, SEO'),
+(37, 39, 'Cần Thơ', 'Java, Spring Boot'),
+(38, 40, 'Bình Dương', 'UI/UX, Figma'),
+(39, 41, 'Đồng Nai', 'SQL, Data Analytics'),
+(40, 42, 'Huế', 'Python, Machine Learning'),
+(41, 43, 'Hải Phòng', 'Digital Marketing, SEO'),
+(42, 44, 'TP. Hồ Chí Minh', 'Java, Spring Boot'),
+(43, 45, 'Hà Nội', 'UI/UX, Figma'),
+(44, 46, 'Đà Nẵng', 'SQL, Data Analytics'),
+(45, 47, 'Cần Thơ', 'Python, Machine Learning'),
+(46, 48, 'Bình Dương', 'Digital Marketing, SEO'),
+(47, 49, 'Đồng Nai', 'Java, Spring Boot'),
+(48, 50, 'Huế', 'UI/UX, Figma'),
+(49, 51, 'Hải Phòng', 'SQL, Data Analytics'),
+(50, 52, 'TP. Hồ Chí Minh', 'Python, Machine Learning');
+
+-- 49 additional provider profiles; total 50.
+INSERT INTO provider_profiles (id, user_id, headline, hourly_rate, rating, review_count, premium, introduction, availability, is_approved, profile_status, created_at, updated_at) VALUES
+(2, 53, 'Full-stack Developer', 205000, 3.6, 1, FALSE, 'Chuyên môn dịch vụ số và kỹ năng thực hành; hồ sơ dữ liệu mẫu số 01.', 'Thứ 2–Thứ 7, 18:00–22:00', TRUE, 'ACTIVE', '2026-09-29 09:00:00.000000', '2026-10-09 09:00:00.000000'),
+(3, 54, 'UI/UX Designer', 230000, 3.7, 2, FALSE, 'Chuyên môn dịch vụ số và kỹ năng thực hành; hồ sơ dữ liệu mẫu số 02.', 'Thứ 2–Thứ 7, 18:00–22:00', TRUE, 'ACTIVE', '2026-09-28 09:00:00.000000', '2026-10-08 09:00:00.000000'),
+(4, 55, 'Data Analyst', 255000, 3.8, 3, FALSE, 'Chuyên môn dịch vụ số và kỹ năng thực hành; hồ sơ dữ liệu mẫu số 03.', 'Thứ 2–Thứ 7, 18:00–22:00', TRUE, 'ACTIVE', '2026-09-27 09:00:00.000000', '2026-10-07 09:00:00.000000'),
+(5, 56, 'Digital Marketing Specialist', 280000, 3.9, 4, TRUE, 'Chuyên môn dịch vụ số và kỹ năng thực hành; hồ sơ dữ liệu mẫu số 04.', 'Thứ 2–Thứ 7, 18:00–22:00', TRUE, 'ACTIVE', '2026-09-26 09:00:00.000000', '2026-10-06 09:00:00.000000'),
+(6, 57, 'Mobile App Developer', 305000, 4.0, 5, FALSE, 'Chuyên môn dịch vụ số và kỹ năng thực hành; hồ sơ dữ liệu mẫu số 05.', 'Thứ 2–Thứ 7, 18:00–22:00', TRUE, 'ACTIVE', '2026-09-25 09:00:00.000000', '2026-10-05 09:00:00.000000'),
+(7, 58, 'QA Automation Engineer', 330000, 4.1, 6, FALSE, 'Chuyên môn dịch vụ số và kỹ năng thực hành; hồ sơ dữ liệu mẫu số 06.', 'Thứ 2–Thứ 7, 18:00–22:00', TRUE, 'ACTIVE', '2026-09-24 09:00:00.000000', '2026-10-04 09:00:00.000000'),
+(8, 59, 'Cloud Engineer', 355000, 4.2, 7, FALSE, 'Chuyên môn dịch vụ số và kỹ năng thực hành; hồ sơ dữ liệu mẫu số 07.', 'Thứ 2–Thứ 7, 18:00–22:00', TRUE, 'ACTIVE', '2026-09-23 09:00:00.000000', '2026-10-03 09:00:00.000000'),
+(9, 60, 'Database Specialist', 380000, 4.3, 8, TRUE, 'Chuyên môn dịch vụ số và kỹ năng thực hành; hồ sơ dữ liệu mẫu số 08.', 'Thứ 2–Thứ 7, 18:00–22:00', TRUE, 'ACTIVE', '2026-09-22 09:00:00.000000', '2026-10-02 09:00:00.000000'),
+(10, 61, 'Full-stack Developer', 405000, 4.4, 9, FALSE, 'Chuyên môn dịch vụ số và kỹ năng thực hành; hồ sơ dữ liệu mẫu số 09.', 'Thứ 2–Thứ 7, 18:00–22:00', TRUE, 'ACTIVE', '2026-09-21 09:00:00.000000', '2026-10-01 09:00:00.000000'),
+(11, 62, 'UI/UX Designer', 430000, 4.5, 10, FALSE, 'Chuyên môn dịch vụ số và kỹ năng thực hành; hồ sơ dữ liệu mẫu số 10.', 'Thứ 2–Thứ 7, 18:00–22:00', TRUE, 'ACTIVE', '2026-09-20 09:00:00.000000', '2026-09-30 09:00:00.000000'),
+(12, 63, 'Data Analyst', 455000, 4.6, 11, FALSE, 'Chuyên môn dịch vụ số và kỹ năng thực hành; hồ sơ dữ liệu mẫu số 11.', 'Thứ 2–Thứ 7, 18:00–22:00', TRUE, 'ACTIVE', '2026-09-19 09:00:00.000000', '2026-09-29 09:00:00.000000'),
+(13, 64, 'Digital Marketing Specialist', 480000, 4.7, 12, TRUE, 'Chuyên môn dịch vụ số và kỹ năng thực hành; hồ sơ dữ liệu mẫu số 12.', 'Thứ 2–Thứ 7, 18:00–22:00', TRUE, 'ACTIVE', '2026-09-18 09:00:00.000000', '2026-09-28 09:00:00.000000'),
+(14, 65, 'Mobile App Developer', 505000, 4.8, 13, FALSE, 'Chuyên môn dịch vụ số và kỹ năng thực hành; hồ sơ dữ liệu mẫu số 13.', 'Thứ 2–Thứ 7, 18:00–22:00', TRUE, 'ACTIVE', '2026-09-17 09:00:00.000000', '2026-09-27 09:00:00.000000'),
+(15, 66, 'QA Automation Engineer', 530000, 4.9, 14, FALSE, 'Chuyên môn dịch vụ số và kỹ năng thực hành; hồ sơ dữ liệu mẫu số 14.', 'Thứ 2–Thứ 7, 18:00–22:00', TRUE, 'ACTIVE', '2026-09-16 09:00:00.000000', '2026-09-26 09:00:00.000000'),
+(16, 67, 'Cloud Engineer', 180000, 5.0, 15, FALSE, 'Chuyên môn dịch vụ số và kỹ năng thực hành; hồ sơ dữ liệu mẫu số 15.', 'Thứ 2–Thứ 7, 18:00–22:00', TRUE, 'ACTIVE', '2026-09-15 09:00:00.000000', '2026-09-25 09:00:00.000000'),
+(17, 68, 'Database Specialist', 205000, 3.5, 16, TRUE, 'Chuyên môn dịch vụ số và kỹ năng thực hành; hồ sơ dữ liệu mẫu số 16.', 'Thứ 2–Thứ 7, 18:00–22:00', TRUE, 'ACTIVE', '2026-09-14 09:00:00.000000', '2026-09-24 09:00:00.000000'),
+(18, 69, 'Full-stack Developer', 230000, 3.6, 17, FALSE, 'Chuyên môn dịch vụ số và kỹ năng thực hành; hồ sơ dữ liệu mẫu số 17.', 'Thứ 2–Thứ 7, 18:00–22:00', TRUE, 'ACTIVE', '2026-09-13 09:00:00.000000', '2026-09-23 09:00:00.000000'),
+(19, 70, 'UI/UX Designer', 255000, 3.7, 18, FALSE, 'Chuyên môn dịch vụ số và kỹ năng thực hành; hồ sơ dữ liệu mẫu số 18.', 'Thứ 2–Thứ 7, 18:00–22:00', TRUE, 'ACTIVE', '2026-09-12 09:00:00.000000', '2026-09-22 09:00:00.000000'),
+(20, 71, 'Data Analyst', 280000, 3.8, 19, FALSE, 'Chuyên môn dịch vụ số và kỹ năng thực hành; hồ sơ dữ liệu mẫu số 19.', 'Thứ 2–Thứ 7, 18:00–22:00', TRUE, 'ACTIVE', '2026-09-11 09:00:00.000000', '2026-09-21 09:00:00.000000'),
+(21, 72, 'Digital Marketing Specialist', 305000, 3.9, 0, TRUE, 'Chuyên môn dịch vụ số và kỹ năng thực hành; hồ sơ dữ liệu mẫu số 20.', 'Thứ 2–Thứ 7, 18:00–22:00', TRUE, 'ACTIVE', '2026-09-10 09:00:00.000000', '2026-09-20 09:00:00.000000'),
+(22, 73, 'Mobile App Developer', 330000, 4.0, 1, FALSE, 'Chuyên môn dịch vụ số và kỹ năng thực hành; hồ sơ dữ liệu mẫu số 21.', 'Thứ 2–Thứ 7, 18:00–22:00', TRUE, 'ACTIVE', '2026-09-09 09:00:00.000000', '2026-09-19 09:00:00.000000'),
+(23, 74, 'QA Automation Engineer', 355000, 4.1, 2, FALSE, 'Chuyên môn dịch vụ số và kỹ năng thực hành; hồ sơ dữ liệu mẫu số 22.', 'Thứ 2–Thứ 7, 18:00–22:00', TRUE, 'ACTIVE', '2026-09-08 09:00:00.000000', '2026-09-18 09:00:00.000000'),
+(24, 75, 'Cloud Engineer', 380000, 4.2, 3, FALSE, 'Chuyên môn dịch vụ số và kỹ năng thực hành; hồ sơ dữ liệu mẫu số 23.', 'Thứ 2–Thứ 7, 18:00–22:00', TRUE, 'ACTIVE', '2026-09-07 09:00:00.000000', '2026-09-17 09:00:00.000000'),
+(25, 76, 'Database Specialist', 405000, 4.3, 4, TRUE, 'Chuyên môn dịch vụ số và kỹ năng thực hành; hồ sơ dữ liệu mẫu số 24.', 'Thứ 2–Thứ 7, 18:00–22:00', TRUE, 'ACTIVE', '2026-09-06 09:00:00.000000', '2026-09-16 09:00:00.000000'),
+(26, 77, 'Full-stack Developer', 430000, 4.4, 5, FALSE, 'Chuyên môn dịch vụ số và kỹ năng thực hành; hồ sơ dữ liệu mẫu số 25.', 'Thứ 2–Thứ 7, 18:00–22:00', TRUE, 'ACTIVE', '2026-09-05 09:00:00.000000', '2026-09-15 09:00:00.000000'),
+(27, 78, 'UI/UX Designer', 455000, 4.5, 6, FALSE, 'Chuyên môn dịch vụ số và kỹ năng thực hành; hồ sơ dữ liệu mẫu số 26.', 'Thứ 2–Thứ 7, 18:00–22:00', TRUE, 'ACTIVE', '2026-09-04 09:00:00.000000', '2026-09-14 09:00:00.000000'),
+(28, 79, 'Data Analyst', 480000, 4.6, 7, FALSE, 'Chuyên môn dịch vụ số và kỹ năng thực hành; hồ sơ dữ liệu mẫu số 27.', 'Thứ 2–Thứ 7, 18:00–22:00', TRUE, 'ACTIVE', '2026-09-03 09:00:00.000000', '2026-09-13 09:00:00.000000'),
+(29, 80, 'Digital Marketing Specialist', 505000, 4.7, 8, TRUE, 'Chuyên môn dịch vụ số và kỹ năng thực hành; hồ sơ dữ liệu mẫu số 28.', 'Thứ 2–Thứ 7, 18:00–22:00', TRUE, 'ACTIVE', '2026-09-02 09:00:00.000000', '2026-09-12 09:00:00.000000'),
+(30, 81, 'Mobile App Developer', 530000, 4.8, 9, FALSE, 'Chuyên môn dịch vụ số và kỹ năng thực hành; hồ sơ dữ liệu mẫu số 29.', 'Thứ 2–Thứ 7, 18:00–22:00', TRUE, 'ACTIVE', '2026-09-01 09:00:00.000000', '2026-09-11 09:00:00.000000'),
+(31, 82, 'QA Automation Engineer', 180000, 4.9, 10, FALSE, 'Chuyên môn dịch vụ số và kỹ năng thực hành; hồ sơ dữ liệu mẫu số 30.', 'Thứ 2–Thứ 7, 18:00–22:00', TRUE, 'ACTIVE', '2026-08-31 09:00:00.000000', '2026-09-10 09:00:00.000000');
+INSERT INTO provider_profiles (id, user_id, headline, hourly_rate, rating, review_count, premium, introduction, availability, is_approved, profile_status, created_at, updated_at) VALUES
+(32, 83, 'Cloud Engineer', 205000, 5.0, 11, FALSE, 'Chuyên môn dịch vụ số và kỹ năng thực hành; hồ sơ dữ liệu mẫu số 31.', 'Thứ 2–Thứ 7, 18:00–22:00', TRUE, 'ACTIVE', '2026-08-30 09:00:00.000000', '2026-09-09 09:00:00.000000'),
+(33, 84, 'Database Specialist', 230000, 3.5, 12, TRUE, 'Chuyên môn dịch vụ số và kỹ năng thực hành; hồ sơ dữ liệu mẫu số 32.', 'Thứ 2–Thứ 7, 18:00–22:00', TRUE, 'ACTIVE', '2026-08-29 09:00:00.000000', '2026-09-08 09:00:00.000000'),
+(34, 85, 'Full-stack Developer', 255000, 3.6, 13, FALSE, 'Chuyên môn dịch vụ số và kỹ năng thực hành; hồ sơ dữ liệu mẫu số 33.', 'Thứ 2–Thứ 7, 18:00–22:00', TRUE, 'ACTIVE', '2026-08-28 09:00:00.000000', '2026-09-07 09:00:00.000000'),
+(35, 86, 'UI/UX Designer', 280000, 3.7, 14, FALSE, 'Chuyên môn dịch vụ số và kỹ năng thực hành; hồ sơ dữ liệu mẫu số 34.', 'Thứ 2–Thứ 7, 18:00–22:00', TRUE, 'ACTIVE', '2026-08-27 09:00:00.000000', '2026-09-06 09:00:00.000000'),
+(36, 87, 'Data Analyst', 305000, 3.8, 15, FALSE, 'Chuyên môn dịch vụ số và kỹ năng thực hành; hồ sơ dữ liệu mẫu số 35.', 'Thứ 2–Thứ 7, 18:00–22:00', TRUE, 'ACTIVE', '2026-08-26 09:00:00.000000', '2026-09-05 09:00:00.000000'),
+(37, 88, 'Digital Marketing Specialist', 330000, 3.9, 16, TRUE, 'Chuyên môn dịch vụ số và kỹ năng thực hành; hồ sơ dữ liệu mẫu số 36.', 'Thứ 2–Thứ 7, 18:00–22:00', TRUE, 'ACTIVE', '2026-08-25 09:00:00.000000', '2026-09-04 09:00:00.000000'),
+(38, 89, 'Mobile App Developer', 355000, 4.0, 17, FALSE, 'Chuyên môn dịch vụ số và kỹ năng thực hành; hồ sơ dữ liệu mẫu số 37.', 'Thứ 2–Thứ 7, 18:00–22:00', TRUE, 'ACTIVE', '2026-08-24 09:00:00.000000', '2026-09-03 09:00:00.000000'),
+(39, 90, 'QA Automation Engineer', 380000, 4.1, 18, FALSE, 'Chuyên môn dịch vụ số và kỹ năng thực hành; hồ sơ dữ liệu mẫu số 38.', 'Thứ 2–Thứ 7, 18:00–22:00', TRUE, 'ACTIVE', '2026-08-23 09:00:00.000000', '2026-09-02 09:00:00.000000'),
+(40, 91, 'Cloud Engineer', 405000, 4.2, 19, FALSE, 'Chuyên môn dịch vụ số và kỹ năng thực hành; hồ sơ dữ liệu mẫu số 39.', 'Thứ 2–Thứ 7, 18:00–22:00', TRUE, 'ACTIVE', '2026-08-22 09:00:00.000000', '2026-09-01 09:00:00.000000'),
+(41, 92, 'Database Specialist', 430000, 4.3, 0, TRUE, 'Chuyên môn dịch vụ số và kỹ năng thực hành; hồ sơ dữ liệu mẫu số 40.', 'Thứ 2–Thứ 7, 18:00–22:00', TRUE, 'ACTIVE', '2026-08-21 09:00:00.000000', '2026-08-31 09:00:00.000000'),
+(42, 93, 'Full-stack Developer', 455000, 4.4, 1, FALSE, 'Chuyên môn dịch vụ số và kỹ năng thực hành; hồ sơ dữ liệu mẫu số 41.', 'Thứ 2–Thứ 7, 18:00–22:00', TRUE, 'ACTIVE', '2026-08-20 09:00:00.000000', '2026-08-30 09:00:00.000000'),
+(43, 94, 'UI/UX Designer', 480000, 4.5, 2, FALSE, 'Chuyên môn dịch vụ số và kỹ năng thực hành; hồ sơ dữ liệu mẫu số 42.', 'Thứ 2–Thứ 7, 18:00–22:00', TRUE, 'ACTIVE', '2026-08-19 09:00:00.000000', '2026-08-29 09:00:00.000000'),
+(44, 95, 'Data Analyst', 505000, 4.6, 3, FALSE, 'Chuyên môn dịch vụ số và kỹ năng thực hành; hồ sơ dữ liệu mẫu số 43.', 'Thứ 2–Thứ 7, 18:00–22:00', TRUE, 'ACTIVE', '2026-08-18 09:00:00.000000', '2026-08-28 09:00:00.000000'),
+(45, 96, 'Digital Marketing Specialist', 530000, 4.7, 4, TRUE, 'Chuyên môn dịch vụ số và kỹ năng thực hành; hồ sơ dữ liệu mẫu số 44.', 'Thứ 2–Thứ 7, 18:00–22:00', TRUE, 'ACTIVE', '2026-08-17 09:00:00.000000', '2026-08-27 09:00:00.000000'),
+(46, 97, 'Mobile App Developer', 180000, 4.8, 5, FALSE, 'Chuyên môn dịch vụ số và kỹ năng thực hành; hồ sơ dữ liệu mẫu số 45.', 'Thứ 2–Thứ 7, 18:00–22:00', TRUE, 'ACTIVE', '2026-08-16 09:00:00.000000', '2026-08-26 09:00:00.000000'),
+(47, 98, 'QA Automation Engineer', 205000, 4.9, 6, FALSE, 'Chuyên môn dịch vụ số và kỹ năng thực hành; hồ sơ dữ liệu mẫu số 46.', 'Thứ 2–Thứ 7, 18:00–22:00', TRUE, 'ACTIVE', '2026-08-15 09:00:00.000000', '2026-08-25 09:00:00.000000'),
+(48, 99, 'Cloud Engineer', 230000, 5.0, 7, FALSE, 'Chuyên môn dịch vụ số và kỹ năng thực hành; hồ sơ dữ liệu mẫu số 47.', 'Thứ 2–Thứ 7, 18:00–22:00', TRUE, 'ACTIVE', '2026-08-14 09:00:00.000000', '2026-08-24 09:00:00.000000'),
+(49, 100, 'Database Specialist', 255000, 3.5, 8, TRUE, 'Chuyên môn dịch vụ số và kỹ năng thực hành; hồ sơ dữ liệu mẫu số 48.', 'Thứ 2–Thứ 7, 18:00–22:00', TRUE, 'ACTIVE', '2026-08-13 09:00:00.000000', '2026-08-23 09:00:00.000000'),
+(50, 101, 'Full-stack Developer', 280000, 3.6, 9, FALSE, 'Chuyên môn dịch vụ số và kỹ năng thực hành; hồ sơ dữ liệu mẫu số 49.', 'Thứ 2–Thứ 7, 18:00–22:00', TRUE, 'ACTIVE', '2026-08-12 09:00:00.000000', '2026-08-22 09:00:00.000000');
+
+-- 49 additional placeholder OAuth identities; total 50.
+INSERT INTO oauth_identities (id, user_id, identity_provider, provider_subject, email_at_provider, created_at) VALUES
+(2, 4, 'GOOGLE', 'DEMO-GOOGLE-SUBJECT-SEED-004', 'seed.customer01@skillshare.invalid', '2026-10-08 09:00:00.000000'),
+(3, 5, 'GOOGLE', 'DEMO-GOOGLE-SUBJECT-SEED-005', 'seed.customer02@skillshare.invalid', '2026-10-07 09:00:00.000000'),
+(4, 6, 'GOOGLE', 'DEMO-GOOGLE-SUBJECT-SEED-006', 'seed.customer03@skillshare.invalid', '2026-10-06 09:00:00.000000'),
+(5, 7, 'GOOGLE', 'DEMO-GOOGLE-SUBJECT-SEED-007', 'seed.customer04@skillshare.invalid', '2026-10-05 09:00:00.000000'),
+(6, 8, 'GOOGLE', 'DEMO-GOOGLE-SUBJECT-SEED-008', 'seed.customer05@skillshare.invalid', '2026-10-04 09:00:00.000000'),
+(7, 9, 'GOOGLE', 'DEMO-GOOGLE-SUBJECT-SEED-009', 'seed.customer06@skillshare.invalid', '2026-10-03 09:00:00.000000'),
+(8, 10, 'GOOGLE', 'DEMO-GOOGLE-SUBJECT-SEED-010', 'seed.customer07@skillshare.invalid', '2026-10-02 09:00:00.000000'),
+(9, 11, 'GOOGLE', 'DEMO-GOOGLE-SUBJECT-SEED-011', 'seed.customer08@skillshare.invalid', '2026-10-01 09:00:00.000000'),
+(10, 12, 'GOOGLE', 'DEMO-GOOGLE-SUBJECT-SEED-012', 'seed.customer09@skillshare.invalid', '2026-09-30 09:00:00.000000'),
+(11, 13, 'GOOGLE', 'DEMO-GOOGLE-SUBJECT-SEED-013', 'seed.customer10@skillshare.invalid', '2026-09-29 09:00:00.000000'),
+(12, 14, 'GOOGLE', 'DEMO-GOOGLE-SUBJECT-SEED-014', 'seed.customer11@skillshare.invalid', '2026-09-28 09:00:00.000000'),
+(13, 15, 'GOOGLE', 'DEMO-GOOGLE-SUBJECT-SEED-015', 'seed.customer12@skillshare.invalid', '2026-09-27 09:00:00.000000'),
+(14, 16, 'GOOGLE', 'DEMO-GOOGLE-SUBJECT-SEED-016', 'seed.customer13@skillshare.invalid', '2026-09-26 09:00:00.000000'),
+(15, 17, 'GOOGLE', 'DEMO-GOOGLE-SUBJECT-SEED-017', 'seed.customer14@skillshare.invalid', '2026-09-25 09:00:00.000000'),
+(16, 18, 'GOOGLE', 'DEMO-GOOGLE-SUBJECT-SEED-018', 'seed.customer15@skillshare.invalid', '2026-09-24 09:00:00.000000'),
+(17, 19, 'GOOGLE', 'DEMO-GOOGLE-SUBJECT-SEED-019', 'seed.customer16@skillshare.invalid', '2026-09-23 09:00:00.000000'),
+(18, 20, 'GOOGLE', 'DEMO-GOOGLE-SUBJECT-SEED-020', 'seed.customer17@skillshare.invalid', '2026-10-12 09:00:00.000000'),
+(19, 21, 'GOOGLE', 'DEMO-GOOGLE-SUBJECT-SEED-021', 'seed.customer18@skillshare.invalid', '2026-10-11 09:00:00.000000'),
+(20, 22, 'GOOGLE', 'DEMO-GOOGLE-SUBJECT-SEED-022', 'seed.customer19@skillshare.invalid', '2026-10-10 09:00:00.000000'),
+(21, 23, 'GOOGLE', 'DEMO-GOOGLE-SUBJECT-SEED-023', 'seed.customer20@skillshare.invalid', '2026-10-09 09:00:00.000000'),
+(22, 24, 'GOOGLE', 'DEMO-GOOGLE-SUBJECT-SEED-024', 'seed.customer21@skillshare.invalid', '2026-10-08 09:00:00.000000'),
+(23, 25, 'GOOGLE', 'DEMO-GOOGLE-SUBJECT-SEED-025', 'seed.customer22@skillshare.invalid', '2026-10-07 09:00:00.000000'),
+(24, 26, 'GOOGLE', 'DEMO-GOOGLE-SUBJECT-SEED-026', 'seed.customer23@skillshare.invalid', '2026-10-06 09:00:00.000000'),
+(25, 27, 'GOOGLE', 'DEMO-GOOGLE-SUBJECT-SEED-027', 'seed.customer24@skillshare.invalid', '2026-10-05 09:00:00.000000'),
+(26, 28, 'GOOGLE', 'DEMO-GOOGLE-SUBJECT-SEED-028', 'seed.customer25@skillshare.invalid', '2026-10-04 09:00:00.000000'),
+(27, 29, 'GOOGLE', 'DEMO-GOOGLE-SUBJECT-SEED-029', 'seed.customer26@skillshare.invalid', '2026-10-03 09:00:00.000000'),
+(28, 30, 'GOOGLE', 'DEMO-GOOGLE-SUBJECT-SEED-030', 'seed.customer27@skillshare.invalid', '2026-10-02 09:00:00.000000'),
+(29, 31, 'GOOGLE', 'DEMO-GOOGLE-SUBJECT-SEED-031', 'seed.customer28@skillshare.invalid', '2026-10-01 09:00:00.000000'),
+(30, 32, 'GOOGLE', 'DEMO-GOOGLE-SUBJECT-SEED-032', 'seed.customer29@skillshare.invalid', '2026-09-30 09:00:00.000000'),
+(31, 33, 'GOOGLE', 'DEMO-GOOGLE-SUBJECT-SEED-033', 'seed.customer30@skillshare.invalid', '2026-09-29 09:00:00.000000');
+INSERT INTO oauth_identities (id, user_id, identity_provider, provider_subject, email_at_provider, created_at) VALUES
+(32, 34, 'GOOGLE', 'DEMO-GOOGLE-SUBJECT-SEED-034', 'seed.customer31@skillshare.invalid', '2026-09-28 09:00:00.000000'),
+(33, 35, 'GOOGLE', 'DEMO-GOOGLE-SUBJECT-SEED-035', 'seed.customer32@skillshare.invalid', '2026-09-27 09:00:00.000000'),
+(34, 36, 'GOOGLE', 'DEMO-GOOGLE-SUBJECT-SEED-036', 'seed.customer33@skillshare.invalid', '2026-09-26 09:00:00.000000'),
+(35, 37, 'GOOGLE', 'DEMO-GOOGLE-SUBJECT-SEED-037', 'seed.customer34@skillshare.invalid', '2026-09-25 09:00:00.000000'),
+(36, 38, 'GOOGLE', 'DEMO-GOOGLE-SUBJECT-SEED-038', 'seed.customer35@skillshare.invalid', '2026-09-24 09:00:00.000000'),
+(37, 39, 'GOOGLE', 'DEMO-GOOGLE-SUBJECT-SEED-039', 'seed.customer36@skillshare.invalid', '2026-09-23 09:00:00.000000'),
+(38, 40, 'GOOGLE', 'DEMO-GOOGLE-SUBJECT-SEED-040', 'seed.customer37@skillshare.invalid', '2026-10-12 09:00:00.000000'),
+(39, 41, 'GOOGLE', 'DEMO-GOOGLE-SUBJECT-SEED-041', 'seed.customer38@skillshare.invalid', '2026-10-11 09:00:00.000000'),
+(40, 42, 'GOOGLE', 'DEMO-GOOGLE-SUBJECT-SEED-042', 'seed.customer39@skillshare.invalid', '2026-10-10 09:00:00.000000'),
+(41, 43, 'GOOGLE', 'DEMO-GOOGLE-SUBJECT-SEED-043', 'seed.customer40@skillshare.invalid', '2026-10-09 09:00:00.000000'),
+(42, 44, 'GOOGLE', 'DEMO-GOOGLE-SUBJECT-SEED-044', 'seed.customer41@skillshare.invalid', '2026-10-08 09:00:00.000000'),
+(43, 45, 'GOOGLE', 'DEMO-GOOGLE-SUBJECT-SEED-045', 'seed.customer42@skillshare.invalid', '2026-10-07 09:00:00.000000'),
+(44, 46, 'GOOGLE', 'DEMO-GOOGLE-SUBJECT-SEED-046', 'seed.customer43@skillshare.invalid', '2026-10-06 09:00:00.000000'),
+(45, 47, 'GOOGLE', 'DEMO-GOOGLE-SUBJECT-SEED-047', 'seed.customer44@skillshare.invalid', '2026-10-05 09:00:00.000000'),
+(46, 48, 'GOOGLE', 'DEMO-GOOGLE-SUBJECT-SEED-048', 'seed.customer45@skillshare.invalid', '2026-10-04 09:00:00.000000'),
+(47, 49, 'GOOGLE', 'DEMO-GOOGLE-SUBJECT-SEED-049', 'seed.customer46@skillshare.invalid', '2026-10-03 09:00:00.000000'),
+(48, 50, 'GOOGLE', 'DEMO-GOOGLE-SUBJECT-SEED-050', 'seed.customer47@skillshare.invalid', '2026-10-02 09:00:00.000000'),
+(49, 51, 'GOOGLE', 'DEMO-GOOGLE-SUBJECT-SEED-051', 'seed.customer48@skillshare.invalid', '2026-10-01 09:00:00.000000'),
+(50, 52, 'GOOGLE', 'DEMO-GOOGLE-SUBJECT-SEED-052', 'seed.customer49@skillshare.invalid', '2026-09-30 09:00:00.000000');
+
+-- Add 43 distinct skills to reach 50.
+INSERT INTO skills (id, name, description, created_at) VALUES
+(8, 'JavaScript', 'Kỹ năng JavaScript: dữ liệu danh mục dùng để kiểm thử lọc và gợi ý.', '2026-10-04 09:00:00.000000'),
+(9, 'TypeScript', 'Kỹ năng TypeScript: dữ liệu danh mục dùng để kiểm thử lọc và gợi ý.', '2026-10-03 09:00:00.000000'),
+(10, 'React', 'Kỹ năng React: dữ liệu danh mục dùng để kiểm thử lọc và gợi ý.', '2026-10-02 09:00:00.000000'),
+(11, 'Vue.js', 'Kỹ năng Vue.js: dữ liệu danh mục dùng để kiểm thử lọc và gợi ý.', '2026-10-01 09:00:00.000000'),
+(12, 'Angular', 'Kỹ năng Angular: dữ liệu danh mục dùng để kiểm thử lọc và gợi ý.', '2026-09-30 09:00:00.000000'),
+(13, 'Node.js', 'Kỹ năng Node.js: dữ liệu danh mục dùng để kiểm thử lọc và gợi ý.', '2026-09-29 09:00:00.000000'),
+(14, 'Express.js', 'Kỹ năng Express.js: dữ liệu danh mục dùng để kiểm thử lọc và gợi ý.', '2026-09-28 09:00:00.000000'),
+(15, 'Python', 'Kỹ năng Python: dữ liệu danh mục dùng để kiểm thử lọc và gợi ý.', '2026-09-27 09:00:00.000000'),
+(16, 'Django', 'Kỹ năng Django: dữ liệu danh mục dùng để kiểm thử lọc và gợi ý.', '2026-09-26 09:00:00.000000'),
+(17, 'Flask', 'Kỹ năng Flask: dữ liệu danh mục dùng để kiểm thử lọc và gợi ý.', '2026-09-25 09:00:00.000000'),
+(18, 'FastAPI', 'Kỹ năng FastAPI: dữ liệu danh mục dùng để kiểm thử lọc và gợi ý.', '2026-09-24 09:00:00.000000'),
+(19, 'C#', 'Kỹ năng C#: dữ liệu danh mục dùng để kiểm thử lọc và gợi ý.', '2026-09-23 09:00:00.000000'),
+(20, 'ASP.NET Core', 'Kỹ năng ASP.NET Core: dữ liệu danh mục dùng để kiểm thử lọc và gợi ý.', '2026-09-22 09:00:00.000000'),
+(21, 'PHP', 'Kỹ năng PHP: dữ liệu danh mục dùng để kiểm thử lọc và gợi ý.', '2026-09-21 09:00:00.000000'),
+(22, 'Laravel', 'Kỹ năng Laravel: dữ liệu danh mục dùng để kiểm thử lọc và gợi ý.', '2026-09-20 09:00:00.000000'),
+(23, 'WordPress', 'Kỹ năng WordPress: dữ liệu danh mục dùng để kiểm thử lọc và gợi ý.', '2026-09-19 09:00:00.000000'),
+(24, 'HTML & CSS', 'Kỹ năng HTML & CSS: dữ liệu danh mục dùng để kiểm thử lọc và gợi ý.', '2026-09-18 09:00:00.000000'),
+(25, 'Sass/SCSS', 'Kỹ năng Sass/SCSS: dữ liệu danh mục dùng để kiểm thử lọc và gợi ý.', '2026-09-17 09:00:00.000000'),
+(26, 'Responsive Design', 'Kỹ năng Responsive Design: dữ liệu danh mục dùng để kiểm thử lọc và gợi ý.', '2026-09-16 09:00:00.000000'),
+(27, 'Figma Prototyping', 'Kỹ năng Figma Prototyping: dữ liệu danh mục dùng để kiểm thử lọc và gợi ý.', '2026-09-15 09:00:00.000000'),
+(28, 'Graphic Design', 'Kỹ năng Graphic Design: dữ liệu danh mục dùng để kiểm thử lọc và gợi ý.', '2026-09-14 09:00:00.000000'),
+(29, 'Video Editing', 'Kỹ năng Video Editing: dữ liệu danh mục dùng để kiểm thử lọc và gợi ý.', '2026-09-13 09:00:00.000000'),
+(30, 'Content Writing', 'Kỹ năng Content Writing: dữ liệu danh mục dùng để kiểm thử lọc và gợi ý.', '2026-09-12 09:00:00.000000'),
+(31, 'SEO', 'Kỹ năng SEO: dữ liệu danh mục dùng để kiểm thử lọc và gợi ý.', '2026-09-11 09:00:00.000000'),
+(32, 'Social Media Marketing', 'Kỹ năng Social Media Marketing: dữ liệu danh mục dùng để kiểm thử lọc và gợi ý.', '2026-09-10 09:00:00.000000'),
+(33, 'Google Ads', 'Kỹ năng Google Ads: dữ liệu danh mục dùng để kiểm thử lọc và gợi ý.', '2026-09-09 09:00:00.000000'),
+(34, 'Data Analytics', 'Kỹ năng Data Analytics: dữ liệu danh mục dùng để kiểm thử lọc và gợi ý.', '2026-09-08 09:00:00.000000'),
+(35, 'Power BI', 'Kỹ năng Power BI: dữ liệu danh mục dùng để kiểm thử lọc và gợi ý.', '2026-09-07 09:00:00.000000'),
+(36, 'Tableau', 'Kỹ năng Tableau: dữ liệu danh mục dùng để kiểm thử lọc và gợi ý.', '2026-09-06 09:00:00.000000'),
+(37, 'Machine Learning', 'Kỹ năng Machine Learning: dữ liệu danh mục dùng để kiểm thử lọc và gợi ý.', '2026-09-05 09:00:00.000000');
+INSERT INTO skills (id, name, description, created_at) VALUES
+(38, 'Deep Learning', 'Kỹ năng Deep Learning: dữ liệu danh mục dùng để kiểm thử lọc và gợi ý.', '2026-09-04 09:00:00.000000'),
+(39, 'Data Engineering', 'Kỹ năng Data Engineering: dữ liệu danh mục dùng để kiểm thử lọc và gợi ý.', '2026-09-03 09:00:00.000000'),
+(40, 'PostgreSQL', 'Kỹ năng PostgreSQL: dữ liệu danh mục dùng để kiểm thử lọc và gợi ý.', '2026-09-02 09:00:00.000000'),
+(41, 'MySQL Optimization', 'Kỹ năng MySQL Optimization: dữ liệu danh mục dùng để kiểm thử lọc và gợi ý.', '2026-09-01 09:00:00.000000'),
+(42, 'MongoDB', 'Kỹ năng MongoDB: dữ liệu danh mục dùng để kiểm thử lọc và gợi ý.', '2026-08-31 09:00:00.000000'),
+(43, 'Redis', 'Kỹ năng Redis: dữ liệu danh mục dùng để kiểm thử lọc và gợi ý.', '2026-08-30 09:00:00.000000'),
+(44, 'Docker', 'Kỹ năng Docker: dữ liệu danh mục dùng để kiểm thử lọc và gợi ý.', '2026-08-29 09:00:00.000000'),
+(45, 'Kubernetes', 'Kỹ năng Kubernetes: dữ liệu danh mục dùng để kiểm thử lọc và gợi ý.', '2026-08-28 09:00:00.000000'),
+(46, 'AWS', 'Kỹ năng AWS: dữ liệu danh mục dùng để kiểm thử lọc và gợi ý.', '2026-08-27 09:00:00.000000'),
+(47, 'Azure', 'Kỹ năng Azure: dữ liệu danh mục dùng để kiểm thử lọc và gợi ý.', '2026-08-26 09:00:00.000000'),
+(48, 'Git & GitHub', 'Kỹ năng Git & GitHub: dữ liệu danh mục dùng để kiểm thử lọc và gợi ý.', '2026-08-25 09:00:00.000000'),
+(49, 'Selenium Testing', 'Kỹ năng Selenium Testing: dữ liệu danh mục dùng để kiểm thử lọc và gợi ý.', '2026-08-24 09:00:00.000000'),
+(50, 'JUnit Testing', 'Kỹ năng JUnit Testing: dữ liệu danh mục dùng để kiểm thử lọc và gợi ý.', '2026-08-23 09:00:00.000000');
+
+-- Provider-skill associations: at least 50 rows total.
+INSERT INTO provider_skills (provider_profile_id, skill_id) VALUES
+(2, 14),
+(3, 21),
+(4, 28),
+(5, 35),
+(6, 42),
+(7, 49),
+(8, 6),
+(9, 13),
+(10, 20),
+(11, 27),
+(12, 34),
+(13, 41),
+(14, 48),
+(15, 5),
+(16, 12),
+(17, 19),
+(18, 26),
+(19, 33),
+(20, 40),
+(21, 47),
+(22, 4),
+(23, 11),
+(24, 18),
+(25, 25),
+(26, 32),
+(27, 39),
+(28, 46),
+(29, 3),
+(30, 10),
+(31, 17);
+INSERT INTO provider_skills (provider_profile_id, skill_id) VALUES
+(32, 24),
+(33, 31),
+(34, 38),
+(35, 45),
+(36, 2),
+(37, 9),
+(38, 16),
+(39, 23),
+(40, 30),
+(41, 37),
+(42, 44),
+(43, 1),
+(44, 8),
+(45, 15),
+(46, 22),
+(47, 29),
+(48, 36),
+(49, 43),
+(50, 50);
+
+-- Add 47 services; total 50.
+INSERT INTO services (id, provider_id, name, category, description, pricing_type, price, duration_minutes, cover_image_url, status, rating, review_count, created_at, updated_at, published_at) VALUES
+(4, 53, 'Xây dựng website responsive — Gói 04', 'Lập trình Web', 'Xây dựng website responsive. Phạm vi công việc, đầu ra bàn giao và lịch thực hiện được thống nhất trước khi bắt đầu. Mã gói 04.', 'FIXED', 350000, 180, 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?seed=4', 'PUBLISHED', 4.2, 4, '2026-09-08 09:00:00.000000', '2026-09-10 09:00:00.000000', '2026-09-08 09:00:00.000000'),
+(5, 54, 'Thiết kế UI/UX và prototype — Gói 05', 'Thiết kế', 'Thiết kế UI/UX và prototype. Phạm vi công việc, đầu ra bàn giao và lịch thực hiện được thống nhất trước khi bắt đầu. Mã gói 05.', 'FIXED', 385000, 210, 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?seed=5', 'PUBLISHED', 4.3, 5, '2026-09-07 09:00:00.000000', '2026-09-09 09:00:00.000000', '2026-09-07 09:00:00.000000'),
+(6, 55, 'Phân tích và trực quan hóa dữ liệu — Gói 06', 'Dữ liệu', 'Phân tích và trực quan hóa dữ liệu. Phạm vi công việc, đầu ra bàn giao và lịch thực hiện được thống nhất trước khi bắt đầu. Mã gói 06.', 'HOURLY', 420000, 240, 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?seed=6', 'PUBLISHED', 4.4, 6, '2026-09-06 09:00:00.000000', '2026-09-08 09:00:00.000000', '2026-09-06 09:00:00.000000'),
+(7, 56, 'Tự động hóa kiểm thử chức năng — Gói 07', 'Kiểm thử', 'Tự động hóa kiểm thử chức năng. Phạm vi công việc, đầu ra bàn giao và lịch thực hiện được thống nhất trước khi bắt đầu. Mã gói 07.', 'FIXED', 455000, 270, 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?seed=7', 'PUBLISHED', 4.5, 7, '2026-09-05 09:00:00.000000', '2026-09-07 09:00:00.000000', '2026-09-05 09:00:00.000000'),
+(8, 57, 'Tối ưu SEO và nội dung — Gói 08', 'Marketing', 'Tối ưu SEO và nội dung. Phạm vi công việc, đầu ra bàn giao và lịch thực hiện được thống nhất trước khi bắt đầu. Mã gói 08.', 'FIXED', 490000, 60, 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?seed=8', 'PUBLISHED', 4.6, 8, '2026-09-04 09:00:00.000000', '2026-09-06 09:00:00.000000', '2026-09-04 09:00:00.000000'),
+(9, 58, 'Phát triển ứng dụng di động — Gói 09', 'Ứng dụng', 'Phát triển ứng dụng di động. Phạm vi công việc, đầu ra bàn giao và lịch thực hiện được thống nhất trước khi bắt đầu. Mã gói 09.', 'HOURLY', 525000, 90, 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?seed=9', 'PUBLISHED', 4.7, 9, '2026-09-03 09:00:00.000000', '2026-09-05 09:00:00.000000', '2026-09-03 09:00:00.000000'),
+(10, 59, 'Thiết kế và tối ưu SQL — Gói 10', 'Cơ sở dữ liệu', 'Thiết kế và tối ưu SQL. Phạm vi công việc, đầu ra bàn giao và lịch thực hiện được thống nhất trước khi bắt đầu. Mã gói 10.', 'FIXED', 560000, 120, 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?seed=10', 'PUBLISHED', 4.8, 10, '2026-09-02 09:00:00.000000', '2026-09-04 09:00:00.000000', '2026-09-02 09:00:00.000000'),
+(11, 60, 'Triển khai ứng dụng lên cloud — Gói 11', 'Cloud', 'Triển khai ứng dụng lên cloud. Phạm vi công việc, đầu ra bàn giao và lịch thực hiện được thống nhất trước khi bắt đầu. Mã gói 11.', 'FIXED', 595000, 150, 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?seed=11', 'PUBLISHED', 4.9, 11, '2026-09-01 09:00:00.000000', '2026-09-03 09:00:00.000000', '2026-09-01 09:00:00.000000'),
+(12, 61, 'Xây dựng website responsive — Gói 12', 'Lập trình Web', 'Xây dựng website responsive. Phạm vi công việc, đầu ra bàn giao và lịch thực hiện được thống nhất trước khi bắt đầu. Mã gói 12.', 'HOURLY', 630000, 180, 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?seed=12', 'PUBLISHED', 3.8, 12, '2026-08-31 09:00:00.000000', '2026-09-02 09:00:00.000000', '2026-08-31 09:00:00.000000'),
+(13, 62, 'Thiết kế UI/UX và prototype — Gói 13', 'Thiết kế', 'Thiết kế UI/UX và prototype. Phạm vi công việc, đầu ra bàn giao và lịch thực hiện được thống nhất trước khi bắt đầu. Mã gói 13.', 'FIXED', 665000, 210, 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?seed=13', 'PUBLISHED', 3.9, 13, '2026-08-30 09:00:00.000000', '2026-09-01 09:00:00.000000', '2026-08-30 09:00:00.000000'),
+(14, 63, 'Phân tích và trực quan hóa dữ liệu — Gói 14', 'Dữ liệu', 'Phân tích và trực quan hóa dữ liệu. Phạm vi công việc, đầu ra bàn giao và lịch thực hiện được thống nhất trước khi bắt đầu. Mã gói 14.', 'FIXED', 700000, 240, 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?seed=14', 'PUBLISHED', 4.0, 14, '2026-08-29 09:00:00.000000', '2026-08-31 09:00:00.000000', '2026-08-29 09:00:00.000000'),
+(15, 64, 'Tự động hóa kiểm thử chức năng — Gói 15', 'Kiểm thử', 'Tự động hóa kiểm thử chức năng. Phạm vi công việc, đầu ra bàn giao và lịch thực hiện được thống nhất trước khi bắt đầu. Mã gói 15.', 'HOURLY', 735000, 270, 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?seed=15', 'PUBLISHED', 4.1, 15, '2026-08-28 09:00:00.000000', '2026-08-30 09:00:00.000000', '2026-08-28 09:00:00.000000'),
+(16, 65, 'Tối ưu SEO và nội dung — Gói 16', 'Marketing', 'Tối ưu SEO và nội dung. Phạm vi công việc, đầu ra bàn giao và lịch thực hiện được thống nhất trước khi bắt đầu. Mã gói 16.', 'FIXED', 770000, 60, 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?seed=16', 'PUBLISHED', 4.2, 16, '2026-08-27 09:00:00.000000', '2026-08-29 09:00:00.000000', '2026-08-27 09:00:00.000000'),
+(17, 66, 'Phát triển ứng dụng di động — Gói 17', 'Ứng dụng', 'Phát triển ứng dụng di động. Phạm vi công việc, đầu ra bàn giao và lịch thực hiện được thống nhất trước khi bắt đầu. Mã gói 17.', 'FIXED', 805000, 90, 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?seed=17', 'PUBLISHED', 4.3, 17, '2026-08-26 09:00:00.000000', '2026-08-28 09:00:00.000000', '2026-08-26 09:00:00.000000'),
+(18, 67, 'Thiết kế và tối ưu SQL — Gói 18', 'Cơ sở dữ liệu', 'Thiết kế và tối ưu SQL. Phạm vi công việc, đầu ra bàn giao và lịch thực hiện được thống nhất trước khi bắt đầu. Mã gói 18.', 'HOURLY', 840000, 120, 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?seed=18', 'PUBLISHED', 4.4, 18, '2026-08-25 09:00:00.000000', '2026-08-27 09:00:00.000000', '2026-08-25 09:00:00.000000'),
+(19, 68, 'Triển khai ứng dụng lên cloud — Gói 19', 'Cloud', 'Triển khai ứng dụng lên cloud. Phạm vi công việc, đầu ra bàn giao và lịch thực hiện được thống nhất trước khi bắt đầu. Mã gói 19.', 'FIXED', 875000, 150, 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?seed=19', 'PUBLISHED', 4.5, 19, '2026-08-24 09:00:00.000000', '2026-08-26 09:00:00.000000', '2026-08-24 09:00:00.000000'),
+(20, 69, 'Xây dựng website responsive — Gói 20', 'Lập trình Web', 'Xây dựng website responsive. Phạm vi công việc, đầu ra bàn giao và lịch thực hiện được thống nhất trước khi bắt đầu. Mã gói 20.', 'FIXED', 910000, 180, 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?seed=20', 'PUBLISHED', 4.6, 20, '2026-09-12 09:00:00.000000', '2026-09-14 09:00:00.000000', '2026-09-12 09:00:00.000000'),
+(21, 70, 'Thiết kế UI/UX và prototype — Gói 21', 'Thiết kế', 'Thiết kế UI/UX và prototype. Phạm vi công việc, đầu ra bàn giao và lịch thực hiện được thống nhất trước khi bắt đầu. Mã gói 21.', 'HOURLY', 945000, 210, 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?seed=21', 'PUBLISHED', 4.7, 21, '2026-09-11 09:00:00.000000', '2026-09-13 09:00:00.000000', '2026-09-11 09:00:00.000000'),
+(22, 71, 'Phân tích và trực quan hóa dữ liệu — Gói 22', 'Dữ liệu', 'Phân tích và trực quan hóa dữ liệu. Phạm vi công việc, đầu ra bàn giao và lịch thực hiện được thống nhất trước khi bắt đầu. Mã gói 22.', 'FIXED', 980000, 240, 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?seed=22', 'PUBLISHED', 4.8, 22, '2026-09-10 09:00:00.000000', '2026-09-12 09:00:00.000000', '2026-09-10 09:00:00.000000'),
+(23, 72, 'Tự động hóa kiểm thử chức năng — Gói 23', 'Kiểm thử', 'Tự động hóa kiểm thử chức năng. Phạm vi công việc, đầu ra bàn giao và lịch thực hiện được thống nhất trước khi bắt đầu. Mã gói 23.', 'FIXED', 1015000, 270, 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?seed=23', 'PUBLISHED', 4.9, 23, '2026-09-09 09:00:00.000000', '2026-09-11 09:00:00.000000', '2026-09-09 09:00:00.000000'),
+(24, 73, 'Tối ưu SEO và nội dung — Gói 24', 'Marketing', 'Tối ưu SEO và nội dung. Phạm vi công việc, đầu ra bàn giao và lịch thực hiện được thống nhất trước khi bắt đầu. Mã gói 24.', 'HOURLY', 1050000, 60, 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?seed=24', 'PUBLISHED', 3.8, 24, '2026-09-08 09:00:00.000000', '2026-09-10 09:00:00.000000', '2026-09-08 09:00:00.000000'),
+(25, 74, 'Phát triển ứng dụng di động — Gói 25', 'Ứng dụng', 'Phát triển ứng dụng di động. Phạm vi công việc, đầu ra bàn giao và lịch thực hiện được thống nhất trước khi bắt đầu. Mã gói 25.', 'FIXED', 1085000, 90, 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?seed=25', 'PUBLISHED', 3.9, 0, '2026-09-07 09:00:00.000000', '2026-09-09 09:00:00.000000', '2026-09-07 09:00:00.000000'),
+(26, 75, 'Thiết kế và tối ưu SQL — Gói 26', 'Cơ sở dữ liệu', 'Thiết kế và tối ưu SQL. Phạm vi công việc, đầu ra bàn giao và lịch thực hiện được thống nhất trước khi bắt đầu. Mã gói 26.', 'FIXED', 1120000, 120, 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?seed=26', 'PUBLISHED', 4.0, 1, '2026-09-06 09:00:00.000000', '2026-09-08 09:00:00.000000', '2026-09-06 09:00:00.000000'),
+(27, 76, 'Triển khai ứng dụng lên cloud — Gói 27', 'Cloud', 'Triển khai ứng dụng lên cloud. Phạm vi công việc, đầu ra bàn giao và lịch thực hiện được thống nhất trước khi bắt đầu. Mã gói 27.', 'HOURLY', 1155000, 150, 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?seed=27', 'PUBLISHED', 4.1, 2, '2026-09-05 09:00:00.000000', '2026-09-07 09:00:00.000000', '2026-09-05 09:00:00.000000'),
+(28, 77, 'Xây dựng website responsive — Gói 28', 'Lập trình Web', 'Xây dựng website responsive. Phạm vi công việc, đầu ra bàn giao và lịch thực hiện được thống nhất trước khi bắt đầu. Mã gói 28.', 'FIXED', 1190000, 180, 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?seed=28', 'PUBLISHED', 4.2, 3, '2026-09-04 09:00:00.000000', '2026-09-06 09:00:00.000000', '2026-09-04 09:00:00.000000'),
+(29, 78, 'Thiết kế UI/UX và prototype — Gói 29', 'Thiết kế', 'Thiết kế UI/UX và prototype. Phạm vi công việc, đầu ra bàn giao và lịch thực hiện được thống nhất trước khi bắt đầu. Mã gói 29.', 'FIXED', 1225000, 210, 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?seed=29', 'PUBLISHED', 4.3, 4, '2026-09-03 09:00:00.000000', '2026-09-05 09:00:00.000000', '2026-09-03 09:00:00.000000'),
+(30, 79, 'Phân tích và trực quan hóa dữ liệu — Gói 30', 'Dữ liệu', 'Phân tích và trực quan hóa dữ liệu. Phạm vi công việc, đầu ra bàn giao và lịch thực hiện được thống nhất trước khi bắt đầu. Mã gói 30.', 'HOURLY', 1260000, 240, 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?seed=30', 'PUBLISHED', 4.4, 5, '2026-09-02 09:00:00.000000', '2026-09-04 09:00:00.000000', '2026-09-02 09:00:00.000000'),
+(31, 80, 'Tự động hóa kiểm thử chức năng — Gói 31', 'Kiểm thử', 'Tự động hóa kiểm thử chức năng. Phạm vi công việc, đầu ra bàn giao và lịch thực hiện được thống nhất trước khi bắt đầu. Mã gói 31.', 'FIXED', 1295000, 270, 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?seed=31', 'PUBLISHED', 4.5, 6, '2026-09-01 09:00:00.000000', '2026-09-03 09:00:00.000000', '2026-09-01 09:00:00.000000'),
+(32, 81, 'Tối ưu SEO và nội dung — Gói 32', 'Marketing', 'Tối ưu SEO và nội dung. Phạm vi công việc, đầu ra bàn giao và lịch thực hiện được thống nhất trước khi bắt đầu. Mã gói 32.', 'FIXED', 1330000, 60, 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?seed=32', 'PUBLISHED', 4.6, 7, '2026-08-31 09:00:00.000000', '2026-09-02 09:00:00.000000', '2026-08-31 09:00:00.000000'),
+(33, 82, 'Phát triển ứng dụng di động — Gói 33', 'Ứng dụng', 'Phát triển ứng dụng di động. Phạm vi công việc, đầu ra bàn giao và lịch thực hiện được thống nhất trước khi bắt đầu. Mã gói 33.', 'HOURLY', 1365000, 90, 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?seed=33', 'PUBLISHED', 4.7, 8, '2026-08-30 09:00:00.000000', '2026-09-01 09:00:00.000000', '2026-08-30 09:00:00.000000');
+INSERT INTO services (id, provider_id, name, category, description, pricing_type, price, duration_minutes, cover_image_url, status, rating, review_count, created_at, updated_at, published_at) VALUES
+(34, 83, 'Thiết kế và tối ưu SQL — Gói 34', 'Cơ sở dữ liệu', 'Thiết kế và tối ưu SQL. Phạm vi công việc, đầu ra bàn giao và lịch thực hiện được thống nhất trước khi bắt đầu. Mã gói 34.', 'FIXED', 1400000, 120, 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?seed=34', 'PUBLISHED', 4.8, 9, '2026-08-29 09:00:00.000000', '2026-08-31 09:00:00.000000', '2026-08-29 09:00:00.000000'),
+(35, 84, 'Triển khai ứng dụng lên cloud — Gói 35', 'Cloud', 'Triển khai ứng dụng lên cloud. Phạm vi công việc, đầu ra bàn giao và lịch thực hiện được thống nhất trước khi bắt đầu. Mã gói 35.', 'FIXED', 1435000, 150, 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?seed=35', 'PUBLISHED', 4.9, 10, '2026-08-28 09:00:00.000000', '2026-08-30 09:00:00.000000', '2026-08-28 09:00:00.000000'),
+(36, 85, 'Xây dựng website responsive — Gói 36', 'Lập trình Web', 'Xây dựng website responsive. Phạm vi công việc, đầu ra bàn giao và lịch thực hiện được thống nhất trước khi bắt đầu. Mã gói 36.', 'HOURLY', 1470000, 180, 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?seed=36', 'PUBLISHED', 3.8, 11, '2026-08-27 09:00:00.000000', '2026-08-29 09:00:00.000000', '2026-08-27 09:00:00.000000'),
+(37, 86, 'Thiết kế UI/UX và prototype — Gói 37', 'Thiết kế', 'Thiết kế UI/UX và prototype. Phạm vi công việc, đầu ra bàn giao và lịch thực hiện được thống nhất trước khi bắt đầu. Mã gói 37.', 'FIXED', 1505000, 210, 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?seed=37', 'PUBLISHED', 3.9, 12, '2026-08-26 09:00:00.000000', '2026-08-28 09:00:00.000000', '2026-08-26 09:00:00.000000'),
+(38, 87, 'Phân tích và trực quan hóa dữ liệu — Gói 38', 'Dữ liệu', 'Phân tích và trực quan hóa dữ liệu. Phạm vi công việc, đầu ra bàn giao và lịch thực hiện được thống nhất trước khi bắt đầu. Mã gói 38.', 'FIXED', 1540000, 240, 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?seed=38', 'PUBLISHED', 4.0, 13, '2026-08-25 09:00:00.000000', '2026-08-27 09:00:00.000000', '2026-08-25 09:00:00.000000'),
+(39, 88, 'Tự động hóa kiểm thử chức năng — Gói 39', 'Kiểm thử', 'Tự động hóa kiểm thử chức năng. Phạm vi công việc, đầu ra bàn giao và lịch thực hiện được thống nhất trước khi bắt đầu. Mã gói 39.', 'HOURLY', 1575000, 270, 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?seed=39', 'PUBLISHED', 4.1, 14, '2026-08-24 09:00:00.000000', '2026-08-26 09:00:00.000000', '2026-08-24 09:00:00.000000'),
+(40, 89, 'Tối ưu SEO và nội dung — Gói 40', 'Marketing', 'Tối ưu SEO và nội dung. Phạm vi công việc, đầu ra bàn giao và lịch thực hiện được thống nhất trước khi bắt đầu. Mã gói 40.', 'FIXED', 1610000, 60, 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?seed=40', 'PUBLISHED', 4.2, 15, '2026-09-12 09:00:00.000000', '2026-09-14 09:00:00.000000', '2026-09-12 09:00:00.000000'),
+(41, 90, 'Phát triển ứng dụng di động — Gói 41', 'Ứng dụng', 'Phát triển ứng dụng di động. Phạm vi công việc, đầu ra bàn giao và lịch thực hiện được thống nhất trước khi bắt đầu. Mã gói 41.', 'FIXED', 1645000, 90, 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?seed=41', 'PUBLISHED', 4.3, 16, '2026-09-11 09:00:00.000000', '2026-09-13 09:00:00.000000', '2026-09-11 09:00:00.000000'),
+(42, 91, 'Thiết kế và tối ưu SQL — Gói 42', 'Cơ sở dữ liệu', 'Thiết kế và tối ưu SQL. Phạm vi công việc, đầu ra bàn giao và lịch thực hiện được thống nhất trước khi bắt đầu. Mã gói 42.', 'HOURLY', 1680000, 120, 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?seed=42', 'PUBLISHED', 4.4, 17, '2026-09-10 09:00:00.000000', '2026-09-12 09:00:00.000000', '2026-09-10 09:00:00.000000'),
+(43, 92, 'Triển khai ứng dụng lên cloud — Gói 43', 'Cloud', 'Triển khai ứng dụng lên cloud. Phạm vi công việc, đầu ra bàn giao và lịch thực hiện được thống nhất trước khi bắt đầu. Mã gói 43.', 'FIXED', 1715000, 150, 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?seed=43', 'PUBLISHED', 4.5, 18, '2026-09-09 09:00:00.000000', '2026-09-11 09:00:00.000000', '2026-09-09 09:00:00.000000'),
+(44, 93, 'Xây dựng website responsive — Gói 44', 'Lập trình Web', 'Xây dựng website responsive. Phạm vi công việc, đầu ra bàn giao và lịch thực hiện được thống nhất trước khi bắt đầu. Mã gói 44.', 'FIXED', 1750000, 180, 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?seed=44', 'PUBLISHED', 4.6, 19, '2026-09-08 09:00:00.000000', '2026-09-10 09:00:00.000000', '2026-09-08 09:00:00.000000'),
+(45, 94, 'Thiết kế UI/UX và prototype — Gói 45', 'Thiết kế', 'Thiết kế UI/UX và prototype. Phạm vi công việc, đầu ra bàn giao và lịch thực hiện được thống nhất trước khi bắt đầu. Mã gói 45.', 'HOURLY', 1785000, 210, 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?seed=45', 'PUBLISHED', 4.7, 20, '2026-09-07 09:00:00.000000', '2026-09-09 09:00:00.000000', '2026-09-07 09:00:00.000000'),
+(46, 95, 'Phân tích và trực quan hóa dữ liệu — Gói 46', 'Dữ liệu', 'Phân tích và trực quan hóa dữ liệu. Phạm vi công việc, đầu ra bàn giao và lịch thực hiện được thống nhất trước khi bắt đầu. Mã gói 46.', 'FIXED', 1820000, 240, 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?seed=46', 'PUBLISHED', 4.8, 21, '2026-09-06 09:00:00.000000', '2026-09-08 09:00:00.000000', '2026-09-06 09:00:00.000000'),
+(47, 96, 'Tự động hóa kiểm thử chức năng — Gói 47', 'Kiểm thử', 'Tự động hóa kiểm thử chức năng. Phạm vi công việc, đầu ra bàn giao và lịch thực hiện được thống nhất trước khi bắt đầu. Mã gói 47.', 'FIXED', 1855000, 270, 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?seed=47', 'PUBLISHED', 4.9, 22, '2026-09-05 09:00:00.000000', '2026-09-07 09:00:00.000000', '2026-09-05 09:00:00.000000'),
+(48, 97, 'Tối ưu SEO và nội dung — Gói 48', 'Marketing', 'Tối ưu SEO và nội dung. Phạm vi công việc, đầu ra bàn giao và lịch thực hiện được thống nhất trước khi bắt đầu. Mã gói 48.', 'HOURLY', 1890000, 60, 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?seed=48', 'PUBLISHED', 3.8, 23, '2026-09-04 09:00:00.000000', '2026-09-06 09:00:00.000000', '2026-09-04 09:00:00.000000'),
+(49, 98, 'Phát triển ứng dụng di động — Gói 49', 'Ứng dụng', 'Phát triển ứng dụng di động. Phạm vi công việc, đầu ra bàn giao và lịch thực hiện được thống nhất trước khi bắt đầu. Mã gói 49.', 'FIXED', 1925000, 90, 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?seed=49', 'PUBLISHED', 3.9, 24, '2026-09-03 09:00:00.000000', '2026-09-05 09:00:00.000000', '2026-09-03 09:00:00.000000'),
+(50, 99, 'Thiết kế và tối ưu SQL — Gói 50', 'Cơ sở dữ liệu', 'Thiết kế và tối ưu SQL. Phạm vi công việc, đầu ra bàn giao và lịch thực hiện được thống nhất trước khi bắt đầu. Mã gói 50.', 'FIXED', 1960000, 120, 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?seed=50', 'PUBLISHED', 4.0, 0, '2026-09-02 09:00:00.000000', '2026-09-04 09:00:00.000000', '2026-09-02 09:00:00.000000');
+
+-- Add 47 service-skill links.
+INSERT INTO service_skills (service_id, skill_id) VALUES
+(4, 4),
+(5, 5),
+(6, 6),
+(7, 7),
+(8, 8),
+(9, 9),
+(10, 10),
+(11, 11),
+(12, 12),
+(13, 13),
+(14, 14),
+(15, 15),
+(16, 16),
+(17, 17),
+(18, 18),
+(19, 19),
+(20, 20),
+(21, 21),
+(22, 22),
+(23, 23),
+(24, 24),
+(25, 25),
+(26, 26),
+(27, 27),
+(28, 28),
+(29, 29),
+(30, 30),
+(31, 31),
+(32, 32),
+(33, 33);
+INSERT INTO service_skills (service_id, skill_id) VALUES
+(34, 34),
+(35, 35),
+(36, 36),
+(37, 37),
+(38, 38),
+(39, 39),
+(40, 40),
+(41, 41),
+(42, 42),
+(43, 43),
+(44, 44),
+(45, 45),
+(46, 46),
+(47, 47),
+(48, 48),
+(49, 49),
+(50, 50);
+
+-- Add 49 service requests; total 50.
+INSERT INTO service_requests (id, customer_id, title, required_skills, description, budget, deadline, status, selected_provider_id, created_at, updated_at) VALUES
+(2, 4, 'Xây dựng website giới thiệu doanh nghiệp — Yêu cầu 02', 'JavaScript', 'Yêu cầu dịch vụ dữ liệu mẫu số 02. Cần thống nhất phạm vi, mốc bàn giao, kiểm thử và tài liệu hướng dẫn.', 1100000, '2026-11-01', 'OPEN', NULL, '2026-10-11 09:00:00.000000', '2026-10-11 09:00:00.000000'),
+(3, 5, 'Thiết kế landing page — Yêu cầu 03', 'TypeScript', 'Yêu cầu dịch vụ dữ liệu mẫu số 03. Cần thống nhất phạm vi, mốc bàn giao, kiểm thử và tài liệu hướng dẫn.', 1250000, '2026-11-02', 'OPEN', NULL, '2026-10-10 09:00:00.000000', '2026-10-10 09:00:00.000000'),
+(4, 6, 'Phân tích dữ liệu bán hàng — Yêu cầu 04', 'React', 'Yêu cầu dịch vụ dữ liệu mẫu số 04. Cần thống nhất phạm vi, mốc bàn giao, kiểm thử và tài liệu hướng dẫn.', 1400000, '2026-11-03', 'OPEN', NULL, '2026-10-09 09:00:00.000000', '2026-10-09 09:00:00.000000'),
+(5, 7, 'Tự động hóa kiểm thử website — Yêu cầu 05', 'Vue.js', 'Yêu cầu dịch vụ dữ liệu mẫu số 05. Cần thống nhất phạm vi, mốc bàn giao, kiểm thử và tài liệu hướng dẫn.', 1550000, '2026-11-04', 'OPEN', NULL, '2026-10-08 09:00:00.000000', '2026-10-08 09:00:00.000000'),
+(6, 8, 'Tối ưu SEO cho website — Yêu cầu 06', 'Angular', 'Yêu cầu dịch vụ dữ liệu mẫu số 06. Cần thống nhất phạm vi, mốc bàn giao, kiểm thử và tài liệu hướng dẫn.', 1700000, '2026-11-05', 'OPEN', NULL, '2026-10-07 09:00:00.000000', '2026-10-07 09:00:00.000000'),
+(7, 9, 'Xây dựng REST API — Yêu cầu 07', 'Node.js', 'Yêu cầu dịch vụ dữ liệu mẫu số 07. Cần thống nhất phạm vi, mốc bàn giao, kiểm thử và tài liệu hướng dẫn.', 1850000, '2026-11-06', 'OPEN', NULL, '2026-10-06 09:00:00.000000', '2026-10-06 09:00:00.000000'),
+(8, 10, 'Thiết kế cơ sở dữ liệu — Yêu cầu 08', 'Express.js', 'Yêu cầu dịch vụ dữ liệu mẫu số 08. Cần thống nhất phạm vi, mốc bàn giao, kiểm thử và tài liệu hướng dẫn.', 2000000, '2026-11-07', 'OPEN', NULL, '2026-10-05 09:00:00.000000', '2026-10-05 09:00:00.000000'),
+(9, 11, 'Phát triển ứng dụng di động — Yêu cầu 09', 'Python', 'Yêu cầu dịch vụ dữ liệu mẫu số 09. Cần thống nhất phạm vi, mốc bàn giao, kiểm thử và tài liệu hướng dẫn.', 2150000, '2026-11-08', 'OPEN', NULL, '2026-10-04 09:00:00.000000', '2026-10-04 09:00:00.000000'),
+(10, 12, 'Xây dựng website giới thiệu doanh nghiệp — Yêu cầu 10', 'Django', 'Yêu cầu dịch vụ dữ liệu mẫu số 10. Cần thống nhất phạm vi, mốc bàn giao, kiểm thử và tài liệu hướng dẫn.', 2300000, '2026-11-09', 'OPEN', NULL, '2026-10-03 09:00:00.000000', '2026-10-03 09:00:00.000000'),
+(11, 13, 'Thiết kế landing page — Yêu cầu 11', 'Flask', 'Yêu cầu dịch vụ dữ liệu mẫu số 11. Cần thống nhất phạm vi, mốc bàn giao, kiểm thử và tài liệu hướng dẫn.', 2450000, '2026-11-10', 'OPEN', NULL, '2026-10-02 09:00:00.000000', '2026-10-02 09:00:00.000000'),
+(12, 14, 'Phân tích dữ liệu bán hàng — Yêu cầu 12', 'FastAPI', 'Yêu cầu dịch vụ dữ liệu mẫu số 12. Cần thống nhất phạm vi, mốc bàn giao, kiểm thử và tài liệu hướng dẫn.', 2600000, '2026-11-11', 'OPEN', NULL, '2026-10-01 09:00:00.000000', '2026-10-01 09:00:00.000000'),
+(13, 15, 'Tự động hóa kiểm thử website — Yêu cầu 13', 'C#', 'Yêu cầu dịch vụ dữ liệu mẫu số 13. Cần thống nhất phạm vi, mốc bàn giao, kiểm thử và tài liệu hướng dẫn.', 2750000, '2026-11-12', 'OPEN', NULL, '2026-09-30 09:00:00.000000', '2026-09-30 09:00:00.000000'),
+(14, 16, 'Tối ưu SEO cho website — Yêu cầu 14', 'ASP.NET Core', 'Yêu cầu dịch vụ dữ liệu mẫu số 14. Cần thống nhất phạm vi, mốc bàn giao, kiểm thử và tài liệu hướng dẫn.', 2900000, '2026-11-13', 'OPEN', NULL, '2026-09-29 09:00:00.000000', '2026-09-29 09:00:00.000000'),
+(15, 17, 'Xây dựng REST API — Yêu cầu 15', 'PHP', 'Yêu cầu dịch vụ dữ liệu mẫu số 15. Cần thống nhất phạm vi, mốc bàn giao, kiểm thử và tài liệu hướng dẫn.', 3050000, '2026-11-14', 'OPEN', NULL, '2026-09-28 09:00:00.000000', '2026-09-28 09:00:00.000000'),
+(16, 18, 'Thiết kế cơ sở dữ liệu — Yêu cầu 16', 'Laravel', 'Yêu cầu dịch vụ dữ liệu mẫu số 16. Cần thống nhất phạm vi, mốc bàn giao, kiểm thử và tài liệu hướng dẫn.', 3200000, '2026-11-15', 'OPEN', NULL, '2026-09-27 09:00:00.000000', '2026-09-27 09:00:00.000000'),
+(17, 19, 'Phát triển ứng dụng di động — Yêu cầu 17', 'WordPress', 'Yêu cầu dịch vụ dữ liệu mẫu số 17. Cần thống nhất phạm vi, mốc bàn giao, kiểm thử và tài liệu hướng dẫn.', 3350000, '2026-11-16', 'OPEN', NULL, '2026-09-26 09:00:00.000000', '2026-09-26 09:00:00.000000'),
+(18, 20, 'Xây dựng website giới thiệu doanh nghiệp — Yêu cầu 18', 'HTML & CSS', 'Yêu cầu dịch vụ dữ liệu mẫu số 18. Cần thống nhất phạm vi, mốc bàn giao, kiểm thử và tài liệu hướng dẫn.', 3500000, '2026-11-17', 'OPEN', NULL, '2026-09-25 09:00:00.000000', '2026-09-25 09:00:00.000000'),
+(19, 21, 'Thiết kế landing page — Yêu cầu 19', 'Sass/SCSS', 'Yêu cầu dịch vụ dữ liệu mẫu số 19. Cần thống nhất phạm vi, mốc bàn giao, kiểm thử và tài liệu hướng dẫn.', 3650000, '2026-11-18', 'OPEN', NULL, '2026-09-24 09:00:00.000000', '2026-09-24 09:00:00.000000'),
+(20, 22, 'Phân tích dữ liệu bán hàng — Yêu cầu 20', 'Responsive Design', 'Yêu cầu dịch vụ dữ liệu mẫu số 20. Cần thống nhất phạm vi, mốc bàn giao, kiểm thử và tài liệu hướng dẫn.', 800000, '2026-11-19', 'OPEN', NULL, '2026-09-23 09:00:00.000000', '2026-09-23 09:00:00.000000'),
+(21, 23, 'Tự động hóa kiểm thử website — Yêu cầu 21', 'Figma Prototyping', 'Yêu cầu dịch vụ dữ liệu mẫu số 21. Cần thống nhất phạm vi, mốc bàn giao, kiểm thử và tài liệu hướng dẫn.', 950000, '2026-11-20', 'OPEN', NULL, '2026-09-22 09:00:00.000000', '2026-09-22 09:00:00.000000'),
+(22, 24, 'Tối ưu SEO cho website — Yêu cầu 22', 'Graphic Design', 'Yêu cầu dịch vụ dữ liệu mẫu số 22. Cần thống nhất phạm vi, mốc bàn giao, kiểm thử và tài liệu hướng dẫn.', 1100000, '2026-11-21', 'OPEN', NULL, '2026-09-21 09:00:00.000000', '2026-09-21 09:00:00.000000'),
+(23, 25, 'Xây dựng REST API — Yêu cầu 23', 'Video Editing', 'Yêu cầu dịch vụ dữ liệu mẫu số 23. Cần thống nhất phạm vi, mốc bàn giao, kiểm thử và tài liệu hướng dẫn.', 1250000, '2026-11-22', 'OPEN', NULL, '2026-09-20 09:00:00.000000', '2026-09-20 09:00:00.000000'),
+(24, 26, 'Thiết kế cơ sở dữ liệu — Yêu cầu 24', 'Content Writing', 'Yêu cầu dịch vụ dữ liệu mẫu số 24. Cần thống nhất phạm vi, mốc bàn giao, kiểm thử và tài liệu hướng dẫn.', 1400000, '2026-11-23', 'OPEN', NULL, '2026-09-19 09:00:00.000000', '2026-09-19 09:00:00.000000'),
+(25, 27, 'Phát triển ứng dụng di động — Yêu cầu 25', 'SEO', 'Yêu cầu dịch vụ dữ liệu mẫu số 25. Cần thống nhất phạm vi, mốc bàn giao, kiểm thử và tài liệu hướng dẫn.', 1550000, '2026-11-24', 'OPEN', NULL, '2026-09-18 09:00:00.000000', '2026-09-18 09:00:00.000000'),
+(26, 28, 'Xây dựng website giới thiệu doanh nghiệp — Yêu cầu 26', 'Social Media Marketing', 'Yêu cầu dịch vụ dữ liệu mẫu số 26. Cần thống nhất phạm vi, mốc bàn giao, kiểm thử và tài liệu hướng dẫn.', 1700000, '2026-11-25', 'OPEN', NULL, '2026-09-17 09:00:00.000000', '2026-09-17 09:00:00.000000'),
+(27, 29, 'Thiết kế landing page — Yêu cầu 27', 'Google Ads', 'Yêu cầu dịch vụ dữ liệu mẫu số 27. Cần thống nhất phạm vi, mốc bàn giao, kiểm thử và tài liệu hướng dẫn.', 1850000, '2026-11-26', 'OPEN', NULL, '2026-09-16 09:00:00.000000', '2026-09-16 09:00:00.000000'),
+(28, 30, 'Phân tích dữ liệu bán hàng — Yêu cầu 28', 'Data Analytics', 'Yêu cầu dịch vụ dữ liệu mẫu số 28. Cần thống nhất phạm vi, mốc bàn giao, kiểm thử và tài liệu hướng dẫn.', 2000000, '2026-11-27', 'OPEN', NULL, '2026-09-15 09:00:00.000000', '2026-09-15 09:00:00.000000'),
+(29, 31, 'Tự động hóa kiểm thử website — Yêu cầu 29', 'Power BI', 'Yêu cầu dịch vụ dữ liệu mẫu số 29. Cần thống nhất phạm vi, mốc bàn giao, kiểm thử và tài liệu hướng dẫn.', 2150000, '2026-11-28', 'OPEN', NULL, '2026-09-14 09:00:00.000000', '2026-09-14 09:00:00.000000'),
+(30, 32, 'Tối ưu SEO cho website — Yêu cầu 30', 'Tableau', 'Yêu cầu dịch vụ dữ liệu mẫu số 30. Cần thống nhất phạm vi, mốc bàn giao, kiểm thử và tài liệu hướng dẫn.', 2300000, '2026-11-01', 'OPEN', NULL, '2026-09-13 09:00:00.000000', '2026-09-13 09:00:00.000000'),
+(31, 33, 'Xây dựng REST API — Yêu cầu 31', 'Machine Learning', 'Yêu cầu dịch vụ dữ liệu mẫu số 31. Cần thống nhất phạm vi, mốc bàn giao, kiểm thử và tài liệu hướng dẫn.', 2450000, '2026-11-02', 'OPEN', NULL, '2026-09-12 09:00:00.000000', '2026-09-12 09:00:00.000000');
+INSERT INTO service_requests (id, customer_id, title, required_skills, description, budget, deadline, status, selected_provider_id, created_at, updated_at) VALUES
+(32, 34, 'Thiết kế cơ sở dữ liệu — Yêu cầu 32', 'Deep Learning', 'Yêu cầu dịch vụ dữ liệu mẫu số 32. Cần thống nhất phạm vi, mốc bàn giao, kiểm thử và tài liệu hướng dẫn.', 2600000, '2026-11-03', 'OPEN', NULL, '2026-09-11 09:00:00.000000', '2026-09-11 09:00:00.000000'),
+(33, 35, 'Phát triển ứng dụng di động — Yêu cầu 33', 'Data Engineering', 'Yêu cầu dịch vụ dữ liệu mẫu số 33. Cần thống nhất phạm vi, mốc bàn giao, kiểm thử và tài liệu hướng dẫn.', 2750000, '2026-11-04', 'OPEN', NULL, '2026-09-10 09:00:00.000000', '2026-09-10 09:00:00.000000'),
+(34, 36, 'Xây dựng website giới thiệu doanh nghiệp — Yêu cầu 34', 'PostgreSQL', 'Yêu cầu dịch vụ dữ liệu mẫu số 34. Cần thống nhất phạm vi, mốc bàn giao, kiểm thử và tài liệu hướng dẫn.', 2900000, '2026-11-05', 'OPEN', NULL, '2026-09-09 09:00:00.000000', '2026-09-09 09:00:00.000000'),
+(35, 37, 'Thiết kế landing page — Yêu cầu 35', 'MySQL Optimization', 'Yêu cầu dịch vụ dữ liệu mẫu số 35. Cần thống nhất phạm vi, mốc bàn giao, kiểm thử và tài liệu hướng dẫn.', 3050000, '2026-11-06', 'OPEN', NULL, '2026-09-08 09:00:00.000000', '2026-09-08 09:00:00.000000'),
+(36, 38, 'Phân tích dữ liệu bán hàng — Yêu cầu 36', 'MongoDB', 'Yêu cầu dịch vụ dữ liệu mẫu số 36. Cần thống nhất phạm vi, mốc bàn giao, kiểm thử và tài liệu hướng dẫn.', 3200000, '2026-11-07', 'OPEN', NULL, '2026-09-07 09:00:00.000000', '2026-09-07 09:00:00.000000'),
+(37, 39, 'Tự động hóa kiểm thử website — Yêu cầu 37', 'Redis', 'Yêu cầu dịch vụ dữ liệu mẫu số 37. Cần thống nhất phạm vi, mốc bàn giao, kiểm thử và tài liệu hướng dẫn.', 3350000, '2026-11-08', 'OPEN', NULL, '2026-09-06 09:00:00.000000', '2026-09-06 09:00:00.000000'),
+(38, 40, 'Tối ưu SEO cho website — Yêu cầu 38', 'Docker', 'Yêu cầu dịch vụ dữ liệu mẫu số 38. Cần thống nhất phạm vi, mốc bàn giao, kiểm thử và tài liệu hướng dẫn.', 3500000, '2026-11-09', 'OPEN', NULL, '2026-09-05 09:00:00.000000', '2026-09-05 09:00:00.000000'),
+(39, 41, 'Xây dựng REST API — Yêu cầu 39', 'Kubernetes', 'Yêu cầu dịch vụ dữ liệu mẫu số 39. Cần thống nhất phạm vi, mốc bàn giao, kiểm thử và tài liệu hướng dẫn.', 3650000, '2026-11-10', 'OPEN', NULL, '2026-09-04 09:00:00.000000', '2026-09-04 09:00:00.000000'),
+(40, 42, 'Thiết kế cơ sở dữ liệu — Yêu cầu 40', 'AWS', 'Yêu cầu dịch vụ dữ liệu mẫu số 40. Cần thống nhất phạm vi, mốc bàn giao, kiểm thử và tài liệu hướng dẫn.', 800000, '2026-11-11', 'OPEN', NULL, '2026-09-03 09:00:00.000000', '2026-09-03 09:00:00.000000'),
+(41, 43, 'Phát triển ứng dụng di động — Yêu cầu 41', 'Azure', 'Yêu cầu dịch vụ dữ liệu mẫu số 41. Cần thống nhất phạm vi, mốc bàn giao, kiểm thử và tài liệu hướng dẫn.', 950000, '2026-11-12', 'OPEN', NULL, '2026-09-02 09:00:00.000000', '2026-09-02 09:00:00.000000'),
+(42, 44, 'Xây dựng website giới thiệu doanh nghiệp — Yêu cầu 42', 'Git & GitHub', 'Yêu cầu dịch vụ dữ liệu mẫu số 42. Cần thống nhất phạm vi, mốc bàn giao, kiểm thử và tài liệu hướng dẫn.', 1100000, '2026-11-13', 'OPEN', NULL, '2026-09-01 09:00:00.000000', '2026-09-01 09:00:00.000000'),
+(43, 45, 'Thiết kế landing page — Yêu cầu 43', 'Selenium Testing', 'Yêu cầu dịch vụ dữ liệu mẫu số 43. Cần thống nhất phạm vi, mốc bàn giao, kiểm thử và tài liệu hướng dẫn.', 1250000, '2026-11-14', 'OPEN', NULL, '2026-08-31 09:00:00.000000', '2026-08-31 09:00:00.000000'),
+(44, 46, 'Phân tích dữ liệu bán hàng — Yêu cầu 44', 'JUnit Testing', 'Yêu cầu dịch vụ dữ liệu mẫu số 44. Cần thống nhất phạm vi, mốc bàn giao, kiểm thử và tài liệu hướng dẫn.', 1400000, '2026-11-15', 'OPEN', NULL, '2026-08-30 09:00:00.000000', '2026-08-30 09:00:00.000000'),
+(45, 47, 'Tự động hóa kiểm thử website — Yêu cầu 45', 'API Testing', 'Yêu cầu dịch vụ dữ liệu mẫu số 45. Cần thống nhất phạm vi, mốc bàn giao, kiểm thử và tài liệu hướng dẫn.', 1550000, '2026-11-16', 'OPEN', NULL, '2026-08-29 09:00:00.000000', '2026-08-29 09:00:00.000000'),
+(46, 48, 'Tối ưu SEO cho website — Yêu cầu 46', 'SQL & Database', 'Yêu cầu dịch vụ dữ liệu mẫu số 46. Cần thống nhất phạm vi, mốc bàn giao, kiểm thử và tài liệu hướng dẫn.', 1700000, '2026-11-17', 'OPEN', NULL, '2026-08-28 09:00:00.000000', '2026-08-28 09:00:00.000000'),
+(47, 49, 'Xây dựng REST API — Yêu cầu 47', 'Java', 'Yêu cầu dịch vụ dữ liệu mẫu số 47. Cần thống nhất phạm vi, mốc bàn giao, kiểm thử và tài liệu hướng dẫn.', 1850000, '2026-11-18', 'OPEN', NULL, '2026-08-27 09:00:00.000000', '2026-08-27 09:00:00.000000'),
+(48, 50, 'Thiết kế cơ sở dữ liệu — Yêu cầu 48', 'Spring Boot', 'Yêu cầu dịch vụ dữ liệu mẫu số 48. Cần thống nhất phạm vi, mốc bàn giao, kiểm thử và tài liệu hướng dẫn.', 2000000, '2026-11-19', 'OPEN', NULL, '2026-08-26 09:00:00.000000', '2026-08-26 09:00:00.000000'),
+(49, 51, 'Phát triển ứng dụng di động — Yêu cầu 49', 'SQL & Database', 'Yêu cầu dịch vụ dữ liệu mẫu số 49. Cần thống nhất phạm vi, mốc bàn giao, kiểm thử và tài liệu hướng dẫn.', 2150000, '2026-11-20', 'OPEN', NULL, '2026-08-25 09:00:00.000000', '2026-08-25 09:00:00.000000'),
+(50, 52, 'Xây dựng website giới thiệu doanh nghiệp — Yêu cầu 50', 'Java', 'Yêu cầu dịch vụ dữ liệu mẫu số 50. Cần thống nhất phạm vi, mốc bàn giao, kiểm thử và tài liệu hướng dẫn.', 2300000, '2026-11-21', 'OPEN', NULL, '2026-08-24 09:00:00.000000', '2026-08-24 09:00:00.000000');
+
+-- Add one skill relation per added request.
+INSERT INTO service_request_skills (request_id, skill_id) VALUES
+(2, 6),
+(3, 9),
+(4, 12),
+(5, 15),
+(6, 18),
+(7, 21),
+(8, 24),
+(9, 27),
+(10, 30),
+(11, 33),
+(12, 36),
+(13, 39),
+(14, 42),
+(15, 45),
+(16, 48),
+(17, 1),
+(18, 4),
+(19, 7),
+(20, 10),
+(21, 13),
+(22, 16),
+(23, 19),
+(24, 22),
+(25, 25),
+(26, 28),
+(27, 31),
+(28, 34),
+(29, 37),
+(30, 40),
+(31, 43);
+INSERT INTO service_request_skills (request_id, skill_id) VALUES
+(32, 46),
+(33, 49),
+(34, 2),
+(35, 5),
+(36, 8),
+(37, 11),
+(38, 14),
+(39, 17),
+(40, 20),
+(41, 23),
+(42, 26),
+(43, 29),
+(44, 32),
+(45, 35),
+(46, 38),
+(47, 41),
+(48, 44),
+(49, 47),
+(50, 50);
+
+-- Add 49 proposals; total 50.
+INSERT INTO applies (id, request_id, provider_id, proposal, proposed_price, status, applied_at) VALUES
+(2, 2, 53, 'Đề xuất thực hiện yêu cầu 02, chia theo các mốc rõ ràng và bàn giao mã nguồn/tài liệu.', 890000, 'REJECTED', '2026-10-10 07:00:00.000000'),
+(3, 3, 54, 'Đề xuất thực hiện yêu cầu 03, chia theo các mốc rõ ràng và bàn giao mã nguồn/tài liệu.', 1010000, 'PENDING', '2026-10-09 06:00:00.000000'),
+(4, 4, 55, 'Đề xuất thực hiện yêu cầu 04, chia theo các mốc rõ ràng và bàn giao mã nguồn/tài liệu.', 1130000, 'ACCEPTED', '2026-10-08 05:00:00.000000'),
+(5, 5, 56, 'Đề xuất thực hiện yêu cầu 05, chia theo các mốc rõ ràng và bàn giao mã nguồn/tài liệu.', 1250000, 'REJECTED', '2026-10-07 04:00:00.000000'),
+(6, 6, 57, 'Đề xuất thực hiện yêu cầu 06, chia theo các mốc rõ ràng và bàn giao mã nguồn/tài liệu.', 1370000, 'PENDING', '2026-10-06 03:00:00.000000'),
+(7, 7, 58, 'Đề xuất thực hiện yêu cầu 07, chia theo các mốc rõ ràng và bàn giao mã nguồn/tài liệu.', 1490000, 'ACCEPTED', '2026-10-05 02:00:00.000000'),
+(8, 8, 59, 'Đề xuất thực hiện yêu cầu 08, chia theo các mốc rõ ràng và bàn giao mã nguồn/tài liệu.', 1610000, 'REJECTED', '2026-10-04 09:00:00.000000'),
+(9, 9, 60, 'Đề xuất thực hiện yêu cầu 09, chia theo các mốc rõ ràng và bàn giao mã nguồn/tài liệu.', 1730000, 'PENDING', '2026-10-03 08:00:00.000000'),
+(10, 10, 61, 'Đề xuất thực hiện yêu cầu 10, chia theo các mốc rõ ràng và bàn giao mã nguồn/tài liệu.', 1850000, 'ACCEPTED', '2026-10-02 07:00:00.000000'),
+(11, 11, 62, 'Đề xuất thực hiện yêu cầu 11, chia theo các mốc rõ ràng và bàn giao mã nguồn/tài liệu.', 1970000, 'REJECTED', '2026-10-01 06:00:00.000000'),
+(12, 12, 63, 'Đề xuất thực hiện yêu cầu 12, chia theo các mốc rõ ràng và bàn giao mã nguồn/tài liệu.', 2090000, 'PENDING', '2026-10-12 05:00:00.000000'),
+(13, 13, 64, 'Đề xuất thực hiện yêu cầu 13, chia theo các mốc rõ ràng và bàn giao mã nguồn/tài liệu.', 2210000, 'ACCEPTED', '2026-10-11 04:00:00.000000'),
+(14, 14, 65, 'Đề xuất thực hiện yêu cầu 14, chia theo các mốc rõ ràng và bàn giao mã nguồn/tài liệu.', 2330000, 'REJECTED', '2026-10-10 03:00:00.000000'),
+(15, 15, 66, 'Đề xuất thực hiện yêu cầu 15, chia theo các mốc rõ ràng và bàn giao mã nguồn/tài liệu.', 2450000, 'PENDING', '2026-10-09 02:00:00.000000'),
+(16, 16, 67, 'Đề xuất thực hiện yêu cầu 16, chia theo các mốc rõ ràng và bàn giao mã nguồn/tài liệu.', 2570000, 'ACCEPTED', '2026-10-08 09:00:00.000000'),
+(17, 17, 68, 'Đề xuất thực hiện yêu cầu 17, chia theo các mốc rõ ràng và bàn giao mã nguồn/tài liệu.', 2690000, 'REJECTED', '2026-10-07 08:00:00.000000'),
+(18, 18, 69, 'Đề xuất thực hiện yêu cầu 18, chia theo các mốc rõ ràng và bàn giao mã nguồn/tài liệu.', 2810000, 'PENDING', '2026-10-06 07:00:00.000000'),
+(19, 19, 70, 'Đề xuất thực hiện yêu cầu 19, chia theo các mốc rõ ràng và bàn giao mã nguồn/tài liệu.', 2930000, 'ACCEPTED', '2026-10-05 06:00:00.000000'),
+(20, 20, 71, 'Đề xuất thực hiện yêu cầu 20, chia theo các mốc rõ ràng và bàn giao mã nguồn/tài liệu.', 650000, 'REJECTED', '2026-10-04 05:00:00.000000'),
+(21, 21, 72, 'Đề xuất thực hiện yêu cầu 21, chia theo các mốc rõ ràng và bàn giao mã nguồn/tài liệu.', 770000, 'PENDING', '2026-10-03 04:00:00.000000'),
+(22, 22, 73, 'Đề xuất thực hiện yêu cầu 22, chia theo các mốc rõ ràng và bàn giao mã nguồn/tài liệu.', 890000, 'ACCEPTED', '2026-10-02 03:00:00.000000'),
+(23, 23, 74, 'Đề xuất thực hiện yêu cầu 23, chia theo các mốc rõ ràng và bàn giao mã nguồn/tài liệu.', 1010000, 'REJECTED', '2026-10-01 02:00:00.000000'),
+(24, 24, 75, 'Đề xuất thực hiện yêu cầu 24, chia theo các mốc rõ ràng và bàn giao mã nguồn/tài liệu.', 1130000, 'PENDING', '2026-10-12 09:00:00.000000'),
+(25, 25, 76, 'Đề xuất thực hiện yêu cầu 25, chia theo các mốc rõ ràng và bàn giao mã nguồn/tài liệu.', 1250000, 'ACCEPTED', '2026-10-11 08:00:00.000000'),
+(26, 26, 77, 'Đề xuất thực hiện yêu cầu 26, chia theo các mốc rõ ràng và bàn giao mã nguồn/tài liệu.', 1370000, 'REJECTED', '2026-10-10 07:00:00.000000'),
+(27, 27, 78, 'Đề xuất thực hiện yêu cầu 27, chia theo các mốc rõ ràng và bàn giao mã nguồn/tài liệu.', 1490000, 'PENDING', '2026-10-09 06:00:00.000000'),
+(28, 28, 79, 'Đề xuất thực hiện yêu cầu 28, chia theo các mốc rõ ràng và bàn giao mã nguồn/tài liệu.', 1610000, 'ACCEPTED', '2026-10-08 05:00:00.000000'),
+(29, 29, 80, 'Đề xuất thực hiện yêu cầu 29, chia theo các mốc rõ ràng và bàn giao mã nguồn/tài liệu.', 1730000, 'REJECTED', '2026-10-07 04:00:00.000000'),
+(30, 30, 81, 'Đề xuất thực hiện yêu cầu 30, chia theo các mốc rõ ràng và bàn giao mã nguồn/tài liệu.', 1850000, 'PENDING', '2026-10-06 03:00:00.000000'),
+(31, 31, 82, 'Đề xuất thực hiện yêu cầu 31, chia theo các mốc rõ ràng và bàn giao mã nguồn/tài liệu.', 1970000, 'ACCEPTED', '2026-10-05 02:00:00.000000');
+INSERT INTO applies (id, request_id, provider_id, proposal, proposed_price, status, applied_at) VALUES
+(32, 32, 83, 'Đề xuất thực hiện yêu cầu 32, chia theo các mốc rõ ràng và bàn giao mã nguồn/tài liệu.', 2090000, 'REJECTED', '2026-10-04 09:00:00.000000'),
+(33, 33, 84, 'Đề xuất thực hiện yêu cầu 33, chia theo các mốc rõ ràng và bàn giao mã nguồn/tài liệu.', 2210000, 'PENDING', '2026-10-03 08:00:00.000000'),
+(34, 34, 85, 'Đề xuất thực hiện yêu cầu 34, chia theo các mốc rõ ràng và bàn giao mã nguồn/tài liệu.', 2330000, 'ACCEPTED', '2026-10-02 07:00:00.000000'),
+(35, 35, 86, 'Đề xuất thực hiện yêu cầu 35, chia theo các mốc rõ ràng và bàn giao mã nguồn/tài liệu.', 2450000, 'REJECTED', '2026-10-01 06:00:00.000000'),
+(36, 36, 87, 'Đề xuất thực hiện yêu cầu 36, chia theo các mốc rõ ràng và bàn giao mã nguồn/tài liệu.', 2570000, 'PENDING', '2026-10-12 05:00:00.000000'),
+(37, 37, 88, 'Đề xuất thực hiện yêu cầu 37, chia theo các mốc rõ ràng và bàn giao mã nguồn/tài liệu.', 2690000, 'ACCEPTED', '2026-10-11 04:00:00.000000'),
+(38, 38, 89, 'Đề xuất thực hiện yêu cầu 38, chia theo các mốc rõ ràng và bàn giao mã nguồn/tài liệu.', 2810000, 'REJECTED', '2026-10-10 03:00:00.000000'),
+(39, 39, 90, 'Đề xuất thực hiện yêu cầu 39, chia theo các mốc rõ ràng và bàn giao mã nguồn/tài liệu.', 2930000, 'PENDING', '2026-10-09 02:00:00.000000'),
+(40, 40, 91, 'Đề xuất thực hiện yêu cầu 40, chia theo các mốc rõ ràng và bàn giao mã nguồn/tài liệu.', 650000, 'ACCEPTED', '2026-10-08 09:00:00.000000'),
+(41, 41, 92, 'Đề xuất thực hiện yêu cầu 41, chia theo các mốc rõ ràng và bàn giao mã nguồn/tài liệu.', 770000, 'REJECTED', '2026-10-07 08:00:00.000000'),
+(42, 42, 93, 'Đề xuất thực hiện yêu cầu 42, chia theo các mốc rõ ràng và bàn giao mã nguồn/tài liệu.', 890000, 'PENDING', '2026-10-06 07:00:00.000000'),
+(43, 43, 94, 'Đề xuất thực hiện yêu cầu 43, chia theo các mốc rõ ràng và bàn giao mã nguồn/tài liệu.', 1010000, 'ACCEPTED', '2026-10-05 06:00:00.000000'),
+(44, 44, 95, 'Đề xuất thực hiện yêu cầu 44, chia theo các mốc rõ ràng và bàn giao mã nguồn/tài liệu.', 1130000, 'REJECTED', '2026-10-04 05:00:00.000000'),
+(45, 45, 96, 'Đề xuất thực hiện yêu cầu 45, chia theo các mốc rõ ràng và bàn giao mã nguồn/tài liệu.', 1250000, 'PENDING', '2026-10-03 04:00:00.000000'),
+(46, 46, 97, 'Đề xuất thực hiện yêu cầu 46, chia theo các mốc rõ ràng và bàn giao mã nguồn/tài liệu.', 1370000, 'ACCEPTED', '2026-10-02 03:00:00.000000'),
+(47, 47, 98, 'Đề xuất thực hiện yêu cầu 47, chia theo các mốc rõ ràng và bàn giao mã nguồn/tài liệu.', 1490000, 'REJECTED', '2026-10-01 02:00:00.000000'),
+(48, 48, 99, 'Đề xuất thực hiện yêu cầu 48, chia theo các mốc rõ ràng và bàn giao mã nguồn/tài liệu.', 1610000, 'PENDING', '2026-10-12 09:00:00.000000'),
+(49, 49, 100, 'Đề xuất thực hiện yêu cầu 49, chia theo các mốc rõ ràng và bàn giao mã nguồn/tài liệu.', 1730000, 'ACCEPTED', '2026-10-11 08:00:00.000000'),
+(50, 50, 101, 'Đề xuất thực hiện yêu cầu 50, chia theo các mốc rõ ràng và bàn giao mã nguồn/tài liệu.', 1850000, 'REJECTED', '2026-10-10 07:00:00.000000');
+
+-- Add 49 carts; total 50.
+INSERT INTO carts (id, customer_id, status, created_at, updated_at, checked_out_at) VALUES
+(2, 4, 'ACTIVE', '2026-10-10 07:00:00.000000', '2026-10-12 07:00:00.000000', NULL),
+(3, 5, 'ACTIVE', '2026-10-09 06:00:00.000000', '2026-10-12 06:00:00.000000', NULL),
+(4, 6, 'ACTIVE', '2026-10-08 05:00:00.000000', '2026-10-12 09:00:00.000000', NULL),
+(5, 7, 'ACTIVE', '2026-10-07 04:00:00.000000', '2026-10-12 08:00:00.000000', NULL),
+(6, 8, 'ACTIVE', '2026-10-06 09:00:00.000000', '2026-10-12 07:00:00.000000', NULL),
+(7, 9, 'ACTIVE', '2026-10-05 08:00:00.000000', '2026-10-12 06:00:00.000000', NULL),
+(8, 10, 'ACTIVE', '2026-10-04 07:00:00.000000', '2026-10-12 09:00:00.000000', NULL),
+(9, 11, 'ACTIVE', '2026-10-03 06:00:00.000000', '2026-10-12 08:00:00.000000', NULL),
+(10, 12, 'ACTIVE', '2026-10-12 05:00:00.000000', '2026-10-12 07:00:00.000000', NULL),
+(11, 13, 'ACTIVE', '2026-10-11 04:00:00.000000', '2026-10-12 06:00:00.000000', NULL),
+(12, 14, 'ACTIVE', '2026-10-10 09:00:00.000000', '2026-10-12 09:00:00.000000', NULL),
+(13, 15, 'ACTIVE', '2026-10-09 08:00:00.000000', '2026-10-12 08:00:00.000000', NULL),
+(14, 16, 'ACTIVE', '2026-10-08 07:00:00.000000', '2026-10-12 07:00:00.000000', NULL),
+(15, 17, 'ACTIVE', '2026-10-07 06:00:00.000000', '2026-10-12 06:00:00.000000', NULL),
+(16, 18, 'ACTIVE', '2026-10-06 05:00:00.000000', '2026-10-12 09:00:00.000000', NULL),
+(17, 19, 'ACTIVE', '2026-10-05 04:00:00.000000', '2026-10-12 08:00:00.000000', NULL),
+(18, 20, 'ACTIVE', '2026-10-04 09:00:00.000000', '2026-10-12 07:00:00.000000', NULL),
+(19, 21, 'ACTIVE', '2026-10-03 08:00:00.000000', '2026-10-12 06:00:00.000000', NULL),
+(20, 22, 'ACTIVE', '2026-10-12 07:00:00.000000', '2026-10-12 09:00:00.000000', NULL),
+(21, 23, 'ACTIVE', '2026-10-11 06:00:00.000000', '2026-10-12 08:00:00.000000', NULL),
+(22, 24, 'ACTIVE', '2026-10-10 05:00:00.000000', '2026-10-12 07:00:00.000000', NULL),
+(23, 25, 'ACTIVE', '2026-10-09 04:00:00.000000', '2026-10-12 06:00:00.000000', NULL),
+(24, 26, 'ACTIVE', '2026-10-08 09:00:00.000000', '2026-10-12 09:00:00.000000', NULL),
+(25, 27, 'ACTIVE', '2026-10-07 08:00:00.000000', '2026-10-12 08:00:00.000000', NULL),
+(26, 28, 'ACTIVE', '2026-10-06 07:00:00.000000', '2026-10-12 07:00:00.000000', NULL),
+(27, 29, 'ACTIVE', '2026-10-05 06:00:00.000000', '2026-10-12 06:00:00.000000', NULL),
+(28, 30, 'ACTIVE', '2026-10-04 05:00:00.000000', '2026-10-12 09:00:00.000000', NULL),
+(29, 31, 'ACTIVE', '2026-10-03 04:00:00.000000', '2026-10-12 08:00:00.000000', NULL),
+(30, 32, 'ACTIVE', '2026-10-12 09:00:00.000000', '2026-10-12 07:00:00.000000', NULL),
+(31, 33, 'ACTIVE', '2026-10-11 08:00:00.000000', '2026-10-12 06:00:00.000000', NULL);
+INSERT INTO carts (id, customer_id, status, created_at, updated_at, checked_out_at) VALUES
+(32, 34, 'ACTIVE', '2026-10-10 07:00:00.000000', '2026-10-12 09:00:00.000000', NULL),
+(33, 35, 'ACTIVE', '2026-10-09 06:00:00.000000', '2026-10-12 08:00:00.000000', NULL),
+(34, 36, 'ACTIVE', '2026-10-08 05:00:00.000000', '2026-10-12 07:00:00.000000', NULL),
+(35, 37, 'ACTIVE', '2026-10-07 04:00:00.000000', '2026-10-12 06:00:00.000000', NULL),
+(36, 38, 'ACTIVE', '2026-10-06 09:00:00.000000', '2026-10-12 09:00:00.000000', NULL),
+(37, 39, 'ACTIVE', '2026-10-05 08:00:00.000000', '2026-10-12 08:00:00.000000', NULL),
+(38, 40, 'ACTIVE', '2026-10-04 07:00:00.000000', '2026-10-12 07:00:00.000000', NULL),
+(39, 41, 'ACTIVE', '2026-10-03 06:00:00.000000', '2026-10-12 06:00:00.000000', NULL),
+(40, 42, 'ACTIVE', '2026-10-12 05:00:00.000000', '2026-10-12 09:00:00.000000', NULL),
+(41, 43, 'ACTIVE', '2026-10-11 04:00:00.000000', '2026-10-12 08:00:00.000000', NULL),
+(42, 44, 'ACTIVE', '2026-10-10 09:00:00.000000', '2026-10-12 07:00:00.000000', NULL),
+(43, 45, 'ACTIVE', '2026-10-09 08:00:00.000000', '2026-10-12 06:00:00.000000', NULL),
+(44, 46, 'ACTIVE', '2026-10-08 07:00:00.000000', '2026-10-12 09:00:00.000000', NULL),
+(45, 47, 'ACTIVE', '2026-10-07 06:00:00.000000', '2026-10-12 08:00:00.000000', NULL),
+(46, 48, 'ACTIVE', '2026-10-06 05:00:00.000000', '2026-10-12 07:00:00.000000', NULL),
+(47, 49, 'ACTIVE', '2026-10-05 04:00:00.000000', '2026-10-12 06:00:00.000000', NULL),
+(48, 50, 'ACTIVE', '2026-10-04 09:00:00.000000', '2026-10-12 09:00:00.000000', NULL),
+(49, 51, 'ACTIVE', '2026-10-03 08:00:00.000000', '2026-10-12 08:00:00.000000', NULL),
+(50, 52, 'ACTIVE', '2026-10-12 07:00:00.000000', '2026-10-12 07:00:00.000000', NULL);
+
+-- Add 49 cart items; total 51.
+INSERT INTO cart_items (id, cart_id, service_id, quantity, unit_price_snapshot, added_at) VALUES
+(3, 2, 1, 3, 3200000, '2026-10-12 07:00:00.000000'),
+(4, 3, 2, 1, 250000, '2026-10-12 06:00:00.000000'),
+(5, 4, 3, 2, 1500000, '2026-10-12 05:00:00.000000'),
+(6, 5, 4, 3, 350000, '2026-10-12 04:00:00.000000'),
+(7, 6, 5, 1, 385000, '2026-10-12 03:00:00.000000'),
+(8, 7, 6, 2, 420000, '2026-10-12 02:00:00.000000'),
+(9, 8, 7, 3, 455000, '2026-10-12 01:00:00.000000'),
+(10, 9, 8, 1, 490000, '2026-10-12 00:00:00.000000'),
+(11, 10, 9, 2, 525000, '2026-10-11 23:00:00.000000'),
+(12, 11, 10, 3, 560000, '2026-10-11 22:00:00.000000'),
+(13, 12, 11, 1, 595000, '2026-10-11 21:00:00.000000'),
+(14, 13, 12, 2, 630000, '2026-10-11 20:00:00.000000'),
+(15, 14, 13, 3, 665000, '2026-10-11 19:00:00.000000'),
+(16, 15, 14, 1, 700000, '2026-10-11 18:00:00.000000'),
+(17, 16, 15, 2, 735000, '2026-10-11 17:00:00.000000'),
+(18, 17, 16, 3, 770000, '2026-10-11 16:00:00.000000'),
+(19, 18, 17, 1, 805000, '2026-10-11 15:00:00.000000'),
+(20, 19, 18, 2, 840000, '2026-10-11 14:00:00.000000'),
+(21, 20, 19, 3, 875000, '2026-10-11 13:00:00.000000'),
+(22, 21, 20, 1, 910000, '2026-10-11 12:00:00.000000'),
+(23, 22, 21, 2, 945000, '2026-10-11 11:00:00.000000'),
+(24, 23, 22, 3, 980000, '2026-10-11 10:00:00.000000'),
+(25, 24, 23, 1, 1015000, '2026-10-11 09:00:00.000000'),
+(26, 25, 24, 2, 1050000, '2026-10-11 08:00:00.000000'),
+(27, 26, 25, 3, 1085000, '2026-10-11 07:00:00.000000'),
+(28, 27, 26, 1, 1120000, '2026-10-11 06:00:00.000000'),
+(29, 28, 27, 2, 1155000, '2026-10-11 05:00:00.000000'),
+(30, 29, 28, 3, 1190000, '2026-10-11 04:00:00.000000'),
+(31, 30, 29, 1, 1225000, '2026-10-11 03:00:00.000000'),
+(32, 31, 30, 2, 1260000, '2026-10-11 02:00:00.000000');
+INSERT INTO cart_items (id, cart_id, service_id, quantity, unit_price_snapshot, added_at) VALUES
+(33, 32, 31, 3, 1295000, '2026-10-11 01:00:00.000000'),
+(34, 33, 32, 1, 1330000, '2026-10-11 00:00:00.000000'),
+(35, 34, 33, 2, 1365000, '2026-10-10 23:00:00.000000'),
+(36, 35, 34, 3, 1400000, '2026-10-10 22:00:00.000000'),
+(37, 36, 35, 1, 1435000, '2026-10-10 21:00:00.000000'),
+(38, 37, 36, 2, 1470000, '2026-10-10 20:00:00.000000'),
+(39, 38, 37, 3, 1505000, '2026-10-10 19:00:00.000000'),
+(40, 39, 38, 1, 1540000, '2026-10-10 18:00:00.000000'),
+(41, 40, 39, 2, 1575000, '2026-10-10 17:00:00.000000'),
+(42, 41, 40, 3, 1610000, '2026-10-10 16:00:00.000000'),
+(43, 42, 41, 1, 1645000, '2026-10-10 15:00:00.000000'),
+(44, 43, 42, 2, 1680000, '2026-10-10 14:00:00.000000'),
+(45, 44, 43, 3, 1715000, '2026-10-10 13:00:00.000000'),
+(46, 45, 44, 1, 1750000, '2026-10-10 12:00:00.000000'),
+(47, 46, 45, 2, 1785000, '2026-10-10 11:00:00.000000'),
+(48, 47, 46, 3, 1820000, '2026-10-10 10:00:00.000000'),
+(49, 48, 47, 1, 1855000, '2026-10-12 09:00:00.000000'),
+(50, 49, 48, 2, 1890000, '2026-10-12 08:00:00.000000'),
+(51, 50, 49, 3, 1925000, '2026-10-12 07:00:00.000000');
+
+-- Add 48 completed bookings; total 53.
+INSERT INTO bookings (id, customer_id, provider_id, service_id, service_name, booking_date, time_slot, note, premium, direct_booking, amount, status, cancellation_reason, cancelled_by_user_id, cancelled_at, created_at, updated_at) VALUES
+(6, 4, 53, 1, 'Phát triển REST API bằng Spring Boot', '2026-08-15', '09:00:00', 'Ghi chú đặt dịch vụ mẫu 06; xác nhận phạm vi và thời gian bàn giao.', TRUE, TRUE, 3200000, 'COMPLETED', NULL, NULL, NULL, '2026-08-13 09:00:00.000000', '2026-08-16 09:00:00.000000'),
+(7, 5, 54, 2, 'Mentoring Java và review code', '2026-08-16', '10:00:00', 'Ghi chú đặt dịch vụ mẫu 07; xác nhận phạm vi và thời gian bàn giao.', FALSE, TRUE, 250000, 'COMPLETED', NULL, NULL, NULL, '2026-08-14 09:00:00.000000', '2026-08-17 09:00:00.000000'),
+(8, 6, 55, 3, 'Thiết kế UI/UX trên Figma', '2026-08-17', '11:00:00', 'Ghi chú đặt dịch vụ mẫu 08; xác nhận phạm vi và thời gian bàn giao.', FALSE, TRUE, 1500000, 'COMPLETED', NULL, NULL, NULL, '2026-08-15 09:00:00.000000', '2026-08-18 09:00:00.000000'),
+(9, 7, 56, 4, 'Xây dựng website responsive — Gói 04', '2026-08-18', '12:00:00', 'Ghi chú đặt dịch vụ mẫu 09; xác nhận phạm vi và thời gian bàn giao.', FALSE, TRUE, 350000, 'COMPLETED', NULL, NULL, NULL, '2026-08-16 09:00:00.000000', '2026-08-19 09:00:00.000000'),
+(10, 8, 57, 5, 'Thiết kế UI/UX và prototype — Gói 05', '2026-08-19', '13:00:00', 'Ghi chú đặt dịch vụ mẫu 10; xác nhận phạm vi và thời gian bàn giao.', FALSE, TRUE, 385000, 'COMPLETED', NULL, NULL, NULL, '2026-08-17 09:00:00.000000', '2026-08-20 09:00:00.000000'),
+(11, 9, 58, 6, 'Phân tích và trực quan hóa dữ liệu — Gói 06', '2026-08-20', '14:00:00', 'Ghi chú đặt dịch vụ mẫu 11; xác nhận phạm vi và thời gian bàn giao.', TRUE, TRUE, 420000, 'COMPLETED', NULL, NULL, NULL, '2026-08-18 09:00:00.000000', '2026-08-21 09:00:00.000000'),
+(12, 10, 59, 7, 'Tự động hóa kiểm thử chức năng — Gói 07', '2026-08-21', '15:00:00', 'Ghi chú đặt dịch vụ mẫu 12; xác nhận phạm vi và thời gian bàn giao.', FALSE, TRUE, 455000, 'COMPLETED', NULL, NULL, NULL, '2026-08-19 09:00:00.000000', '2026-08-22 09:00:00.000000'),
+(13, 11, 60, 8, 'Tối ưu SEO và nội dung — Gói 08', '2026-08-22', '16:00:00', 'Ghi chú đặt dịch vụ mẫu 13; xác nhận phạm vi và thời gian bàn giao.', FALSE, TRUE, 490000, 'COMPLETED', NULL, NULL, NULL, '2026-08-20 09:00:00.000000', '2026-08-23 09:00:00.000000'),
+(14, 12, 61, 9, 'Phát triển ứng dụng di động — Gói 09', '2026-08-23', '17:00:00', 'Ghi chú đặt dịch vụ mẫu 14; xác nhận phạm vi và thời gian bàn giao.', FALSE, TRUE, 525000, 'COMPLETED', NULL, NULL, NULL, '2026-08-21 09:00:00.000000', '2026-08-24 09:00:00.000000'),
+(15, 13, 62, 10, 'Thiết kế và tối ưu SQL — Gói 10', '2026-08-24', '18:00:00', 'Ghi chú đặt dịch vụ mẫu 15; xác nhận phạm vi và thời gian bàn giao.', FALSE, TRUE, 560000, 'COMPLETED', NULL, NULL, NULL, '2026-08-22 09:00:00.000000', '2026-08-25 09:00:00.000000'),
+(16, 14, 63, 11, 'Triển khai ứng dụng lên cloud — Gói 11', '2026-08-25', '09:00:00', 'Ghi chú đặt dịch vụ mẫu 16; xác nhận phạm vi và thời gian bàn giao.', TRUE, TRUE, 595000, 'COMPLETED', NULL, NULL, NULL, '2026-08-23 09:00:00.000000', '2026-08-26 09:00:00.000000'),
+(17, 15, 64, 12, 'Xây dựng website responsive — Gói 12', '2026-08-26', '10:00:00', 'Ghi chú đặt dịch vụ mẫu 17; xác nhận phạm vi và thời gian bàn giao.', FALSE, TRUE, 630000, 'COMPLETED', NULL, NULL, NULL, '2026-08-24 09:00:00.000000', '2026-08-27 09:00:00.000000'),
+(18, 16, 65, 13, 'Thiết kế UI/UX và prototype — Gói 13', '2026-08-27', '11:00:00', 'Ghi chú đặt dịch vụ mẫu 18; xác nhận phạm vi và thời gian bàn giao.', FALSE, TRUE, 665000, 'COMPLETED', NULL, NULL, NULL, '2026-08-25 09:00:00.000000', '2026-08-28 09:00:00.000000'),
+(19, 17, 66, 14, 'Phân tích và trực quan hóa dữ liệu — Gói 14', '2026-08-28', '12:00:00', 'Ghi chú đặt dịch vụ mẫu 19; xác nhận phạm vi và thời gian bàn giao.', FALSE, TRUE, 700000, 'COMPLETED', NULL, NULL, NULL, '2026-08-26 09:00:00.000000', '2026-08-29 09:00:00.000000'),
+(20, 18, 67, 15, 'Tự động hóa kiểm thử chức năng — Gói 15', '2026-08-29', '13:00:00', 'Ghi chú đặt dịch vụ mẫu 20; xác nhận phạm vi và thời gian bàn giao.', FALSE, TRUE, 735000, 'COMPLETED', NULL, NULL, NULL, '2026-08-27 09:00:00.000000', '2026-08-30 09:00:00.000000'),
+(21, 19, 68, 16, 'Tối ưu SEO và nội dung — Gói 16', '2026-08-30', '14:00:00', 'Ghi chú đặt dịch vụ mẫu 21; xác nhận phạm vi và thời gian bàn giao.', TRUE, TRUE, 770000, 'COMPLETED', NULL, NULL, NULL, '2026-08-28 09:00:00.000000', '2026-08-31 09:00:00.000000'),
+(22, 20, 69, 17, 'Phát triển ứng dụng di động — Gói 17', '2026-08-31', '15:00:00', 'Ghi chú đặt dịch vụ mẫu 22; xác nhận phạm vi và thời gian bàn giao.', FALSE, TRUE, 805000, 'COMPLETED', NULL, NULL, NULL, '2026-08-29 09:00:00.000000', '2026-09-01 09:00:00.000000'),
+(23, 21, 70, 18, 'Thiết kế và tối ưu SQL — Gói 18', '2026-09-01', '16:00:00', 'Ghi chú đặt dịch vụ mẫu 23; xác nhận phạm vi và thời gian bàn giao.', FALSE, TRUE, 840000, 'COMPLETED', NULL, NULL, NULL, '2026-08-30 09:00:00.000000', '2026-09-02 09:00:00.000000'),
+(24, 22, 71, 19, 'Triển khai ứng dụng lên cloud — Gói 19', '2026-09-02', '17:00:00', 'Ghi chú đặt dịch vụ mẫu 24; xác nhận phạm vi và thời gian bàn giao.', FALSE, TRUE, 875000, 'COMPLETED', NULL, NULL, NULL, '2026-08-31 09:00:00.000000', '2026-09-03 09:00:00.000000'),
+(25, 23, 72, 20, 'Xây dựng website responsive — Gói 20', '2026-09-03', '18:00:00', 'Ghi chú đặt dịch vụ mẫu 25; xác nhận phạm vi và thời gian bàn giao.', FALSE, TRUE, 910000, 'COMPLETED', NULL, NULL, NULL, '2026-09-01 09:00:00.000000', '2026-09-04 09:00:00.000000'),
+(26, 24, 73, 21, 'Thiết kế UI/UX và prototype — Gói 21', '2026-09-04', '09:00:00', 'Ghi chú đặt dịch vụ mẫu 26; xác nhận phạm vi và thời gian bàn giao.', TRUE, TRUE, 945000, 'COMPLETED', NULL, NULL, NULL, '2026-09-02 09:00:00.000000', '2026-09-05 09:00:00.000000'),
+(27, 25, 74, 22, 'Phân tích và trực quan hóa dữ liệu — Gói 22', '2026-09-05', '10:00:00', 'Ghi chú đặt dịch vụ mẫu 27; xác nhận phạm vi và thời gian bàn giao.', FALSE, TRUE, 980000, 'COMPLETED', NULL, NULL, NULL, '2026-09-03 09:00:00.000000', '2026-09-06 09:00:00.000000'),
+(28, 26, 75, 23, 'Tự động hóa kiểm thử chức năng — Gói 23', '2026-09-06', '11:00:00', 'Ghi chú đặt dịch vụ mẫu 28; xác nhận phạm vi và thời gian bàn giao.', FALSE, TRUE, 1015000, 'COMPLETED', NULL, NULL, NULL, '2026-09-04 09:00:00.000000', '2026-09-07 09:00:00.000000'),
+(29, 27, 76, 24, 'Tối ưu SEO và nội dung — Gói 24', '2026-09-07', '12:00:00', 'Ghi chú đặt dịch vụ mẫu 29; xác nhận phạm vi và thời gian bàn giao.', FALSE, TRUE, 1050000, 'COMPLETED', NULL, NULL, NULL, '2026-09-05 09:00:00.000000', '2026-09-08 09:00:00.000000'),
+(30, 28, 77, 25, 'Phát triển ứng dụng di động — Gói 25', '2026-09-08', '13:00:00', 'Ghi chú đặt dịch vụ mẫu 30; xác nhận phạm vi và thời gian bàn giao.', FALSE, TRUE, 1085000, 'COMPLETED', NULL, NULL, NULL, '2026-09-06 09:00:00.000000', '2026-09-09 09:00:00.000000'),
+(31, 29, 78, 26, 'Thiết kế và tối ưu SQL — Gói 26', '2026-09-09', '14:00:00', 'Ghi chú đặt dịch vụ mẫu 31; xác nhận phạm vi và thời gian bàn giao.', TRUE, TRUE, 1120000, 'COMPLETED', NULL, NULL, NULL, '2026-09-07 09:00:00.000000', '2026-09-10 09:00:00.000000'),
+(32, 30, 79, 27, 'Triển khai ứng dụng lên cloud — Gói 27', '2026-09-10', '15:00:00', 'Ghi chú đặt dịch vụ mẫu 32; xác nhận phạm vi và thời gian bàn giao.', FALSE, TRUE, 1155000, 'COMPLETED', NULL, NULL, NULL, '2026-09-08 09:00:00.000000', '2026-09-11 09:00:00.000000'),
+(33, 31, 80, 28, 'Xây dựng website responsive — Gói 28', '2026-09-11', '16:00:00', 'Ghi chú đặt dịch vụ mẫu 33; xác nhận phạm vi và thời gian bàn giao.', FALSE, TRUE, 1190000, 'COMPLETED', NULL, NULL, NULL, '2026-09-09 09:00:00.000000', '2026-09-12 09:00:00.000000'),
+(34, 32, 81, 29, 'Thiết kế UI/UX và prototype — Gói 29', '2026-09-12', '17:00:00', 'Ghi chú đặt dịch vụ mẫu 34; xác nhận phạm vi và thời gian bàn giao.', FALSE, TRUE, 1225000, 'COMPLETED', NULL, NULL, NULL, '2026-09-10 09:00:00.000000', '2026-09-13 09:00:00.000000'),
+(35, 33, 82, 30, 'Phân tích và trực quan hóa dữ liệu — Gói 30', '2026-09-13', '18:00:00', 'Ghi chú đặt dịch vụ mẫu 35; xác nhận phạm vi và thời gian bàn giao.', FALSE, TRUE, 1260000, 'COMPLETED', NULL, NULL, NULL, '2026-09-11 09:00:00.000000', '2026-09-14 09:00:00.000000');
+INSERT INTO bookings (id, customer_id, provider_id, service_id, service_name, booking_date, time_slot, note, premium, direct_booking, amount, status, cancellation_reason, cancelled_by_user_id, cancelled_at, created_at, updated_at) VALUES
+(36, 34, 83, 31, 'Tự động hóa kiểm thử chức năng — Gói 31', '2026-09-14', '09:00:00', 'Ghi chú đặt dịch vụ mẫu 36; xác nhận phạm vi và thời gian bàn giao.', TRUE, TRUE, 1295000, 'COMPLETED', NULL, NULL, NULL, '2026-09-12 09:00:00.000000', '2026-09-15 09:00:00.000000'),
+(37, 35, 84, 32, 'Tối ưu SEO và nội dung — Gói 32', '2026-09-15', '10:00:00', 'Ghi chú đặt dịch vụ mẫu 37; xác nhận phạm vi và thời gian bàn giao.', FALSE, TRUE, 1330000, 'COMPLETED', NULL, NULL, NULL, '2026-09-13 09:00:00.000000', '2026-09-16 09:00:00.000000'),
+(38, 36, 85, 33, 'Phát triển ứng dụng di động — Gói 33', '2026-09-16', '11:00:00', 'Ghi chú đặt dịch vụ mẫu 38; xác nhận phạm vi và thời gian bàn giao.', FALSE, TRUE, 1365000, 'COMPLETED', NULL, NULL, NULL, '2026-09-14 09:00:00.000000', '2026-09-17 09:00:00.000000'),
+(39, 37, 86, 34, 'Thiết kế và tối ưu SQL — Gói 34', '2026-09-17', '12:00:00', 'Ghi chú đặt dịch vụ mẫu 39; xác nhận phạm vi và thời gian bàn giao.', FALSE, TRUE, 1400000, 'COMPLETED', NULL, NULL, NULL, '2026-09-15 09:00:00.000000', '2026-09-18 09:00:00.000000'),
+(40, 38, 87, 35, 'Triển khai ứng dụng lên cloud — Gói 35', '2026-09-18', '13:00:00', 'Ghi chú đặt dịch vụ mẫu 40; xác nhận phạm vi và thời gian bàn giao.', FALSE, TRUE, 1435000, 'COMPLETED', NULL, NULL, NULL, '2026-09-16 09:00:00.000000', '2026-09-19 09:00:00.000000'),
+(41, 39, 88, 36, 'Xây dựng website responsive — Gói 36', '2026-09-19', '14:00:00', 'Ghi chú đặt dịch vụ mẫu 41; xác nhận phạm vi và thời gian bàn giao.', TRUE, TRUE, 1470000, 'COMPLETED', NULL, NULL, NULL, '2026-09-17 09:00:00.000000', '2026-09-20 09:00:00.000000'),
+(42, 40, 89, 37, 'Thiết kế UI/UX và prototype — Gói 37', '2026-09-20', '15:00:00', 'Ghi chú đặt dịch vụ mẫu 42; xác nhận phạm vi và thời gian bàn giao.', FALSE, TRUE, 1505000, 'COMPLETED', NULL, NULL, NULL, '2026-09-18 09:00:00.000000', '2026-09-21 09:00:00.000000'),
+(43, 41, 90, 38, 'Phân tích và trực quan hóa dữ liệu — Gói 38', '2026-09-21', '16:00:00', 'Ghi chú đặt dịch vụ mẫu 43; xác nhận phạm vi và thời gian bàn giao.', FALSE, TRUE, 1540000, 'COMPLETED', NULL, NULL, NULL, '2026-09-19 09:00:00.000000', '2026-09-22 09:00:00.000000'),
+(44, 42, 91, 39, 'Tự động hóa kiểm thử chức năng — Gói 39', '2026-09-22', '17:00:00', 'Ghi chú đặt dịch vụ mẫu 44; xác nhận phạm vi và thời gian bàn giao.', FALSE, TRUE, 1575000, 'COMPLETED', NULL, NULL, NULL, '2026-09-20 09:00:00.000000', '2026-09-23 09:00:00.000000'),
+(45, 43, 92, 40, 'Tối ưu SEO và nội dung — Gói 40', '2026-09-23', '18:00:00', 'Ghi chú đặt dịch vụ mẫu 45; xác nhận phạm vi và thời gian bàn giao.', FALSE, TRUE, 1610000, 'COMPLETED', NULL, NULL, NULL, '2026-09-21 09:00:00.000000', '2026-09-24 09:00:00.000000'),
+(46, 44, 93, 41, 'Phát triển ứng dụng di động — Gói 41', '2026-09-24', '09:00:00', 'Ghi chú đặt dịch vụ mẫu 46; xác nhận phạm vi và thời gian bàn giao.', TRUE, TRUE, 1645000, 'COMPLETED', NULL, NULL, NULL, '2026-09-22 09:00:00.000000', '2026-09-25 09:00:00.000000'),
+(47, 45, 94, 42, 'Thiết kế và tối ưu SQL — Gói 42', '2026-09-25', '10:00:00', 'Ghi chú đặt dịch vụ mẫu 47; xác nhận phạm vi và thời gian bàn giao.', FALSE, TRUE, 1680000, 'COMPLETED', NULL, NULL, NULL, '2026-09-23 09:00:00.000000', '2026-09-26 09:00:00.000000'),
+(48, 46, 95, 43, 'Triển khai ứng dụng lên cloud — Gói 43', '2026-09-26', '11:00:00', 'Ghi chú đặt dịch vụ mẫu 48; xác nhận phạm vi và thời gian bàn giao.', FALSE, TRUE, 1715000, 'COMPLETED', NULL, NULL, NULL, '2026-09-24 09:00:00.000000', '2026-09-27 09:00:00.000000'),
+(49, 47, 96, 44, 'Xây dựng website responsive — Gói 44', '2026-09-27', '12:00:00', 'Ghi chú đặt dịch vụ mẫu 49; xác nhận phạm vi và thời gian bàn giao.', FALSE, TRUE, 1750000, 'COMPLETED', NULL, NULL, NULL, '2026-09-25 09:00:00.000000', '2026-09-28 09:00:00.000000'),
+(50, 48, 97, 45, 'Thiết kế UI/UX và prototype — Gói 45', '2026-09-28', '13:00:00', 'Ghi chú đặt dịch vụ mẫu 50; xác nhận phạm vi và thời gian bàn giao.', FALSE, TRUE, 1785000, 'COMPLETED', NULL, NULL, NULL, '2026-09-26 09:00:00.000000', '2026-09-29 09:00:00.000000'),
+(51, 49, 98, 46, 'Phân tích và trực quan hóa dữ liệu — Gói 46', '2026-09-29', '14:00:00', 'Ghi chú đặt dịch vụ mẫu 51; xác nhận phạm vi và thời gian bàn giao.', TRUE, TRUE, 1820000, 'COMPLETED', NULL, NULL, NULL, '2026-09-27 09:00:00.000000', '2026-09-30 09:00:00.000000'),
+(52, 50, 99, 47, 'Tự động hóa kiểm thử chức năng — Gói 47', '2026-09-30', '15:00:00', 'Ghi chú đặt dịch vụ mẫu 52; xác nhận phạm vi và thời gian bàn giao.', FALSE, TRUE, 1855000, 'COMPLETED', NULL, NULL, NULL, '2026-09-28 09:00:00.000000', '2026-10-01 09:00:00.000000'),
+(53, 51, 100, 48, 'Tối ưu SEO và nội dung — Gói 48', '2026-10-01', '16:00:00', 'Ghi chú đặt dịch vụ mẫu 53; xác nhận phạm vi và thời gian bàn giao.', FALSE, TRUE, 1890000, 'COMPLETED', NULL, NULL, NULL, '2026-09-29 09:00:00.000000', '2026-10-02 09:00:00.000000');
+
+-- Add 48 orders; total 53.
+INSERT INTO rental_orders (id, booking_id, customer_id, provider_id, subtotal, discount, total, status, created_at, completed_at, cancelled_at, cancellation_reason, cancelled_by_user_id) VALUES
+(6, 6, 4, 53, 3200000, 0, 3200000, 'COMPLETED', '2026-08-13 09:00:00.000000', '2026-08-16 09:00:00.000000', NULL, NULL, NULL),
+(7, 7, 5, 54, 250000, 0, 250000, 'COMPLETED', '2026-08-14 09:00:00.000000', '2026-08-17 09:00:00.000000', NULL, NULL, NULL),
+(8, 8, 6, 55, 1500000, 0, 1500000, 'COMPLETED', '2026-08-15 09:00:00.000000', '2026-08-18 09:00:00.000000', NULL, NULL, NULL),
+(9, 9, 7, 56, 350000, 0, 350000, 'COMPLETED', '2026-08-16 09:00:00.000000', '2026-08-19 09:00:00.000000', NULL, NULL, NULL),
+(10, 10, 8, 57, 385000, 0, 385000, 'COMPLETED', '2026-08-17 09:00:00.000000', '2026-08-20 09:00:00.000000', NULL, NULL, NULL),
+(11, 11, 9, 58, 420000, 0, 420000, 'COMPLETED', '2026-08-18 09:00:00.000000', '2026-08-21 09:00:00.000000', NULL, NULL, NULL),
+(12, 12, 10, 59, 455000, 0, 455000, 'COMPLETED', '2026-08-19 09:00:00.000000', '2026-08-22 09:00:00.000000', NULL, NULL, NULL),
+(13, 13, 11, 60, 490000, 0, 490000, 'COMPLETED', '2026-08-20 09:00:00.000000', '2026-08-23 09:00:00.000000', NULL, NULL, NULL),
+(14, 14, 12, 61, 525000, 0, 525000, 'COMPLETED', '2026-08-21 09:00:00.000000', '2026-08-24 09:00:00.000000', NULL, NULL, NULL),
+(15, 15, 13, 62, 560000, 0, 560000, 'COMPLETED', '2026-08-22 09:00:00.000000', '2026-08-25 09:00:00.000000', NULL, NULL, NULL),
+(16, 16, 14, 63, 595000, 0, 595000, 'COMPLETED', '2026-08-23 09:00:00.000000', '2026-08-26 09:00:00.000000', NULL, NULL, NULL),
+(17, 17, 15, 64, 630000, 0, 630000, 'COMPLETED', '2026-08-24 09:00:00.000000', '2026-08-27 09:00:00.000000', NULL, NULL, NULL),
+(18, 18, 16, 65, 665000, 0, 665000, 'COMPLETED', '2026-08-25 09:00:00.000000', '2026-08-28 09:00:00.000000', NULL, NULL, NULL),
+(19, 19, 17, 66, 700000, 0, 700000, 'COMPLETED', '2026-08-26 09:00:00.000000', '2026-08-29 09:00:00.000000', NULL, NULL, NULL),
+(20, 20, 18, 67, 735000, 0, 735000, 'COMPLETED', '2026-08-27 09:00:00.000000', '2026-08-30 09:00:00.000000', NULL, NULL, NULL),
+(21, 21, 19, 68, 770000, 0, 770000, 'COMPLETED', '2026-08-28 09:00:00.000000', '2026-08-31 09:00:00.000000', NULL, NULL, NULL),
+(22, 22, 20, 69, 805000, 0, 805000, 'COMPLETED', '2026-08-29 09:00:00.000000', '2026-09-01 09:00:00.000000', NULL, NULL, NULL),
+(23, 23, 21, 70, 840000, 0, 840000, 'COMPLETED', '2026-08-30 09:00:00.000000', '2026-09-02 09:00:00.000000', NULL, NULL, NULL),
+(24, 24, 22, 71, 875000, 0, 875000, 'COMPLETED', '2026-08-31 09:00:00.000000', '2026-09-03 09:00:00.000000', NULL, NULL, NULL),
+(25, 25, 23, 72, 910000, 0, 910000, 'COMPLETED', '2026-09-01 09:00:00.000000', '2026-09-04 09:00:00.000000', NULL, NULL, NULL),
+(26, 26, 24, 73, 945000, 0, 945000, 'COMPLETED', '2026-09-02 09:00:00.000000', '2026-09-05 09:00:00.000000', NULL, NULL, NULL),
+(27, 27, 25, 74, 980000, 0, 980000, 'COMPLETED', '2026-09-03 09:00:00.000000', '2026-09-06 09:00:00.000000', NULL, NULL, NULL),
+(28, 28, 26, 75, 1015000, 0, 1015000, 'COMPLETED', '2026-09-04 09:00:00.000000', '2026-09-07 09:00:00.000000', NULL, NULL, NULL),
+(29, 29, 27, 76, 1050000, 0, 1050000, 'COMPLETED', '2026-09-05 09:00:00.000000', '2026-09-08 09:00:00.000000', NULL, NULL, NULL),
+(30, 30, 28, 77, 1085000, 0, 1085000, 'COMPLETED', '2026-09-06 09:00:00.000000', '2026-09-09 09:00:00.000000', NULL, NULL, NULL),
+(31, 31, 29, 78, 1120000, 0, 1120000, 'COMPLETED', '2026-09-07 09:00:00.000000', '2026-09-10 09:00:00.000000', NULL, NULL, NULL),
+(32, 32, 30, 79, 1155000, 0, 1155000, 'COMPLETED', '2026-09-08 09:00:00.000000', '2026-09-11 09:00:00.000000', NULL, NULL, NULL),
+(33, 33, 31, 80, 1190000, 0, 1190000, 'COMPLETED', '2026-09-09 09:00:00.000000', '2026-09-12 09:00:00.000000', NULL, NULL, NULL),
+(34, 34, 32, 81, 1225000, 0, 1225000, 'COMPLETED', '2026-09-10 09:00:00.000000', '2026-09-13 09:00:00.000000', NULL, NULL, NULL),
+(35, 35, 33, 82, 1260000, 0, 1260000, 'COMPLETED', '2026-09-11 09:00:00.000000', '2026-09-14 09:00:00.000000', NULL, NULL, NULL);
+INSERT INTO rental_orders (id, booking_id, customer_id, provider_id, subtotal, discount, total, status, created_at, completed_at, cancelled_at, cancellation_reason, cancelled_by_user_id) VALUES
+(36, 36, 34, 83, 1295000, 0, 1295000, 'COMPLETED', '2026-09-12 09:00:00.000000', '2026-09-15 09:00:00.000000', NULL, NULL, NULL),
+(37, 37, 35, 84, 1330000, 0, 1330000, 'COMPLETED', '2026-09-13 09:00:00.000000', '2026-09-16 09:00:00.000000', NULL, NULL, NULL),
+(38, 38, 36, 85, 1365000, 0, 1365000, 'COMPLETED', '2026-09-14 09:00:00.000000', '2026-09-17 09:00:00.000000', NULL, NULL, NULL),
+(39, 39, 37, 86, 1400000, 0, 1400000, 'COMPLETED', '2026-09-15 09:00:00.000000', '2026-09-18 09:00:00.000000', NULL, NULL, NULL),
+(40, 40, 38, 87, 1435000, 0, 1435000, 'COMPLETED', '2026-09-16 09:00:00.000000', '2026-09-19 09:00:00.000000', NULL, NULL, NULL),
+(41, 41, 39, 88, 1470000, 0, 1470000, 'COMPLETED', '2026-09-17 09:00:00.000000', '2026-09-20 09:00:00.000000', NULL, NULL, NULL),
+(42, 42, 40, 89, 1505000, 0, 1505000, 'COMPLETED', '2026-09-18 09:00:00.000000', '2026-09-21 09:00:00.000000', NULL, NULL, NULL),
+(43, 43, 41, 90, 1540000, 0, 1540000, 'COMPLETED', '2026-09-19 09:00:00.000000', '2026-09-22 09:00:00.000000', NULL, NULL, NULL),
+(44, 44, 42, 91, 1575000, 0, 1575000, 'COMPLETED', '2026-09-20 09:00:00.000000', '2026-09-23 09:00:00.000000', NULL, NULL, NULL),
+(45, 45, 43, 92, 1610000, 0, 1610000, 'COMPLETED', '2026-09-21 09:00:00.000000', '2026-09-24 09:00:00.000000', NULL, NULL, NULL),
+(46, 46, 44, 93, 1645000, 0, 1645000, 'COMPLETED', '2026-09-22 09:00:00.000000', '2026-09-25 09:00:00.000000', NULL, NULL, NULL),
+(47, 47, 45, 94, 1680000, 0, 1680000, 'COMPLETED', '2026-09-23 09:00:00.000000', '2026-09-26 09:00:00.000000', NULL, NULL, NULL),
+(48, 48, 46, 95, 1715000, 0, 1715000, 'COMPLETED', '2026-09-24 09:00:00.000000', '2026-09-27 09:00:00.000000', NULL, NULL, NULL),
+(49, 49, 47, 96, 1750000, 0, 1750000, 'COMPLETED', '2026-09-25 09:00:00.000000', '2026-09-28 09:00:00.000000', NULL, NULL, NULL),
+(50, 50, 48, 97, 1785000, 0, 1785000, 'COMPLETED', '2026-09-26 09:00:00.000000', '2026-09-29 09:00:00.000000', NULL, NULL, NULL),
+(51, 51, 49, 98, 1820000, 0, 1820000, 'COMPLETED', '2026-09-27 09:00:00.000000', '2026-09-30 09:00:00.000000', NULL, NULL, NULL),
+(52, 52, 50, 99, 1855000, 0, 1855000, 'COMPLETED', '2026-09-28 09:00:00.000000', '2026-10-01 09:00:00.000000', NULL, NULL, NULL),
+(53, 53, 51, 100, 1890000, 0, 1890000, 'COMPLETED', '2026-09-29 09:00:00.000000', '2026-10-02 09:00:00.000000', NULL, NULL, NULL);
+
+-- Add 48 order items; total 53.
+INSERT INTO rental_order_items (id, order_id, service_id, provider_id, booking_id, service_name_snapshot, quantity, unit_price, line_total, created_at) VALUES
+(6, 6, 1, 53, 6, 'Phát triển REST API bằng Spring Boot', 1, 3200000, 3200000, '2026-08-13 09:00:00.000000'),
+(7, 7, 2, 54, 7, 'Mentoring Java và review code', 1, 250000, 250000, '2026-08-14 09:00:00.000000'),
+(8, 8, 3, 55, 8, 'Thiết kế UI/UX trên Figma', 1, 1500000, 1500000, '2026-08-15 09:00:00.000000'),
+(9, 9, 4, 56, 9, 'Xây dựng website responsive — Gói 04', 1, 350000, 350000, '2026-08-16 09:00:00.000000'),
+(10, 10, 5, 57, 10, 'Thiết kế UI/UX và prototype — Gói 05', 1, 385000, 385000, '2026-08-17 09:00:00.000000'),
+(11, 11, 6, 58, 11, 'Phân tích và trực quan hóa dữ liệu — Gói 06', 1, 420000, 420000, '2026-08-18 09:00:00.000000'),
+(12, 12, 7, 59, 12, 'Tự động hóa kiểm thử chức năng — Gói 07', 1, 455000, 455000, '2026-08-19 09:00:00.000000'),
+(13, 13, 8, 60, 13, 'Tối ưu SEO và nội dung — Gói 08', 1, 490000, 490000, '2026-08-20 09:00:00.000000'),
+(14, 14, 9, 61, 14, 'Phát triển ứng dụng di động — Gói 09', 1, 525000, 525000, '2026-08-21 09:00:00.000000'),
+(15, 15, 10, 62, 15, 'Thiết kế và tối ưu SQL — Gói 10', 1, 560000, 560000, '2026-08-22 09:00:00.000000'),
+(16, 16, 11, 63, 16, 'Triển khai ứng dụng lên cloud — Gói 11', 1, 595000, 595000, '2026-08-23 09:00:00.000000'),
+(17, 17, 12, 64, 17, 'Xây dựng website responsive — Gói 12', 1, 630000, 630000, '2026-08-24 09:00:00.000000'),
+(18, 18, 13, 65, 18, 'Thiết kế UI/UX và prototype — Gói 13', 1, 665000, 665000, '2026-08-25 09:00:00.000000'),
+(19, 19, 14, 66, 19, 'Phân tích và trực quan hóa dữ liệu — Gói 14', 1, 700000, 700000, '2026-08-26 09:00:00.000000'),
+(20, 20, 15, 67, 20, 'Tự động hóa kiểm thử chức năng — Gói 15', 1, 735000, 735000, '2026-08-27 09:00:00.000000'),
+(21, 21, 16, 68, 21, 'Tối ưu SEO và nội dung — Gói 16', 1, 770000, 770000, '2026-08-28 09:00:00.000000'),
+(22, 22, 17, 69, 22, 'Phát triển ứng dụng di động — Gói 17', 1, 805000, 805000, '2026-08-29 09:00:00.000000'),
+(23, 23, 18, 70, 23, 'Thiết kế và tối ưu SQL — Gói 18', 1, 840000, 840000, '2026-08-30 09:00:00.000000'),
+(24, 24, 19, 71, 24, 'Triển khai ứng dụng lên cloud — Gói 19', 1, 875000, 875000, '2026-08-31 09:00:00.000000'),
+(25, 25, 20, 72, 25, 'Xây dựng website responsive — Gói 20', 1, 910000, 910000, '2026-09-01 09:00:00.000000'),
+(26, 26, 21, 73, 26, 'Thiết kế UI/UX và prototype — Gói 21', 1, 945000, 945000, '2026-09-02 09:00:00.000000'),
+(27, 27, 22, 74, 27, 'Phân tích và trực quan hóa dữ liệu — Gói 22', 1, 980000, 980000, '2026-09-03 09:00:00.000000'),
+(28, 28, 23, 75, 28, 'Tự động hóa kiểm thử chức năng — Gói 23', 1, 1015000, 1015000, '2026-09-04 09:00:00.000000'),
+(29, 29, 24, 76, 29, 'Tối ưu SEO và nội dung — Gói 24', 1, 1050000, 1050000, '2026-09-05 09:00:00.000000'),
+(30, 30, 25, 77, 30, 'Phát triển ứng dụng di động — Gói 25', 1, 1085000, 1085000, '2026-09-06 09:00:00.000000'),
+(31, 31, 26, 78, 31, 'Thiết kế và tối ưu SQL — Gói 26', 1, 1120000, 1120000, '2026-09-07 09:00:00.000000'),
+(32, 32, 27, 79, 32, 'Triển khai ứng dụng lên cloud — Gói 27', 1, 1155000, 1155000, '2026-09-08 09:00:00.000000'),
+(33, 33, 28, 80, 33, 'Xây dựng website responsive — Gói 28', 1, 1190000, 1190000, '2026-09-09 09:00:00.000000'),
+(34, 34, 29, 81, 34, 'Thiết kế UI/UX và prototype — Gói 29', 1, 1225000, 1225000, '2026-09-10 09:00:00.000000'),
+(35, 35, 30, 82, 35, 'Phân tích và trực quan hóa dữ liệu — Gói 30', 1, 1260000, 1260000, '2026-09-11 09:00:00.000000');
+INSERT INTO rental_order_items (id, order_id, service_id, provider_id, booking_id, service_name_snapshot, quantity, unit_price, line_total, created_at) VALUES
+(36, 36, 31, 83, 36, 'Tự động hóa kiểm thử chức năng — Gói 31', 1, 1295000, 1295000, '2026-09-12 09:00:00.000000'),
+(37, 37, 32, 84, 37, 'Tối ưu SEO và nội dung — Gói 32', 1, 1330000, 1330000, '2026-09-13 09:00:00.000000'),
+(38, 38, 33, 85, 38, 'Phát triển ứng dụng di động — Gói 33', 1, 1365000, 1365000, '2026-09-14 09:00:00.000000'),
+(39, 39, 34, 86, 39, 'Thiết kế và tối ưu SQL — Gói 34', 1, 1400000, 1400000, '2026-09-15 09:00:00.000000'),
+(40, 40, 35, 87, 40, 'Triển khai ứng dụng lên cloud — Gói 35', 1, 1435000, 1435000, '2026-09-16 09:00:00.000000'),
+(41, 41, 36, 88, 41, 'Xây dựng website responsive — Gói 36', 1, 1470000, 1470000, '2026-09-17 09:00:00.000000'),
+(42, 42, 37, 89, 42, 'Thiết kế UI/UX và prototype — Gói 37', 1, 1505000, 1505000, '2026-09-18 09:00:00.000000'),
+(43, 43, 38, 90, 43, 'Phân tích và trực quan hóa dữ liệu — Gói 38', 1, 1540000, 1540000, '2026-09-19 09:00:00.000000'),
+(44, 44, 39, 91, 44, 'Tự động hóa kiểm thử chức năng — Gói 39', 1, 1575000, 1575000, '2026-09-20 09:00:00.000000'),
+(45, 45, 40, 92, 45, 'Tối ưu SEO và nội dung — Gói 40', 1, 1610000, 1610000, '2026-09-21 09:00:00.000000'),
+(46, 46, 41, 93, 46, 'Phát triển ứng dụng di động — Gói 41', 1, 1645000, 1645000, '2026-09-22 09:00:00.000000'),
+(47, 47, 42, 94, 47, 'Thiết kế và tối ưu SQL — Gói 42', 1, 1680000, 1680000, '2026-09-23 09:00:00.000000'),
+(48, 48, 43, 95, 48, 'Triển khai ứng dụng lên cloud — Gói 43', 1, 1715000, 1715000, '2026-09-24 09:00:00.000000'),
+(49, 49, 44, 96, 49, 'Xây dựng website responsive — Gói 44', 1, 1750000, 1750000, '2026-09-25 09:00:00.000000'),
+(50, 50, 45, 97, 50, 'Thiết kế UI/UX và prototype — Gói 45', 1, 1785000, 1785000, '2026-09-26 09:00:00.000000'),
+(51, 51, 46, 98, 51, 'Phân tích và trực quan hóa dữ liệu — Gói 46', 1, 1820000, 1820000, '2026-09-27 09:00:00.000000'),
+(52, 52, 47, 99, 52, 'Tự động hóa kiểm thử chức năng — Gói 47', 1, 1855000, 1855000, '2026-09-28 09:00:00.000000'),
+(53, 53, 48, 100, 53, 'Tối ưu SEO và nội dung — Gói 48', 1, 1890000, 1890000, '2026-09-29 09:00:00.000000');
+
+-- Add 48 order history rows; total 56.
+INSERT INTO rental_order_status_history (id, order_id, previous_status, new_status, changed_by_user_id, note, created_at) VALUES
+(9, 6, 'PROCESSING', 'COMPLETED', 53, 'Đơn 06 đã hoàn tất và bàn giao.', '2026-08-16 09:00:00.000000'),
+(10, 7, 'PROCESSING', 'COMPLETED', 54, 'Đơn 07 đã hoàn tất và bàn giao.', '2026-08-17 09:00:00.000000'),
+(11, 8, 'PROCESSING', 'COMPLETED', 55, 'Đơn 08 đã hoàn tất và bàn giao.', '2026-08-18 09:00:00.000000'),
+(12, 9, 'PROCESSING', 'COMPLETED', 56, 'Đơn 09 đã hoàn tất và bàn giao.', '2026-08-19 09:00:00.000000'),
+(13, 10, 'PROCESSING', 'COMPLETED', 57, 'Đơn 10 đã hoàn tất và bàn giao.', '2026-08-20 09:00:00.000000'),
+(14, 11, 'PROCESSING', 'COMPLETED', 58, 'Đơn 11 đã hoàn tất và bàn giao.', '2026-08-21 09:00:00.000000'),
+(15, 12, 'PROCESSING', 'COMPLETED', 59, 'Đơn 12 đã hoàn tất và bàn giao.', '2026-08-22 09:00:00.000000'),
+(16, 13, 'PROCESSING', 'COMPLETED', 60, 'Đơn 13 đã hoàn tất và bàn giao.', '2026-08-23 09:00:00.000000'),
+(17, 14, 'PROCESSING', 'COMPLETED', 61, 'Đơn 14 đã hoàn tất và bàn giao.', '2026-08-24 09:00:00.000000'),
+(18, 15, 'PROCESSING', 'COMPLETED', 62, 'Đơn 15 đã hoàn tất và bàn giao.', '2026-08-25 09:00:00.000000'),
+(19, 16, 'PROCESSING', 'COMPLETED', 63, 'Đơn 16 đã hoàn tất và bàn giao.', '2026-08-26 09:00:00.000000'),
+(20, 17, 'PROCESSING', 'COMPLETED', 64, 'Đơn 17 đã hoàn tất và bàn giao.', '2026-08-27 09:00:00.000000'),
+(21, 18, 'PROCESSING', 'COMPLETED', 65, 'Đơn 18 đã hoàn tất và bàn giao.', '2026-08-28 09:00:00.000000'),
+(22, 19, 'PROCESSING', 'COMPLETED', 66, 'Đơn 19 đã hoàn tất và bàn giao.', '2026-08-29 09:00:00.000000'),
+(23, 20, 'PROCESSING', 'COMPLETED', 67, 'Đơn 20 đã hoàn tất và bàn giao.', '2026-08-30 09:00:00.000000'),
+(24, 21, 'PROCESSING', 'COMPLETED', 68, 'Đơn 21 đã hoàn tất và bàn giao.', '2026-08-31 09:00:00.000000'),
+(25, 22, 'PROCESSING', 'COMPLETED', 69, 'Đơn 22 đã hoàn tất và bàn giao.', '2026-09-01 09:00:00.000000'),
+(26, 23, 'PROCESSING', 'COMPLETED', 70, 'Đơn 23 đã hoàn tất và bàn giao.', '2026-09-02 09:00:00.000000'),
+(27, 24, 'PROCESSING', 'COMPLETED', 71, 'Đơn 24 đã hoàn tất và bàn giao.', '2026-09-03 09:00:00.000000'),
+(28, 25, 'PROCESSING', 'COMPLETED', 72, 'Đơn 25 đã hoàn tất và bàn giao.', '2026-09-04 09:00:00.000000'),
+(29, 26, 'PROCESSING', 'COMPLETED', 73, 'Đơn 26 đã hoàn tất và bàn giao.', '2026-09-05 09:00:00.000000'),
+(30, 27, 'PROCESSING', 'COMPLETED', 74, 'Đơn 27 đã hoàn tất và bàn giao.', '2026-09-06 09:00:00.000000'),
+(31, 28, 'PROCESSING', 'COMPLETED', 75, 'Đơn 28 đã hoàn tất và bàn giao.', '2026-09-07 09:00:00.000000'),
+(32, 29, 'PROCESSING', 'COMPLETED', 76, 'Đơn 29 đã hoàn tất và bàn giao.', '2026-09-08 09:00:00.000000'),
+(33, 30, 'PROCESSING', 'COMPLETED', 77, 'Đơn 30 đã hoàn tất và bàn giao.', '2026-09-09 09:00:00.000000'),
+(34, 31, 'PROCESSING', 'COMPLETED', 78, 'Đơn 31 đã hoàn tất và bàn giao.', '2026-09-10 09:00:00.000000'),
+(35, 32, 'PROCESSING', 'COMPLETED', 79, 'Đơn 32 đã hoàn tất và bàn giao.', '2026-09-11 09:00:00.000000'),
+(36, 33, 'PROCESSING', 'COMPLETED', 80, 'Đơn 33 đã hoàn tất và bàn giao.', '2026-09-12 09:00:00.000000'),
+(37, 34, 'PROCESSING', 'COMPLETED', 81, 'Đơn 34 đã hoàn tất và bàn giao.', '2026-09-13 09:00:00.000000'),
+(38, 35, 'PROCESSING', 'COMPLETED', 82, 'Đơn 35 đã hoàn tất và bàn giao.', '2026-09-14 09:00:00.000000');
+INSERT INTO rental_order_status_history (id, order_id, previous_status, new_status, changed_by_user_id, note, created_at) VALUES
+(39, 36, 'PROCESSING', 'COMPLETED', 83, 'Đơn 36 đã hoàn tất và bàn giao.', '2026-09-15 09:00:00.000000'),
+(40, 37, 'PROCESSING', 'COMPLETED', 84, 'Đơn 37 đã hoàn tất và bàn giao.', '2026-09-16 09:00:00.000000'),
+(41, 38, 'PROCESSING', 'COMPLETED', 85, 'Đơn 38 đã hoàn tất và bàn giao.', '2026-09-17 09:00:00.000000'),
+(42, 39, 'PROCESSING', 'COMPLETED', 86, 'Đơn 39 đã hoàn tất và bàn giao.', '2026-09-18 09:00:00.000000'),
+(43, 40, 'PROCESSING', 'COMPLETED', 87, 'Đơn 40 đã hoàn tất và bàn giao.', '2026-09-19 09:00:00.000000'),
+(44, 41, 'PROCESSING', 'COMPLETED', 88, 'Đơn 41 đã hoàn tất và bàn giao.', '2026-09-20 09:00:00.000000'),
+(45, 42, 'PROCESSING', 'COMPLETED', 89, 'Đơn 42 đã hoàn tất và bàn giao.', '2026-09-21 09:00:00.000000'),
+(46, 43, 'PROCESSING', 'COMPLETED', 90, 'Đơn 43 đã hoàn tất và bàn giao.', '2026-09-22 09:00:00.000000'),
+(47, 44, 'PROCESSING', 'COMPLETED', 91, 'Đơn 44 đã hoàn tất và bàn giao.', '2026-09-23 09:00:00.000000'),
+(48, 45, 'PROCESSING', 'COMPLETED', 92, 'Đơn 45 đã hoàn tất và bàn giao.', '2026-09-24 09:00:00.000000'),
+(49, 46, 'PROCESSING', 'COMPLETED', 93, 'Đơn 46 đã hoàn tất và bàn giao.', '2026-09-25 09:00:00.000000'),
+(50, 47, 'PROCESSING', 'COMPLETED', 94, 'Đơn 47 đã hoàn tất và bàn giao.', '2026-09-26 09:00:00.000000'),
+(51, 48, 'PROCESSING', 'COMPLETED', 95, 'Đơn 48 đã hoàn tất và bàn giao.', '2026-09-27 09:00:00.000000'),
+(52, 49, 'PROCESSING', 'COMPLETED', 96, 'Đơn 49 đã hoàn tất và bàn giao.', '2026-09-28 09:00:00.000000'),
+(53, 50, 'PROCESSING', 'COMPLETED', 97, 'Đơn 50 đã hoàn tất và bàn giao.', '2026-09-29 09:00:00.000000'),
+(54, 51, 'PROCESSING', 'COMPLETED', 98, 'Đơn 51 đã hoàn tất và bàn giao.', '2026-09-30 09:00:00.000000'),
+(55, 52, 'PROCESSING', 'COMPLETED', 99, 'Đơn 52 đã hoàn tất và bàn giao.', '2026-10-01 09:00:00.000000'),
+(56, 53, 'PROCESSING', 'COMPLETED', 100, 'Đơn 53 đã hoàn tất và bàn giao.', '2026-10-02 09:00:00.000000');
+
+-- Add 48 demo payments; total 53.
+INSERT INTO payments (id, order_id, method, gateway_name, gateway_transaction_id, idempotency_key, coupon_code, amount, currency, status, failure_reason, paid_at, created_at, updated_at) VALUES
+(6, 6, 'MOMO', 'MOMO', 'DEMO-SEED-TXN-0006', 'DEMO-SEED-KEY-0006', NULL, 3200000, 'VND', 'PAID', NULL, '2026-08-13 11:00:00.000000', '2026-08-13 09:00:00.000000', '2026-08-13 11:00:00.000000'),
+(7, 7, 'VNPAY', 'VNPAY', 'DEMO-SEED-TXN-0007', 'DEMO-SEED-KEY-0007', NULL, 250000, 'VND', 'PAID', NULL, '2026-08-14 11:00:00.000000', '2026-08-14 09:00:00.000000', '2026-08-14 11:00:00.000000'),
+(8, 8, 'BANK_TRANSFER', 'BANK_TRANSFER', 'DEMO-SEED-TXN-0008', 'DEMO-SEED-KEY-0008', NULL, 1500000, 'VND', 'PAID', NULL, '2026-08-15 11:00:00.000000', '2026-08-15 09:00:00.000000', '2026-08-15 11:00:00.000000'),
+(9, 9, 'MOMO', 'MOMO', 'DEMO-SEED-TXN-0009', 'DEMO-SEED-KEY-0009', NULL, 350000, 'VND', 'PAID', NULL, '2026-08-16 11:00:00.000000', '2026-08-16 09:00:00.000000', '2026-08-16 11:00:00.000000'),
+(10, 10, 'VNPAY', 'VNPAY', 'DEMO-SEED-TXN-0010', 'DEMO-SEED-KEY-0010', NULL, 385000, 'VND', 'PAID', NULL, '2026-08-17 11:00:00.000000', '2026-08-17 09:00:00.000000', '2026-08-17 11:00:00.000000'),
+(11, 11, 'BANK_TRANSFER', 'BANK_TRANSFER', 'DEMO-SEED-TXN-0011', 'DEMO-SEED-KEY-0011', NULL, 420000, 'VND', 'PAID', NULL, '2026-08-18 11:00:00.000000', '2026-08-18 09:00:00.000000', '2026-08-18 11:00:00.000000'),
+(12, 12, 'MOMO', 'MOMO', 'DEMO-SEED-TXN-0012', 'DEMO-SEED-KEY-0012', NULL, 455000, 'VND', 'PAID', NULL, '2026-08-19 11:00:00.000000', '2026-08-19 09:00:00.000000', '2026-08-19 11:00:00.000000'),
+(13, 13, 'VNPAY', 'VNPAY', 'DEMO-SEED-TXN-0013', 'DEMO-SEED-KEY-0013', NULL, 490000, 'VND', 'PAID', NULL, '2026-08-20 11:00:00.000000', '2026-08-20 09:00:00.000000', '2026-08-20 11:00:00.000000'),
+(14, 14, 'BANK_TRANSFER', 'BANK_TRANSFER', 'DEMO-SEED-TXN-0014', 'DEMO-SEED-KEY-0014', NULL, 525000, 'VND', 'PAID', NULL, '2026-08-21 11:00:00.000000', '2026-08-21 09:00:00.000000', '2026-08-21 11:00:00.000000'),
+(15, 15, 'MOMO', 'MOMO', 'DEMO-SEED-TXN-0015', 'DEMO-SEED-KEY-0015', NULL, 560000, 'VND', 'PAID', NULL, '2026-08-22 11:00:00.000000', '2026-08-22 09:00:00.000000', '2026-08-22 11:00:00.000000'),
+(16, 16, 'VNPAY', 'VNPAY', 'DEMO-SEED-TXN-0016', 'DEMO-SEED-KEY-0016', NULL, 595000, 'VND', 'PAID', NULL, '2026-08-23 11:00:00.000000', '2026-08-23 09:00:00.000000', '2026-08-23 11:00:00.000000'),
+(17, 17, 'BANK_TRANSFER', 'BANK_TRANSFER', 'DEMO-SEED-TXN-0017', 'DEMO-SEED-KEY-0017', NULL, 630000, 'VND', 'PAID', NULL, '2026-08-24 11:00:00.000000', '2026-08-24 09:00:00.000000', '2026-08-24 11:00:00.000000'),
+(18, 18, 'MOMO', 'MOMO', 'DEMO-SEED-TXN-0018', 'DEMO-SEED-KEY-0018', NULL, 665000, 'VND', 'PAID', NULL, '2026-08-25 11:00:00.000000', '2026-08-25 09:00:00.000000', '2026-08-25 11:00:00.000000'),
+(19, 19, 'VNPAY', 'VNPAY', 'DEMO-SEED-TXN-0019', 'DEMO-SEED-KEY-0019', NULL, 700000, 'VND', 'PAID', NULL, '2026-08-26 11:00:00.000000', '2026-08-26 09:00:00.000000', '2026-08-26 11:00:00.000000'),
+(20, 20, 'BANK_TRANSFER', 'BANK_TRANSFER', 'DEMO-SEED-TXN-0020', 'DEMO-SEED-KEY-0020', NULL, 735000, 'VND', 'PAID', NULL, '2026-08-27 11:00:00.000000', '2026-08-27 09:00:00.000000', '2026-08-27 11:00:00.000000'),
+(21, 21, 'MOMO', 'MOMO', 'DEMO-SEED-TXN-0021', 'DEMO-SEED-KEY-0021', NULL, 770000, 'VND', 'PAID', NULL, '2026-08-28 11:00:00.000000', '2026-08-28 09:00:00.000000', '2026-08-28 11:00:00.000000'),
+(22, 22, 'VNPAY', 'VNPAY', 'DEMO-SEED-TXN-0022', 'DEMO-SEED-KEY-0022', NULL, 805000, 'VND', 'PAID', NULL, '2026-08-29 11:00:00.000000', '2026-08-29 09:00:00.000000', '2026-08-29 11:00:00.000000'),
+(23, 23, 'BANK_TRANSFER', 'BANK_TRANSFER', 'DEMO-SEED-TXN-0023', 'DEMO-SEED-KEY-0023', NULL, 840000, 'VND', 'PAID', NULL, '2026-08-30 11:00:00.000000', '2026-08-30 09:00:00.000000', '2026-08-30 11:00:00.000000'),
+(24, 24, 'MOMO', 'MOMO', 'DEMO-SEED-TXN-0024', 'DEMO-SEED-KEY-0024', NULL, 875000, 'VND', 'PAID', NULL, '2026-08-31 11:00:00.000000', '2026-08-31 09:00:00.000000', '2026-08-31 11:00:00.000000'),
+(25, 25, 'VNPAY', 'VNPAY', 'DEMO-SEED-TXN-0025', 'DEMO-SEED-KEY-0025', NULL, 910000, 'VND', 'PAID', NULL, '2026-09-01 11:00:00.000000', '2026-09-01 09:00:00.000000', '2026-09-01 11:00:00.000000'),
+(26, 26, 'BANK_TRANSFER', 'BANK_TRANSFER', 'DEMO-SEED-TXN-0026', 'DEMO-SEED-KEY-0026', NULL, 945000, 'VND', 'PAID', NULL, '2026-09-02 11:00:00.000000', '2026-09-02 09:00:00.000000', '2026-09-02 11:00:00.000000'),
+(27, 27, 'MOMO', 'MOMO', 'DEMO-SEED-TXN-0027', 'DEMO-SEED-KEY-0027', NULL, 980000, 'VND', 'PAID', NULL, '2026-09-03 11:00:00.000000', '2026-09-03 09:00:00.000000', '2026-09-03 11:00:00.000000'),
+(28, 28, 'VNPAY', 'VNPAY', 'DEMO-SEED-TXN-0028', 'DEMO-SEED-KEY-0028', NULL, 1015000, 'VND', 'PAID', NULL, '2026-09-04 11:00:00.000000', '2026-09-04 09:00:00.000000', '2026-09-04 11:00:00.000000'),
+(29, 29, 'BANK_TRANSFER', 'BANK_TRANSFER', 'DEMO-SEED-TXN-0029', 'DEMO-SEED-KEY-0029', NULL, 1050000, 'VND', 'PAID', NULL, '2026-09-05 11:00:00.000000', '2026-09-05 09:00:00.000000', '2026-09-05 11:00:00.000000'),
+(30, 30, 'MOMO', 'MOMO', 'DEMO-SEED-TXN-0030', 'DEMO-SEED-KEY-0030', NULL, 1085000, 'VND', 'PAID', NULL, '2026-09-06 11:00:00.000000', '2026-09-06 09:00:00.000000', '2026-09-06 11:00:00.000000'),
+(31, 31, 'VNPAY', 'VNPAY', 'DEMO-SEED-TXN-0031', 'DEMO-SEED-KEY-0031', NULL, 1120000, 'VND', 'PAID', NULL, '2026-09-07 11:00:00.000000', '2026-09-07 09:00:00.000000', '2026-09-07 11:00:00.000000'),
+(32, 32, 'BANK_TRANSFER', 'BANK_TRANSFER', 'DEMO-SEED-TXN-0032', 'DEMO-SEED-KEY-0032', NULL, 1155000, 'VND', 'PAID', NULL, '2026-09-08 11:00:00.000000', '2026-09-08 09:00:00.000000', '2026-09-08 11:00:00.000000'),
+(33, 33, 'MOMO', 'MOMO', 'DEMO-SEED-TXN-0033', 'DEMO-SEED-KEY-0033', NULL, 1190000, 'VND', 'PAID', NULL, '2026-09-09 11:00:00.000000', '2026-09-09 09:00:00.000000', '2026-09-09 11:00:00.000000'),
+(34, 34, 'VNPAY', 'VNPAY', 'DEMO-SEED-TXN-0034', 'DEMO-SEED-KEY-0034', NULL, 1225000, 'VND', 'PAID', NULL, '2026-09-10 11:00:00.000000', '2026-09-10 09:00:00.000000', '2026-09-10 11:00:00.000000'),
+(35, 35, 'BANK_TRANSFER', 'BANK_TRANSFER', 'DEMO-SEED-TXN-0035', 'DEMO-SEED-KEY-0035', NULL, 1260000, 'VND', 'PAID', NULL, '2026-09-11 11:00:00.000000', '2026-09-11 09:00:00.000000', '2026-09-11 11:00:00.000000');
+INSERT INTO payments (id, order_id, method, gateway_name, gateway_transaction_id, idempotency_key, coupon_code, amount, currency, status, failure_reason, paid_at, created_at, updated_at) VALUES
+(36, 36, 'MOMO', 'MOMO', 'DEMO-SEED-TXN-0036', 'DEMO-SEED-KEY-0036', NULL, 1295000, 'VND', 'PAID', NULL, '2026-09-12 11:00:00.000000', '2026-09-12 09:00:00.000000', '2026-09-12 11:00:00.000000'),
+(37, 37, 'VNPAY', 'VNPAY', 'DEMO-SEED-TXN-0037', 'DEMO-SEED-KEY-0037', NULL, 1330000, 'VND', 'PAID', NULL, '2026-09-13 11:00:00.000000', '2026-09-13 09:00:00.000000', '2026-09-13 11:00:00.000000'),
+(38, 38, 'BANK_TRANSFER', 'BANK_TRANSFER', 'DEMO-SEED-TXN-0038', 'DEMO-SEED-KEY-0038', NULL, 1365000, 'VND', 'PAID', NULL, '2026-09-14 11:00:00.000000', '2026-09-14 09:00:00.000000', '2026-09-14 11:00:00.000000'),
+(39, 39, 'MOMO', 'MOMO', 'DEMO-SEED-TXN-0039', 'DEMO-SEED-KEY-0039', NULL, 1400000, 'VND', 'PAID', NULL, '2026-09-15 11:00:00.000000', '2026-09-15 09:00:00.000000', '2026-09-15 11:00:00.000000'),
+(40, 40, 'VNPAY', 'VNPAY', 'DEMO-SEED-TXN-0040', 'DEMO-SEED-KEY-0040', NULL, 1435000, 'VND', 'PAID', NULL, '2026-09-16 11:00:00.000000', '2026-09-16 09:00:00.000000', '2026-09-16 11:00:00.000000'),
+(41, 41, 'BANK_TRANSFER', 'BANK_TRANSFER', 'DEMO-SEED-TXN-0041', 'DEMO-SEED-KEY-0041', NULL, 1470000, 'VND', 'PAID', NULL, '2026-09-17 11:00:00.000000', '2026-09-17 09:00:00.000000', '2026-09-17 11:00:00.000000'),
+(42, 42, 'MOMO', 'MOMO', 'DEMO-SEED-TXN-0042', 'DEMO-SEED-KEY-0042', NULL, 1505000, 'VND', 'PAID', NULL, '2026-09-18 11:00:00.000000', '2026-09-18 09:00:00.000000', '2026-09-18 11:00:00.000000'),
+(43, 43, 'VNPAY', 'VNPAY', 'DEMO-SEED-TXN-0043', 'DEMO-SEED-KEY-0043', NULL, 1540000, 'VND', 'PAID', NULL, '2026-09-19 11:00:00.000000', '2026-09-19 09:00:00.000000', '2026-09-19 11:00:00.000000'),
+(44, 44, 'BANK_TRANSFER', 'BANK_TRANSFER', 'DEMO-SEED-TXN-0044', 'DEMO-SEED-KEY-0044', NULL, 1575000, 'VND', 'PAID', NULL, '2026-09-20 11:00:00.000000', '2026-09-20 09:00:00.000000', '2026-09-20 11:00:00.000000'),
+(45, 45, 'MOMO', 'MOMO', 'DEMO-SEED-TXN-0045', 'DEMO-SEED-KEY-0045', NULL, 1610000, 'VND', 'PAID', NULL, '2026-09-21 11:00:00.000000', '2026-09-21 09:00:00.000000', '2026-09-21 11:00:00.000000'),
+(46, 46, 'VNPAY', 'VNPAY', 'DEMO-SEED-TXN-0046', 'DEMO-SEED-KEY-0046', NULL, 1645000, 'VND', 'PAID', NULL, '2026-09-22 11:00:00.000000', '2026-09-22 09:00:00.000000', '2026-09-22 11:00:00.000000'),
+(47, 47, 'BANK_TRANSFER', 'BANK_TRANSFER', 'DEMO-SEED-TXN-0047', 'DEMO-SEED-KEY-0047', NULL, 1680000, 'VND', 'PAID', NULL, '2026-09-23 11:00:00.000000', '2026-09-23 09:00:00.000000', '2026-09-23 11:00:00.000000'),
+(48, 48, 'MOMO', 'MOMO', 'DEMO-SEED-TXN-0048', 'DEMO-SEED-KEY-0048', NULL, 1715000, 'VND', 'PAID', NULL, '2026-09-24 11:00:00.000000', '2026-09-24 09:00:00.000000', '2026-09-24 11:00:00.000000'),
+(49, 49, 'VNPAY', 'VNPAY', 'DEMO-SEED-TXN-0049', 'DEMO-SEED-KEY-0049', NULL, 1750000, 'VND', 'PAID', NULL, '2026-09-25 11:00:00.000000', '2026-09-25 09:00:00.000000', '2026-09-25 11:00:00.000000'),
+(50, 50, 'BANK_TRANSFER', 'BANK_TRANSFER', 'DEMO-SEED-TXN-0050', 'DEMO-SEED-KEY-0050', NULL, 1785000, 'VND', 'PAID', NULL, '2026-09-26 11:00:00.000000', '2026-09-26 09:00:00.000000', '2026-09-26 11:00:00.000000'),
+(51, 51, 'MOMO', 'MOMO', 'DEMO-SEED-TXN-0051', 'DEMO-SEED-KEY-0051', NULL, 1820000, 'VND', 'PAID', NULL, '2026-09-27 11:00:00.000000', '2026-09-27 09:00:00.000000', '2026-09-27 11:00:00.000000'),
+(52, 52, 'VNPAY', 'VNPAY', 'DEMO-SEED-TXN-0052', 'DEMO-SEED-KEY-0052', NULL, 1855000, 'VND', 'PAID', NULL, '2026-09-28 11:00:00.000000', '2026-09-28 09:00:00.000000', '2026-09-28 11:00:00.000000'),
+(53, 53, 'BANK_TRANSFER', 'BANK_TRANSFER', 'DEMO-SEED-TXN-0053', 'DEMO-SEED-KEY-0053', NULL, 1890000, 'VND', 'PAID', NULL, '2026-09-29 11:00:00.000000', '2026-09-29 09:00:00.000000', '2026-09-29 11:00:00.000000');
+
+-- Add 48 payment attempts; total 53.
+INSERT INTO payment_attempts (id, payment_id, attempt_number, gateway_name, merchant_reference, gateway_transaction_id, idempotency_key, amount, currency, status, response_code, failure_reason, initiated_at, completed_at) VALUES
+(6, 6, 1, 'MOMO', 'DEMO-MERCHANT-0006', 'DEMO-SEED-TXN-0006', 'DEMO-ATTEMPT-KEY-0006', 3200000, 'VND', 'SUCCEEDED', '00', NULL, '2026-08-13 09:00:00.000000', '2026-08-13 11:00:00.000000'),
+(7, 7, 1, 'VNPAY', 'DEMO-MERCHANT-0007', 'DEMO-SEED-TXN-0007', 'DEMO-ATTEMPT-KEY-0007', 250000, 'VND', 'SUCCEEDED', '00', NULL, '2026-08-14 09:00:00.000000', '2026-08-14 11:00:00.000000'),
+(8, 8, 1, 'BANK_TRANSFER', 'DEMO-MERCHANT-0008', 'DEMO-SEED-TXN-0008', 'DEMO-ATTEMPT-KEY-0008', 1500000, 'VND', 'SUCCEEDED', '00', NULL, '2026-08-15 09:00:00.000000', '2026-08-15 11:00:00.000000'),
+(9, 9, 1, 'MOMO', 'DEMO-MERCHANT-0009', 'DEMO-SEED-TXN-0009', 'DEMO-ATTEMPT-KEY-0009', 350000, 'VND', 'SUCCEEDED', '00', NULL, '2026-08-16 09:00:00.000000', '2026-08-16 11:00:00.000000'),
+(10, 10, 1, 'VNPAY', 'DEMO-MERCHANT-0010', 'DEMO-SEED-TXN-0010', 'DEMO-ATTEMPT-KEY-0010', 385000, 'VND', 'SUCCEEDED', '00', NULL, '2026-08-17 09:00:00.000000', '2026-08-17 11:00:00.000000'),
+(11, 11, 1, 'BANK_TRANSFER', 'DEMO-MERCHANT-0011', 'DEMO-SEED-TXN-0011', 'DEMO-ATTEMPT-KEY-0011', 420000, 'VND', 'SUCCEEDED', '00', NULL, '2026-08-18 09:00:00.000000', '2026-08-18 11:00:00.000000'),
+(12, 12, 1, 'MOMO', 'DEMO-MERCHANT-0012', 'DEMO-SEED-TXN-0012', 'DEMO-ATTEMPT-KEY-0012', 455000, 'VND', 'SUCCEEDED', '00', NULL, '2026-08-19 09:00:00.000000', '2026-08-19 11:00:00.000000'),
+(13, 13, 1, 'VNPAY', 'DEMO-MERCHANT-0013', 'DEMO-SEED-TXN-0013', 'DEMO-ATTEMPT-KEY-0013', 490000, 'VND', 'SUCCEEDED', '00', NULL, '2026-08-20 09:00:00.000000', '2026-08-20 11:00:00.000000'),
+(14, 14, 1, 'BANK_TRANSFER', 'DEMO-MERCHANT-0014', 'DEMO-SEED-TXN-0014', 'DEMO-ATTEMPT-KEY-0014', 525000, 'VND', 'SUCCEEDED', '00', NULL, '2026-08-21 09:00:00.000000', '2026-08-21 11:00:00.000000'),
+(15, 15, 1, 'MOMO', 'DEMO-MERCHANT-0015', 'DEMO-SEED-TXN-0015', 'DEMO-ATTEMPT-KEY-0015', 560000, 'VND', 'SUCCEEDED', '00', NULL, '2026-08-22 09:00:00.000000', '2026-08-22 11:00:00.000000'),
+(16, 16, 1, 'VNPAY', 'DEMO-MERCHANT-0016', 'DEMO-SEED-TXN-0016', 'DEMO-ATTEMPT-KEY-0016', 595000, 'VND', 'SUCCEEDED', '00', NULL, '2026-08-23 09:00:00.000000', '2026-08-23 11:00:00.000000'),
+(17, 17, 1, 'BANK_TRANSFER', 'DEMO-MERCHANT-0017', 'DEMO-SEED-TXN-0017', 'DEMO-ATTEMPT-KEY-0017', 630000, 'VND', 'SUCCEEDED', '00', NULL, '2026-08-24 09:00:00.000000', '2026-08-24 11:00:00.000000'),
+(18, 18, 1, 'MOMO', 'DEMO-MERCHANT-0018', 'DEMO-SEED-TXN-0018', 'DEMO-ATTEMPT-KEY-0018', 665000, 'VND', 'SUCCEEDED', '00', NULL, '2026-08-25 09:00:00.000000', '2026-08-25 11:00:00.000000'),
+(19, 19, 1, 'VNPAY', 'DEMO-MERCHANT-0019', 'DEMO-SEED-TXN-0019', 'DEMO-ATTEMPT-KEY-0019', 700000, 'VND', 'SUCCEEDED', '00', NULL, '2026-08-26 09:00:00.000000', '2026-08-26 11:00:00.000000'),
+(20, 20, 1, 'BANK_TRANSFER', 'DEMO-MERCHANT-0020', 'DEMO-SEED-TXN-0020', 'DEMO-ATTEMPT-KEY-0020', 735000, 'VND', 'SUCCEEDED', '00', NULL, '2026-08-27 09:00:00.000000', '2026-08-27 11:00:00.000000'),
+(21, 21, 1, 'MOMO', 'DEMO-MERCHANT-0021', 'DEMO-SEED-TXN-0021', 'DEMO-ATTEMPT-KEY-0021', 770000, 'VND', 'SUCCEEDED', '00', NULL, '2026-08-28 09:00:00.000000', '2026-08-28 11:00:00.000000'),
+(22, 22, 1, 'VNPAY', 'DEMO-MERCHANT-0022', 'DEMO-SEED-TXN-0022', 'DEMO-ATTEMPT-KEY-0022', 805000, 'VND', 'SUCCEEDED', '00', NULL, '2026-08-29 09:00:00.000000', '2026-08-29 11:00:00.000000'),
+(23, 23, 1, 'BANK_TRANSFER', 'DEMO-MERCHANT-0023', 'DEMO-SEED-TXN-0023', 'DEMO-ATTEMPT-KEY-0023', 840000, 'VND', 'SUCCEEDED', '00', NULL, '2026-08-30 09:00:00.000000', '2026-08-30 11:00:00.000000'),
+(24, 24, 1, 'MOMO', 'DEMO-MERCHANT-0024', 'DEMO-SEED-TXN-0024', 'DEMO-ATTEMPT-KEY-0024', 875000, 'VND', 'SUCCEEDED', '00', NULL, '2026-08-31 09:00:00.000000', '2026-08-31 11:00:00.000000'),
+(25, 25, 1, 'VNPAY', 'DEMO-MERCHANT-0025', 'DEMO-SEED-TXN-0025', 'DEMO-ATTEMPT-KEY-0025', 910000, 'VND', 'SUCCEEDED', '00', NULL, '2026-09-01 09:00:00.000000', '2026-09-01 11:00:00.000000'),
+(26, 26, 1, 'BANK_TRANSFER', 'DEMO-MERCHANT-0026', 'DEMO-SEED-TXN-0026', 'DEMO-ATTEMPT-KEY-0026', 945000, 'VND', 'SUCCEEDED', '00', NULL, '2026-09-02 09:00:00.000000', '2026-09-02 11:00:00.000000'),
+(27, 27, 1, 'MOMO', 'DEMO-MERCHANT-0027', 'DEMO-SEED-TXN-0027', 'DEMO-ATTEMPT-KEY-0027', 980000, 'VND', 'SUCCEEDED', '00', NULL, '2026-09-03 09:00:00.000000', '2026-09-03 11:00:00.000000'),
+(28, 28, 1, 'VNPAY', 'DEMO-MERCHANT-0028', 'DEMO-SEED-TXN-0028', 'DEMO-ATTEMPT-KEY-0028', 1015000, 'VND', 'SUCCEEDED', '00', NULL, '2026-09-04 09:00:00.000000', '2026-09-04 11:00:00.000000'),
+(29, 29, 1, 'BANK_TRANSFER', 'DEMO-MERCHANT-0029', 'DEMO-SEED-TXN-0029', 'DEMO-ATTEMPT-KEY-0029', 1050000, 'VND', 'SUCCEEDED', '00', NULL, '2026-09-05 09:00:00.000000', '2026-09-05 11:00:00.000000'),
+(30, 30, 1, 'MOMO', 'DEMO-MERCHANT-0030', 'DEMO-SEED-TXN-0030', 'DEMO-ATTEMPT-KEY-0030', 1085000, 'VND', 'SUCCEEDED', '00', NULL, '2026-09-06 09:00:00.000000', '2026-09-06 11:00:00.000000'),
+(31, 31, 1, 'VNPAY', 'DEMO-MERCHANT-0031', 'DEMO-SEED-TXN-0031', 'DEMO-ATTEMPT-KEY-0031', 1120000, 'VND', 'SUCCEEDED', '00', NULL, '2026-09-07 09:00:00.000000', '2026-09-07 11:00:00.000000'),
+(32, 32, 1, 'BANK_TRANSFER', 'DEMO-MERCHANT-0032', 'DEMO-SEED-TXN-0032', 'DEMO-ATTEMPT-KEY-0032', 1155000, 'VND', 'SUCCEEDED', '00', NULL, '2026-09-08 09:00:00.000000', '2026-09-08 11:00:00.000000'),
+(33, 33, 1, 'MOMO', 'DEMO-MERCHANT-0033', 'DEMO-SEED-TXN-0033', 'DEMO-ATTEMPT-KEY-0033', 1190000, 'VND', 'SUCCEEDED', '00', NULL, '2026-09-09 09:00:00.000000', '2026-09-09 11:00:00.000000'),
+(34, 34, 1, 'VNPAY', 'DEMO-MERCHANT-0034', 'DEMO-SEED-TXN-0034', 'DEMO-ATTEMPT-KEY-0034', 1225000, 'VND', 'SUCCEEDED', '00', NULL, '2026-09-10 09:00:00.000000', '2026-09-10 11:00:00.000000'),
+(35, 35, 1, 'BANK_TRANSFER', 'DEMO-MERCHANT-0035', 'DEMO-SEED-TXN-0035', 'DEMO-ATTEMPT-KEY-0035', 1260000, 'VND', 'SUCCEEDED', '00', NULL, '2026-09-11 09:00:00.000000', '2026-09-11 11:00:00.000000');
+INSERT INTO payment_attempts (id, payment_id, attempt_number, gateway_name, merchant_reference, gateway_transaction_id, idempotency_key, amount, currency, status, response_code, failure_reason, initiated_at, completed_at) VALUES
+(36, 36, 1, 'MOMO', 'DEMO-MERCHANT-0036', 'DEMO-SEED-TXN-0036', 'DEMO-ATTEMPT-KEY-0036', 1295000, 'VND', 'SUCCEEDED', '00', NULL, '2026-09-12 09:00:00.000000', '2026-09-12 11:00:00.000000'),
+(37, 37, 1, 'VNPAY', 'DEMO-MERCHANT-0037', 'DEMO-SEED-TXN-0037', 'DEMO-ATTEMPT-KEY-0037', 1330000, 'VND', 'SUCCEEDED', '00', NULL, '2026-09-13 09:00:00.000000', '2026-09-13 11:00:00.000000'),
+(38, 38, 1, 'BANK_TRANSFER', 'DEMO-MERCHANT-0038', 'DEMO-SEED-TXN-0038', 'DEMO-ATTEMPT-KEY-0038', 1365000, 'VND', 'SUCCEEDED', '00', NULL, '2026-09-14 09:00:00.000000', '2026-09-14 11:00:00.000000'),
+(39, 39, 1, 'MOMO', 'DEMO-MERCHANT-0039', 'DEMO-SEED-TXN-0039', 'DEMO-ATTEMPT-KEY-0039', 1400000, 'VND', 'SUCCEEDED', '00', NULL, '2026-09-15 09:00:00.000000', '2026-09-15 11:00:00.000000'),
+(40, 40, 1, 'VNPAY', 'DEMO-MERCHANT-0040', 'DEMO-SEED-TXN-0040', 'DEMO-ATTEMPT-KEY-0040', 1435000, 'VND', 'SUCCEEDED', '00', NULL, '2026-09-16 09:00:00.000000', '2026-09-16 11:00:00.000000'),
+(41, 41, 1, 'BANK_TRANSFER', 'DEMO-MERCHANT-0041', 'DEMO-SEED-TXN-0041', 'DEMO-ATTEMPT-KEY-0041', 1470000, 'VND', 'SUCCEEDED', '00', NULL, '2026-09-17 09:00:00.000000', '2026-09-17 11:00:00.000000'),
+(42, 42, 1, 'MOMO', 'DEMO-MERCHANT-0042', 'DEMO-SEED-TXN-0042', 'DEMO-ATTEMPT-KEY-0042', 1505000, 'VND', 'SUCCEEDED', '00', NULL, '2026-09-18 09:00:00.000000', '2026-09-18 11:00:00.000000'),
+(43, 43, 1, 'VNPAY', 'DEMO-MERCHANT-0043', 'DEMO-SEED-TXN-0043', 'DEMO-ATTEMPT-KEY-0043', 1540000, 'VND', 'SUCCEEDED', '00', NULL, '2026-09-19 09:00:00.000000', '2026-09-19 11:00:00.000000'),
+(44, 44, 1, 'BANK_TRANSFER', 'DEMO-MERCHANT-0044', 'DEMO-SEED-TXN-0044', 'DEMO-ATTEMPT-KEY-0044', 1575000, 'VND', 'SUCCEEDED', '00', NULL, '2026-09-20 09:00:00.000000', '2026-09-20 11:00:00.000000'),
+(45, 45, 1, 'MOMO', 'DEMO-MERCHANT-0045', 'DEMO-SEED-TXN-0045', 'DEMO-ATTEMPT-KEY-0045', 1610000, 'VND', 'SUCCEEDED', '00', NULL, '2026-09-21 09:00:00.000000', '2026-09-21 11:00:00.000000'),
+(46, 46, 1, 'VNPAY', 'DEMO-MERCHANT-0046', 'DEMO-SEED-TXN-0046', 'DEMO-ATTEMPT-KEY-0046', 1645000, 'VND', 'SUCCEEDED', '00', NULL, '2026-09-22 09:00:00.000000', '2026-09-22 11:00:00.000000'),
+(47, 47, 1, 'BANK_TRANSFER', 'DEMO-MERCHANT-0047', 'DEMO-SEED-TXN-0047', 'DEMO-ATTEMPT-KEY-0047', 1680000, 'VND', 'SUCCEEDED', '00', NULL, '2026-09-23 09:00:00.000000', '2026-09-23 11:00:00.000000'),
+(48, 48, 1, 'MOMO', 'DEMO-MERCHANT-0048', 'DEMO-SEED-TXN-0048', 'DEMO-ATTEMPT-KEY-0048', 1715000, 'VND', 'SUCCEEDED', '00', NULL, '2026-09-24 09:00:00.000000', '2026-09-24 11:00:00.000000'),
+(49, 49, 1, 'VNPAY', 'DEMO-MERCHANT-0049', 'DEMO-SEED-TXN-0049', 'DEMO-ATTEMPT-KEY-0049', 1750000, 'VND', 'SUCCEEDED', '00', NULL, '2026-09-25 09:00:00.000000', '2026-09-25 11:00:00.000000'),
+(50, 50, 1, 'BANK_TRANSFER', 'DEMO-MERCHANT-0050', 'DEMO-SEED-TXN-0050', 'DEMO-ATTEMPT-KEY-0050', 1785000, 'VND', 'SUCCEEDED', '00', NULL, '2026-09-26 09:00:00.000000', '2026-09-26 11:00:00.000000'),
+(51, 51, 1, 'MOMO', 'DEMO-MERCHANT-0051', 'DEMO-SEED-TXN-0051', 'DEMO-ATTEMPT-KEY-0051', 1820000, 'VND', 'SUCCEEDED', '00', NULL, '2026-09-27 09:00:00.000000', '2026-09-27 11:00:00.000000'),
+(52, 52, 1, 'VNPAY', 'DEMO-MERCHANT-0052', 'DEMO-SEED-TXN-0052', 'DEMO-ATTEMPT-KEY-0052', 1855000, 'VND', 'SUCCEEDED', '00', NULL, '2026-09-28 09:00:00.000000', '2026-09-28 11:00:00.000000'),
+(53, 53, 1, 'BANK_TRANSFER', 'DEMO-MERCHANT-0053', 'DEMO-SEED-TXN-0053', 'DEMO-ATTEMPT-KEY-0053', 1890000, 'VND', 'SUCCEEDED', '00', NULL, '2026-09-29 09:00:00.000000', '2026-09-29 11:00:00.000000');
+
+-- Add 48 refunds; total 50. All are simulated records.
+INSERT INTO refunds (id, payment_id, requested_by_user_id, processed_by_admin_id, amount, reason, status, gateway_refund_id, admin_note, requested_at, processed_at) VALUES
+(3, 6, 4, NULL, 320000, 'Yêu cầu hoàn tiền dữ liệu mẫu cho đơn 06.', 'REQUESTED', NULL, NULL, '2026-08-16 09:00:00.000000', NULL),
+(4, 7, 5, 3, 25000, 'Yêu cầu hoàn tiền dữ liệu mẫu cho đơn 07.', 'APPROVED', NULL, 'Bản ghi giả lập phục vụ kiểm thử; không phát sinh giao dịch thật.', '2026-08-17 09:00:00.000000', '2026-08-18 09:00:00.000000'),
+(5, 8, 6, 3, 150000, 'Yêu cầu hoàn tiền dữ liệu mẫu cho đơn 08.', 'REJECTED', NULL, 'Bản ghi giả lập phục vụ kiểm thử; không phát sinh giao dịch thật.', '2026-08-18 09:00:00.000000', '2026-08-19 09:00:00.000000'),
+(6, 9, 7, 3, 35000, 'Yêu cầu hoàn tiền dữ liệu mẫu cho đơn 09.', 'PROCESSING', NULL, 'Bản ghi giả lập phục vụ kiểm thử; không phát sinh giao dịch thật.', '2026-08-19 09:00:00.000000', '2026-08-20 09:00:00.000000'),
+(7, 10, 8, 3, 38500, 'Yêu cầu hoàn tiền dữ liệu mẫu cho đơn 10.', 'SUCCEEDED', 'DEMO-REFUND-SEED-0010', 'Bản ghi giả lập phục vụ kiểm thử; không phát sinh giao dịch thật.', '2026-08-20 09:00:00.000000', '2026-08-21 09:00:00.000000'),
+(8, 11, 9, 3, 42000, 'Yêu cầu hoàn tiền dữ liệu mẫu cho đơn 11.', 'FAILED', NULL, 'Bản ghi giả lập phục vụ kiểm thử; không phát sinh giao dịch thật.', '2026-08-21 09:00:00.000000', '2026-08-22 09:00:00.000000'),
+(9, 12, 10, 3, 45500, 'Yêu cầu hoàn tiền dữ liệu mẫu cho đơn 12.', 'CANCELLED', NULL, 'Bản ghi giả lập phục vụ kiểm thử; không phát sinh giao dịch thật.', '2026-08-22 09:00:00.000000', '2026-08-23 09:00:00.000000'),
+(10, 13, 11, NULL, 49000, 'Yêu cầu hoàn tiền dữ liệu mẫu cho đơn 13.', 'REQUESTED', NULL, NULL, '2026-08-23 09:00:00.000000', NULL),
+(11, 14, 12, 3, 52500, 'Yêu cầu hoàn tiền dữ liệu mẫu cho đơn 14.', 'APPROVED', NULL, 'Bản ghi giả lập phục vụ kiểm thử; không phát sinh giao dịch thật.', '2026-08-24 09:00:00.000000', '2026-08-25 09:00:00.000000'),
+(12, 15, 13, 3, 56000, 'Yêu cầu hoàn tiền dữ liệu mẫu cho đơn 15.', 'REJECTED', NULL, 'Bản ghi giả lập phục vụ kiểm thử; không phát sinh giao dịch thật.', '2026-08-25 09:00:00.000000', '2026-08-26 09:00:00.000000'),
+(13, 16, 14, 3, 59500, 'Yêu cầu hoàn tiền dữ liệu mẫu cho đơn 16.', 'PROCESSING', NULL, 'Bản ghi giả lập phục vụ kiểm thử; không phát sinh giao dịch thật.', '2026-08-26 09:00:00.000000', '2026-08-27 09:00:00.000000'),
+(14, 17, 15, 3, 63000, 'Yêu cầu hoàn tiền dữ liệu mẫu cho đơn 17.', 'SUCCEEDED', 'DEMO-REFUND-SEED-0017', 'Bản ghi giả lập phục vụ kiểm thử; không phát sinh giao dịch thật.', '2026-08-27 09:00:00.000000', '2026-08-28 09:00:00.000000'),
+(15, 18, 16, 3, 66500, 'Yêu cầu hoàn tiền dữ liệu mẫu cho đơn 18.', 'FAILED', NULL, 'Bản ghi giả lập phục vụ kiểm thử; không phát sinh giao dịch thật.', '2026-08-28 09:00:00.000000', '2026-08-29 09:00:00.000000'),
+(16, 19, 17, 3, 70000, 'Yêu cầu hoàn tiền dữ liệu mẫu cho đơn 19.', 'CANCELLED', NULL, 'Bản ghi giả lập phục vụ kiểm thử; không phát sinh giao dịch thật.', '2026-08-29 09:00:00.000000', '2026-08-30 09:00:00.000000'),
+(17, 20, 18, NULL, 73500, 'Yêu cầu hoàn tiền dữ liệu mẫu cho đơn 20.', 'REQUESTED', NULL, NULL, '2026-08-30 09:00:00.000000', NULL),
+(18, 21, 19, 3, 77000, 'Yêu cầu hoàn tiền dữ liệu mẫu cho đơn 21.', 'APPROVED', NULL, 'Bản ghi giả lập phục vụ kiểm thử; không phát sinh giao dịch thật.', '2026-08-31 09:00:00.000000', '2026-09-01 09:00:00.000000'),
+(19, 22, 20, 3, 80500, 'Yêu cầu hoàn tiền dữ liệu mẫu cho đơn 22.', 'REJECTED', NULL, 'Bản ghi giả lập phục vụ kiểm thử; không phát sinh giao dịch thật.', '2026-09-01 09:00:00.000000', '2026-09-02 09:00:00.000000'),
+(20, 23, 21, 3, 84000, 'Yêu cầu hoàn tiền dữ liệu mẫu cho đơn 23.', 'PROCESSING', NULL, 'Bản ghi giả lập phục vụ kiểm thử; không phát sinh giao dịch thật.', '2026-09-02 09:00:00.000000', '2026-09-03 09:00:00.000000'),
+(21, 24, 22, 3, 87500, 'Yêu cầu hoàn tiền dữ liệu mẫu cho đơn 24.', 'SUCCEEDED', 'DEMO-REFUND-SEED-0024', 'Bản ghi giả lập phục vụ kiểm thử; không phát sinh giao dịch thật.', '2026-09-03 09:00:00.000000', '2026-09-04 09:00:00.000000'),
+(22, 25, 23, 3, 91000, 'Yêu cầu hoàn tiền dữ liệu mẫu cho đơn 25.', 'FAILED', NULL, 'Bản ghi giả lập phục vụ kiểm thử; không phát sinh giao dịch thật.', '2026-09-04 09:00:00.000000', '2026-09-05 09:00:00.000000'),
+(23, 26, 24, 3, 94500, 'Yêu cầu hoàn tiền dữ liệu mẫu cho đơn 26.', 'CANCELLED', NULL, 'Bản ghi giả lập phục vụ kiểm thử; không phát sinh giao dịch thật.', '2026-09-05 09:00:00.000000', '2026-09-06 09:00:00.000000'),
+(24, 27, 25, NULL, 98000, 'Yêu cầu hoàn tiền dữ liệu mẫu cho đơn 27.', 'REQUESTED', NULL, NULL, '2026-09-06 09:00:00.000000', NULL),
+(25, 28, 26, 3, 101500, 'Yêu cầu hoàn tiền dữ liệu mẫu cho đơn 28.', 'APPROVED', NULL, 'Bản ghi giả lập phục vụ kiểm thử; không phát sinh giao dịch thật.', '2026-09-07 09:00:00.000000', '2026-09-08 09:00:00.000000'),
+(26, 29, 27, 3, 105000, 'Yêu cầu hoàn tiền dữ liệu mẫu cho đơn 29.', 'REJECTED', NULL, 'Bản ghi giả lập phục vụ kiểm thử; không phát sinh giao dịch thật.', '2026-09-08 09:00:00.000000', '2026-09-09 09:00:00.000000'),
+(27, 30, 28, 3, 108500, 'Yêu cầu hoàn tiền dữ liệu mẫu cho đơn 30.', 'PROCESSING', NULL, 'Bản ghi giả lập phục vụ kiểm thử; không phát sinh giao dịch thật.', '2026-09-09 09:00:00.000000', '2026-09-10 09:00:00.000000'),
+(28, 31, 29, 3, 112000, 'Yêu cầu hoàn tiền dữ liệu mẫu cho đơn 31.', 'SUCCEEDED', 'DEMO-REFUND-SEED-0031', 'Bản ghi giả lập phục vụ kiểm thử; không phát sinh giao dịch thật.', '2026-09-10 09:00:00.000000', '2026-09-11 09:00:00.000000'),
+(29, 32, 30, 3, 115500, 'Yêu cầu hoàn tiền dữ liệu mẫu cho đơn 32.', 'FAILED', NULL, 'Bản ghi giả lập phục vụ kiểm thử; không phát sinh giao dịch thật.', '2026-09-11 09:00:00.000000', '2026-09-12 09:00:00.000000'),
+(30, 33, 31, 3, 119000, 'Yêu cầu hoàn tiền dữ liệu mẫu cho đơn 33.', 'CANCELLED', NULL, 'Bản ghi giả lập phục vụ kiểm thử; không phát sinh giao dịch thật.', '2026-09-12 09:00:00.000000', '2026-09-13 09:00:00.000000'),
+(31, 34, 32, NULL, 122500, 'Yêu cầu hoàn tiền dữ liệu mẫu cho đơn 34.', 'REQUESTED', NULL, NULL, '2026-09-13 09:00:00.000000', NULL),
+(32, 35, 33, 3, 126000, 'Yêu cầu hoàn tiền dữ liệu mẫu cho đơn 35.', 'APPROVED', NULL, 'Bản ghi giả lập phục vụ kiểm thử; không phát sinh giao dịch thật.', '2026-09-14 09:00:00.000000', '2026-09-15 09:00:00.000000');
+INSERT INTO refunds (id, payment_id, requested_by_user_id, processed_by_admin_id, amount, reason, status, gateway_refund_id, admin_note, requested_at, processed_at) VALUES
+(33, 36, 34, 3, 129500, 'Yêu cầu hoàn tiền dữ liệu mẫu cho đơn 36.', 'REJECTED', NULL, 'Bản ghi giả lập phục vụ kiểm thử; không phát sinh giao dịch thật.', '2026-09-15 09:00:00.000000', '2026-09-16 09:00:00.000000'),
+(34, 37, 35, 3, 133000, 'Yêu cầu hoàn tiền dữ liệu mẫu cho đơn 37.', 'PROCESSING', NULL, 'Bản ghi giả lập phục vụ kiểm thử; không phát sinh giao dịch thật.', '2026-09-16 09:00:00.000000', '2026-09-17 09:00:00.000000'),
+(35, 38, 36, 3, 136500, 'Yêu cầu hoàn tiền dữ liệu mẫu cho đơn 38.', 'SUCCEEDED', 'DEMO-REFUND-SEED-0038', 'Bản ghi giả lập phục vụ kiểm thử; không phát sinh giao dịch thật.', '2026-09-17 09:00:00.000000', '2026-09-18 09:00:00.000000'),
+(36, 39, 37, 3, 140000, 'Yêu cầu hoàn tiền dữ liệu mẫu cho đơn 39.', 'FAILED', NULL, 'Bản ghi giả lập phục vụ kiểm thử; không phát sinh giao dịch thật.', '2026-09-18 09:00:00.000000', '2026-09-19 09:00:00.000000'),
+(37, 40, 38, 3, 143500, 'Yêu cầu hoàn tiền dữ liệu mẫu cho đơn 40.', 'CANCELLED', NULL, 'Bản ghi giả lập phục vụ kiểm thử; không phát sinh giao dịch thật.', '2026-09-19 09:00:00.000000', '2026-09-20 09:00:00.000000'),
+(38, 41, 39, NULL, 147000, 'Yêu cầu hoàn tiền dữ liệu mẫu cho đơn 41.', 'REQUESTED', NULL, NULL, '2026-09-20 09:00:00.000000', NULL),
+(39, 42, 40, 3, 150500, 'Yêu cầu hoàn tiền dữ liệu mẫu cho đơn 42.', 'APPROVED', NULL, 'Bản ghi giả lập phục vụ kiểm thử; không phát sinh giao dịch thật.', '2026-09-21 09:00:00.000000', '2026-09-22 09:00:00.000000'),
+(40, 43, 41, 3, 154000, 'Yêu cầu hoàn tiền dữ liệu mẫu cho đơn 43.', 'REJECTED', NULL, 'Bản ghi giả lập phục vụ kiểm thử; không phát sinh giao dịch thật.', '2026-09-22 09:00:00.000000', '2026-09-23 09:00:00.000000'),
+(41, 44, 42, 3, 157500, 'Yêu cầu hoàn tiền dữ liệu mẫu cho đơn 44.', 'PROCESSING', NULL, 'Bản ghi giả lập phục vụ kiểm thử; không phát sinh giao dịch thật.', '2026-09-23 09:00:00.000000', '2026-09-24 09:00:00.000000'),
+(42, 45, 43, 3, 161000, 'Yêu cầu hoàn tiền dữ liệu mẫu cho đơn 45.', 'SUCCEEDED', 'DEMO-REFUND-SEED-0045', 'Bản ghi giả lập phục vụ kiểm thử; không phát sinh giao dịch thật.', '2026-09-24 09:00:00.000000', '2026-09-25 09:00:00.000000'),
+(43, 46, 44, 3, 164500, 'Yêu cầu hoàn tiền dữ liệu mẫu cho đơn 46.', 'FAILED', NULL, 'Bản ghi giả lập phục vụ kiểm thử; không phát sinh giao dịch thật.', '2026-09-25 09:00:00.000000', '2026-09-26 09:00:00.000000'),
+(44, 47, 45, 3, 168000, 'Yêu cầu hoàn tiền dữ liệu mẫu cho đơn 47.', 'CANCELLED', NULL, 'Bản ghi giả lập phục vụ kiểm thử; không phát sinh giao dịch thật.', '2026-09-26 09:00:00.000000', '2026-09-27 09:00:00.000000'),
+(45, 48, 46, NULL, 171500, 'Yêu cầu hoàn tiền dữ liệu mẫu cho đơn 48.', 'REQUESTED', NULL, NULL, '2026-09-27 09:00:00.000000', NULL),
+(46, 49, 47, 3, 175000, 'Yêu cầu hoàn tiền dữ liệu mẫu cho đơn 49.', 'APPROVED', NULL, 'Bản ghi giả lập phục vụ kiểm thử; không phát sinh giao dịch thật.', '2026-09-28 09:00:00.000000', '2026-09-29 09:00:00.000000'),
+(47, 50, 48, 3, 178500, 'Yêu cầu hoàn tiền dữ liệu mẫu cho đơn 50.', 'REJECTED', NULL, 'Bản ghi giả lập phục vụ kiểm thử; không phát sinh giao dịch thật.', '2026-09-29 09:00:00.000000', '2026-09-30 09:00:00.000000'),
+(48, 51, 49, 3, 182000, 'Yêu cầu hoàn tiền dữ liệu mẫu cho đơn 51.', 'PROCESSING', NULL, 'Bản ghi giả lập phục vụ kiểm thử; không phát sinh giao dịch thật.', '2026-09-30 09:00:00.000000', '2026-10-01 09:00:00.000000'),
+(49, 52, 50, 3, 185500, 'Yêu cầu hoàn tiền dữ liệu mẫu cho đơn 52.', 'SUCCEEDED', 'DEMO-REFUND-SEED-0052', 'Bản ghi giả lập phục vụ kiểm thử; không phát sinh giao dịch thật.', '2026-10-01 09:00:00.000000', '2026-10-02 09:00:00.000000'),
+(50, 53, 51, 3, 189000, 'Yêu cầu hoàn tiền dữ liệu mẫu cho đơn 53.', 'FAILED', NULL, 'Bản ghi giả lập phục vụ kiểm thử; không phát sinh giao dịch thật.', '2026-10-02 09:00:00.000000', '2026-10-03 09:00:00.000000');
+
+-- Add 48 reviews; total 50.
+INSERT INTO reviews (id, order_id, service_id, customer_id, provider_id, rating, comment, provider_response, created_at, updated_at) VALUES
+(3, 6, 1, 4, 53, 3, 'Đánh giá mẫu 06: chất lượng dịch vụ và tiến độ được ghi nhận để kiểm thử.', 'Cảm ơn bạn đã gửi đánh giá cho đơn 06.', '2026-08-17 09:00:00.000000', '2026-08-17 09:00:00.000000'),
+(4, 7, 2, 5, 54, 4, 'Đánh giá mẫu 07: chất lượng dịch vụ và tiến độ được ghi nhận để kiểm thử.', 'Cảm ơn bạn đã gửi đánh giá cho đơn 07.', '2026-08-18 09:00:00.000000', '2026-08-18 09:00:00.000000'),
+(5, 8, 3, 6, 55, 5, 'Đánh giá mẫu 08: chất lượng dịch vụ và tiến độ được ghi nhận để kiểm thử.', 'Cảm ơn bạn đã gửi đánh giá cho đơn 08.', '2026-08-19 09:00:00.000000', '2026-08-19 09:00:00.000000'),
+(6, 9, 4, 7, 56, 3, 'Đánh giá mẫu 09: chất lượng dịch vụ và tiến độ được ghi nhận để kiểm thử.', 'Cảm ơn bạn đã gửi đánh giá cho đơn 09.', '2026-08-20 09:00:00.000000', '2026-08-20 09:00:00.000000'),
+(7, 10, 5, 8, 57, 4, 'Đánh giá mẫu 10: chất lượng dịch vụ và tiến độ được ghi nhận để kiểm thử.', 'Cảm ơn bạn đã gửi đánh giá cho đơn 10.', '2026-08-21 09:00:00.000000', '2026-08-21 09:00:00.000000'),
+(8, 11, 6, 9, 58, 5, 'Đánh giá mẫu 11: chất lượng dịch vụ và tiến độ được ghi nhận để kiểm thử.', 'Cảm ơn bạn đã gửi đánh giá cho đơn 11.', '2026-08-22 09:00:00.000000', '2026-08-22 09:00:00.000000'),
+(9, 12, 7, 10, 59, 3, 'Đánh giá mẫu 12: chất lượng dịch vụ và tiến độ được ghi nhận để kiểm thử.', 'Cảm ơn bạn đã gửi đánh giá cho đơn 12.', '2026-08-23 09:00:00.000000', '2026-08-23 09:00:00.000000'),
+(10, 13, 8, 11, 60, 4, 'Đánh giá mẫu 13: chất lượng dịch vụ và tiến độ được ghi nhận để kiểm thử.', 'Cảm ơn bạn đã gửi đánh giá cho đơn 13.', '2026-08-24 09:00:00.000000', '2026-08-24 09:00:00.000000'),
+(11, 14, 9, 12, 61, 5, 'Đánh giá mẫu 14: chất lượng dịch vụ và tiến độ được ghi nhận để kiểm thử.', 'Cảm ơn bạn đã gửi đánh giá cho đơn 14.', '2026-08-25 09:00:00.000000', '2026-08-25 09:00:00.000000'),
+(12, 15, 10, 13, 62, 3, 'Đánh giá mẫu 15: chất lượng dịch vụ và tiến độ được ghi nhận để kiểm thử.', 'Cảm ơn bạn đã gửi đánh giá cho đơn 15.', '2026-08-26 09:00:00.000000', '2026-08-26 09:00:00.000000'),
+(13, 16, 11, 14, 63, 4, 'Đánh giá mẫu 16: chất lượng dịch vụ và tiến độ được ghi nhận để kiểm thử.', 'Cảm ơn bạn đã gửi đánh giá cho đơn 16.', '2026-08-27 09:00:00.000000', '2026-08-27 09:00:00.000000'),
+(14, 17, 12, 15, 64, 5, 'Đánh giá mẫu 17: chất lượng dịch vụ và tiến độ được ghi nhận để kiểm thử.', 'Cảm ơn bạn đã gửi đánh giá cho đơn 17.', '2026-08-28 09:00:00.000000', '2026-08-28 09:00:00.000000'),
+(15, 18, 13, 16, 65, 3, 'Đánh giá mẫu 18: chất lượng dịch vụ và tiến độ được ghi nhận để kiểm thử.', 'Cảm ơn bạn đã gửi đánh giá cho đơn 18.', '2026-08-29 09:00:00.000000', '2026-08-29 09:00:00.000000'),
+(16, 19, 14, 17, 66, 4, 'Đánh giá mẫu 19: chất lượng dịch vụ và tiến độ được ghi nhận để kiểm thử.', 'Cảm ơn bạn đã gửi đánh giá cho đơn 19.', '2026-08-30 09:00:00.000000', '2026-08-30 09:00:00.000000'),
+(17, 20, 15, 18, 67, 5, 'Đánh giá mẫu 20: chất lượng dịch vụ và tiến độ được ghi nhận để kiểm thử.', 'Cảm ơn bạn đã gửi đánh giá cho đơn 20.', '2026-08-31 09:00:00.000000', '2026-08-31 09:00:00.000000'),
+(18, 21, 16, 19, 68, 3, 'Đánh giá mẫu 21: chất lượng dịch vụ và tiến độ được ghi nhận để kiểm thử.', 'Cảm ơn bạn đã gửi đánh giá cho đơn 21.', '2026-09-01 09:00:00.000000', '2026-09-01 09:00:00.000000'),
+(19, 22, 17, 20, 69, 4, 'Đánh giá mẫu 22: chất lượng dịch vụ và tiến độ được ghi nhận để kiểm thử.', 'Cảm ơn bạn đã gửi đánh giá cho đơn 22.', '2026-09-02 09:00:00.000000', '2026-09-02 09:00:00.000000'),
+(20, 23, 18, 21, 70, 5, 'Đánh giá mẫu 23: chất lượng dịch vụ và tiến độ được ghi nhận để kiểm thử.', 'Cảm ơn bạn đã gửi đánh giá cho đơn 23.', '2026-09-03 09:00:00.000000', '2026-09-03 09:00:00.000000'),
+(21, 24, 19, 22, 71, 3, 'Đánh giá mẫu 24: chất lượng dịch vụ và tiến độ được ghi nhận để kiểm thử.', 'Cảm ơn bạn đã gửi đánh giá cho đơn 24.', '2026-09-04 09:00:00.000000', '2026-09-04 09:00:00.000000'),
+(22, 25, 20, 23, 72, 4, 'Đánh giá mẫu 25: chất lượng dịch vụ và tiến độ được ghi nhận để kiểm thử.', 'Cảm ơn bạn đã gửi đánh giá cho đơn 25.', '2026-09-05 09:00:00.000000', '2026-09-05 09:00:00.000000'),
+(23, 26, 21, 24, 73, 5, 'Đánh giá mẫu 26: chất lượng dịch vụ và tiến độ được ghi nhận để kiểm thử.', 'Cảm ơn bạn đã gửi đánh giá cho đơn 26.', '2026-09-06 09:00:00.000000', '2026-09-06 09:00:00.000000'),
+(24, 27, 22, 25, 74, 3, 'Đánh giá mẫu 27: chất lượng dịch vụ và tiến độ được ghi nhận để kiểm thử.', 'Cảm ơn bạn đã gửi đánh giá cho đơn 27.', '2026-09-07 09:00:00.000000', '2026-09-07 09:00:00.000000'),
+(25, 28, 23, 26, 75, 4, 'Đánh giá mẫu 28: chất lượng dịch vụ và tiến độ được ghi nhận để kiểm thử.', 'Cảm ơn bạn đã gửi đánh giá cho đơn 28.', '2026-09-08 09:00:00.000000', '2026-09-08 09:00:00.000000'),
+(26, 29, 24, 27, 76, 5, 'Đánh giá mẫu 29: chất lượng dịch vụ và tiến độ được ghi nhận để kiểm thử.', 'Cảm ơn bạn đã gửi đánh giá cho đơn 29.', '2026-09-09 09:00:00.000000', '2026-09-09 09:00:00.000000'),
+(27, 30, 25, 28, 77, 3, 'Đánh giá mẫu 30: chất lượng dịch vụ và tiến độ được ghi nhận để kiểm thử.', 'Cảm ơn bạn đã gửi đánh giá cho đơn 30.', '2026-09-10 09:00:00.000000', '2026-09-10 09:00:00.000000'),
+(28, 31, 26, 29, 78, 4, 'Đánh giá mẫu 31: chất lượng dịch vụ và tiến độ được ghi nhận để kiểm thử.', 'Cảm ơn bạn đã gửi đánh giá cho đơn 31.', '2026-09-11 09:00:00.000000', '2026-09-11 09:00:00.000000'),
+(29, 32, 27, 30, 79, 5, 'Đánh giá mẫu 32: chất lượng dịch vụ và tiến độ được ghi nhận để kiểm thử.', 'Cảm ơn bạn đã gửi đánh giá cho đơn 32.', '2026-09-12 09:00:00.000000', '2026-09-12 09:00:00.000000'),
+(30, 33, 28, 31, 80, 3, 'Đánh giá mẫu 33: chất lượng dịch vụ và tiến độ được ghi nhận để kiểm thử.', 'Cảm ơn bạn đã gửi đánh giá cho đơn 33.', '2026-09-13 09:00:00.000000', '2026-09-13 09:00:00.000000'),
+(31, 34, 29, 32, 81, 4, 'Đánh giá mẫu 34: chất lượng dịch vụ và tiến độ được ghi nhận để kiểm thử.', 'Cảm ơn bạn đã gửi đánh giá cho đơn 34.', '2026-09-14 09:00:00.000000', '2026-09-14 09:00:00.000000'),
+(32, 35, 30, 33, 82, 5, 'Đánh giá mẫu 35: chất lượng dịch vụ và tiến độ được ghi nhận để kiểm thử.', 'Cảm ơn bạn đã gửi đánh giá cho đơn 35.', '2026-09-15 09:00:00.000000', '2026-09-15 09:00:00.000000');
+INSERT INTO reviews (id, order_id, service_id, customer_id, provider_id, rating, comment, provider_response, created_at, updated_at) VALUES
+(33, 36, 31, 34, 83, 3, 'Đánh giá mẫu 36: chất lượng dịch vụ và tiến độ được ghi nhận để kiểm thử.', 'Cảm ơn bạn đã gửi đánh giá cho đơn 36.', '2026-09-16 09:00:00.000000', '2026-09-16 09:00:00.000000'),
+(34, 37, 32, 35, 84, 4, 'Đánh giá mẫu 37: chất lượng dịch vụ và tiến độ được ghi nhận để kiểm thử.', 'Cảm ơn bạn đã gửi đánh giá cho đơn 37.', '2026-09-17 09:00:00.000000', '2026-09-17 09:00:00.000000'),
+(35, 38, 33, 36, 85, 5, 'Đánh giá mẫu 38: chất lượng dịch vụ và tiến độ được ghi nhận để kiểm thử.', 'Cảm ơn bạn đã gửi đánh giá cho đơn 38.', '2026-09-18 09:00:00.000000', '2026-09-18 09:00:00.000000'),
+(36, 39, 34, 37, 86, 3, 'Đánh giá mẫu 39: chất lượng dịch vụ và tiến độ được ghi nhận để kiểm thử.', 'Cảm ơn bạn đã gửi đánh giá cho đơn 39.', '2026-09-19 09:00:00.000000', '2026-09-19 09:00:00.000000'),
+(37, 40, 35, 38, 87, 4, 'Đánh giá mẫu 40: chất lượng dịch vụ và tiến độ được ghi nhận để kiểm thử.', 'Cảm ơn bạn đã gửi đánh giá cho đơn 40.', '2026-09-20 09:00:00.000000', '2026-09-20 09:00:00.000000'),
+(38, 41, 36, 39, 88, 5, 'Đánh giá mẫu 41: chất lượng dịch vụ và tiến độ được ghi nhận để kiểm thử.', 'Cảm ơn bạn đã gửi đánh giá cho đơn 41.', '2026-09-21 09:00:00.000000', '2026-09-21 09:00:00.000000'),
+(39, 42, 37, 40, 89, 3, 'Đánh giá mẫu 42: chất lượng dịch vụ và tiến độ được ghi nhận để kiểm thử.', 'Cảm ơn bạn đã gửi đánh giá cho đơn 42.', '2026-09-22 09:00:00.000000', '2026-09-22 09:00:00.000000'),
+(40, 43, 38, 41, 90, 4, 'Đánh giá mẫu 43: chất lượng dịch vụ và tiến độ được ghi nhận để kiểm thử.', 'Cảm ơn bạn đã gửi đánh giá cho đơn 43.', '2026-09-23 09:00:00.000000', '2026-09-23 09:00:00.000000'),
+(41, 44, 39, 42, 91, 5, 'Đánh giá mẫu 44: chất lượng dịch vụ và tiến độ được ghi nhận để kiểm thử.', 'Cảm ơn bạn đã gửi đánh giá cho đơn 44.', '2026-09-24 09:00:00.000000', '2026-09-24 09:00:00.000000'),
+(42, 45, 40, 43, 92, 3, 'Đánh giá mẫu 45: chất lượng dịch vụ và tiến độ được ghi nhận để kiểm thử.', 'Cảm ơn bạn đã gửi đánh giá cho đơn 45.', '2026-09-25 09:00:00.000000', '2026-09-25 09:00:00.000000'),
+(43, 46, 41, 44, 93, 4, 'Đánh giá mẫu 46: chất lượng dịch vụ và tiến độ được ghi nhận để kiểm thử.', 'Cảm ơn bạn đã gửi đánh giá cho đơn 46.', '2026-09-26 09:00:00.000000', '2026-09-26 09:00:00.000000'),
+(44, 47, 42, 45, 94, 5, 'Đánh giá mẫu 47: chất lượng dịch vụ và tiến độ được ghi nhận để kiểm thử.', 'Cảm ơn bạn đã gửi đánh giá cho đơn 47.', '2026-09-27 09:00:00.000000', '2026-09-27 09:00:00.000000'),
+(45, 48, 43, 46, 95, 3, 'Đánh giá mẫu 48: chất lượng dịch vụ và tiến độ được ghi nhận để kiểm thử.', 'Cảm ơn bạn đã gửi đánh giá cho đơn 48.', '2026-09-28 09:00:00.000000', '2026-09-28 09:00:00.000000'),
+(46, 49, 44, 47, 96, 4, 'Đánh giá mẫu 49: chất lượng dịch vụ và tiến độ được ghi nhận để kiểm thử.', 'Cảm ơn bạn đã gửi đánh giá cho đơn 49.', '2026-09-29 09:00:00.000000', '2026-09-29 09:00:00.000000'),
+(47, 50, 45, 48, 97, 5, 'Đánh giá mẫu 50: chất lượng dịch vụ và tiến độ được ghi nhận để kiểm thử.', 'Cảm ơn bạn đã gửi đánh giá cho đơn 50.', '2026-09-30 09:00:00.000000', '2026-09-30 09:00:00.000000'),
+(48, 51, 46, 49, 98, 3, 'Đánh giá mẫu 51: chất lượng dịch vụ và tiến độ được ghi nhận để kiểm thử.', 'Cảm ơn bạn đã gửi đánh giá cho đơn 51.', '2026-10-01 09:00:00.000000', '2026-10-01 09:00:00.000000'),
+(49, 52, 47, 50, 99, 4, 'Đánh giá mẫu 52: chất lượng dịch vụ và tiến độ được ghi nhận để kiểm thử.', 'Cảm ơn bạn đã gửi đánh giá cho đơn 52.', '2026-10-02 09:00:00.000000', '2026-10-02 09:00:00.000000'),
+(50, 53, 48, 51, 100, 5, 'Đánh giá mẫu 53: chất lượng dịch vụ và tiến độ được ghi nhận để kiểm thử.', 'Cảm ơn bạn đã gửi đánh giá cho đơn 53.', '2026-10-03 09:00:00.000000', '2026-10-03 09:00:00.000000');
+
+-- Add 48 complaints; total 50.
+INSERT INTO complaints (id, customer_id, reporter_id, reported_user_id, handled_by_admin_id, order_id, complaint_type, subject, description, status, resolution_notes, created_at, resolved_at) VALUES
+(3, 4, 4, 53, NULL, 6, 'ORDER', 'Báo cáo mẫu liên quan đến đơn 06', 'Nội dung báo cáo dữ liệu mẫu cho đơn 06, dùng để kiểm tra luồng tiếp nhận và xử lý.', 'OPEN', NULL, '2026-08-17 09:00:00.000000', NULL),
+(4, 5, 5, 54, 3, 7, 'PAYMENT', 'Báo cáo mẫu liên quan đến đơn 07', 'Nội dung báo cáo dữ liệu mẫu cho đơn 07, dùng để kiểm tra luồng tiếp nhận và xử lý.', 'PROCESSING', NULL, '2026-08-18 09:00:00.000000', NULL),
+(5, 6, 6, 55, 3, 8, 'SERVICE', 'Báo cáo mẫu liên quan đến đơn 08', 'Nội dung báo cáo dữ liệu mẫu cho đơn 08, dùng để kiểm tra luồng tiếp nhận và xử lý.', 'RESOLVED', 'Đã xử lý dữ liệu mẫu.', '2026-08-19 09:00:00.000000', '2026-08-20 09:00:00.000000'),
+(6, 7, 7, 56, 3, 9, 'PROVIDER', 'Báo cáo mẫu liên quan đến đơn 09', 'Nội dung báo cáo dữ liệu mẫu cho đơn 09, dùng để kiểm tra luồng tiếp nhận và xử lý.', 'REJECTED', 'Đã xử lý dữ liệu mẫu.', '2026-08-20 09:00:00.000000', '2026-08-21 09:00:00.000000'),
+(7, 8, 8, 57, NULL, 10, 'ORDER', 'Báo cáo mẫu liên quan đến đơn 10', 'Nội dung báo cáo dữ liệu mẫu cho đơn 10, dùng để kiểm tra luồng tiếp nhận và xử lý.', 'OPEN', NULL, '2026-08-21 09:00:00.000000', NULL),
+(8, 9, 9, 58, 3, 11, 'PAYMENT', 'Báo cáo mẫu liên quan đến đơn 11', 'Nội dung báo cáo dữ liệu mẫu cho đơn 11, dùng để kiểm tra luồng tiếp nhận và xử lý.', 'PROCESSING', NULL, '2026-08-22 09:00:00.000000', NULL),
+(9, 10, 10, 59, 3, 12, 'SERVICE', 'Báo cáo mẫu liên quan đến đơn 12', 'Nội dung báo cáo dữ liệu mẫu cho đơn 12, dùng để kiểm tra luồng tiếp nhận và xử lý.', 'RESOLVED', 'Đã xử lý dữ liệu mẫu.', '2026-08-23 09:00:00.000000', '2026-08-24 09:00:00.000000'),
+(10, 11, 11, 60, 3, 13, 'PROVIDER', 'Báo cáo mẫu liên quan đến đơn 13', 'Nội dung báo cáo dữ liệu mẫu cho đơn 13, dùng để kiểm tra luồng tiếp nhận và xử lý.', 'REJECTED', 'Đã xử lý dữ liệu mẫu.', '2026-08-24 09:00:00.000000', '2026-08-25 09:00:00.000000'),
+(11, 12, 12, 61, NULL, 14, 'ORDER', 'Báo cáo mẫu liên quan đến đơn 14', 'Nội dung báo cáo dữ liệu mẫu cho đơn 14, dùng để kiểm tra luồng tiếp nhận và xử lý.', 'OPEN', NULL, '2026-08-25 09:00:00.000000', NULL),
+(12, 13, 13, 62, 3, 15, 'PAYMENT', 'Báo cáo mẫu liên quan đến đơn 15', 'Nội dung báo cáo dữ liệu mẫu cho đơn 15, dùng để kiểm tra luồng tiếp nhận và xử lý.', 'PROCESSING', NULL, '2026-08-26 09:00:00.000000', NULL),
+(13, 14, 14, 63, 3, 16, 'SERVICE', 'Báo cáo mẫu liên quan đến đơn 16', 'Nội dung báo cáo dữ liệu mẫu cho đơn 16, dùng để kiểm tra luồng tiếp nhận và xử lý.', 'RESOLVED', 'Đã xử lý dữ liệu mẫu.', '2026-08-27 09:00:00.000000', '2026-08-28 09:00:00.000000'),
+(14, 15, 15, 64, 3, 17, 'PROVIDER', 'Báo cáo mẫu liên quan đến đơn 17', 'Nội dung báo cáo dữ liệu mẫu cho đơn 17, dùng để kiểm tra luồng tiếp nhận và xử lý.', 'REJECTED', 'Đã xử lý dữ liệu mẫu.', '2026-08-28 09:00:00.000000', '2026-08-29 09:00:00.000000'),
+(15, 16, 16, 65, NULL, 18, 'ORDER', 'Báo cáo mẫu liên quan đến đơn 18', 'Nội dung báo cáo dữ liệu mẫu cho đơn 18, dùng để kiểm tra luồng tiếp nhận và xử lý.', 'OPEN', NULL, '2026-08-29 09:00:00.000000', NULL),
+(16, 17, 17, 66, 3, 19, 'PAYMENT', 'Báo cáo mẫu liên quan đến đơn 19', 'Nội dung báo cáo dữ liệu mẫu cho đơn 19, dùng để kiểm tra luồng tiếp nhận và xử lý.', 'PROCESSING', NULL, '2026-08-30 09:00:00.000000', NULL),
+(17, 18, 18, 67, 3, 20, 'SERVICE', 'Báo cáo mẫu liên quan đến đơn 20', 'Nội dung báo cáo dữ liệu mẫu cho đơn 20, dùng để kiểm tra luồng tiếp nhận và xử lý.', 'RESOLVED', 'Đã xử lý dữ liệu mẫu.', '2026-08-31 09:00:00.000000', '2026-09-01 09:00:00.000000'),
+(18, 19, 19, 68, 3, 21, 'PROVIDER', 'Báo cáo mẫu liên quan đến đơn 21', 'Nội dung báo cáo dữ liệu mẫu cho đơn 21, dùng để kiểm tra luồng tiếp nhận và xử lý.', 'REJECTED', 'Đã xử lý dữ liệu mẫu.', '2026-09-01 09:00:00.000000', '2026-09-02 09:00:00.000000'),
+(19, 20, 20, 69, NULL, 22, 'ORDER', 'Báo cáo mẫu liên quan đến đơn 22', 'Nội dung báo cáo dữ liệu mẫu cho đơn 22, dùng để kiểm tra luồng tiếp nhận và xử lý.', 'OPEN', NULL, '2026-09-02 09:00:00.000000', NULL),
+(20, 21, 21, 70, 3, 23, 'PAYMENT', 'Báo cáo mẫu liên quan đến đơn 23', 'Nội dung báo cáo dữ liệu mẫu cho đơn 23, dùng để kiểm tra luồng tiếp nhận và xử lý.', 'PROCESSING', NULL, '2026-09-03 09:00:00.000000', NULL),
+(21, 22, 22, 71, 3, 24, 'SERVICE', 'Báo cáo mẫu liên quan đến đơn 24', 'Nội dung báo cáo dữ liệu mẫu cho đơn 24, dùng để kiểm tra luồng tiếp nhận và xử lý.', 'RESOLVED', 'Đã xử lý dữ liệu mẫu.', '2026-09-04 09:00:00.000000', '2026-09-05 09:00:00.000000'),
+(22, 23, 23, 72, 3, 25, 'PROVIDER', 'Báo cáo mẫu liên quan đến đơn 25', 'Nội dung báo cáo dữ liệu mẫu cho đơn 25, dùng để kiểm tra luồng tiếp nhận và xử lý.', 'REJECTED', 'Đã xử lý dữ liệu mẫu.', '2026-09-05 09:00:00.000000', '2026-09-06 09:00:00.000000'),
+(23, 24, 24, 73, NULL, 26, 'ORDER', 'Báo cáo mẫu liên quan đến đơn 26', 'Nội dung báo cáo dữ liệu mẫu cho đơn 26, dùng để kiểm tra luồng tiếp nhận và xử lý.', 'OPEN', NULL, '2026-09-06 09:00:00.000000', NULL),
+(24, 25, 25, 74, 3, 27, 'PAYMENT', 'Báo cáo mẫu liên quan đến đơn 27', 'Nội dung báo cáo dữ liệu mẫu cho đơn 27, dùng để kiểm tra luồng tiếp nhận và xử lý.', 'PROCESSING', NULL, '2026-09-07 09:00:00.000000', NULL),
+(25, 26, 26, 75, 3, 28, 'SERVICE', 'Báo cáo mẫu liên quan đến đơn 28', 'Nội dung báo cáo dữ liệu mẫu cho đơn 28, dùng để kiểm tra luồng tiếp nhận và xử lý.', 'RESOLVED', 'Đã xử lý dữ liệu mẫu.', '2026-09-08 09:00:00.000000', '2026-09-09 09:00:00.000000'),
+(26, 27, 27, 76, 3, 29, 'PROVIDER', 'Báo cáo mẫu liên quan đến đơn 29', 'Nội dung báo cáo dữ liệu mẫu cho đơn 29, dùng để kiểm tra luồng tiếp nhận và xử lý.', 'REJECTED', 'Đã xử lý dữ liệu mẫu.', '2026-09-09 09:00:00.000000', '2026-09-10 09:00:00.000000'),
+(27, 28, 28, 77, NULL, 30, 'ORDER', 'Báo cáo mẫu liên quan đến đơn 30', 'Nội dung báo cáo dữ liệu mẫu cho đơn 30, dùng để kiểm tra luồng tiếp nhận và xử lý.', 'OPEN', NULL, '2026-09-10 09:00:00.000000', NULL),
+(28, 29, 29, 78, 3, 31, 'PAYMENT', 'Báo cáo mẫu liên quan đến đơn 31', 'Nội dung báo cáo dữ liệu mẫu cho đơn 31, dùng để kiểm tra luồng tiếp nhận và xử lý.', 'PROCESSING', NULL, '2026-09-11 09:00:00.000000', NULL),
+(29, 30, 30, 79, 3, 32, 'SERVICE', 'Báo cáo mẫu liên quan đến đơn 32', 'Nội dung báo cáo dữ liệu mẫu cho đơn 32, dùng để kiểm tra luồng tiếp nhận và xử lý.', 'RESOLVED', 'Đã xử lý dữ liệu mẫu.', '2026-09-12 09:00:00.000000', '2026-09-13 09:00:00.000000'),
+(30, 31, 31, 80, 3, 33, 'PROVIDER', 'Báo cáo mẫu liên quan đến đơn 33', 'Nội dung báo cáo dữ liệu mẫu cho đơn 33, dùng để kiểm tra luồng tiếp nhận và xử lý.', 'REJECTED', 'Đã xử lý dữ liệu mẫu.', '2026-09-13 09:00:00.000000', '2026-09-14 09:00:00.000000'),
+(31, 32, 32, 81, NULL, 34, 'ORDER', 'Báo cáo mẫu liên quan đến đơn 34', 'Nội dung báo cáo dữ liệu mẫu cho đơn 34, dùng để kiểm tra luồng tiếp nhận và xử lý.', 'OPEN', NULL, '2026-09-14 09:00:00.000000', NULL),
+(32, 33, 33, 82, 3, 35, 'PAYMENT', 'Báo cáo mẫu liên quan đến đơn 35', 'Nội dung báo cáo dữ liệu mẫu cho đơn 35, dùng để kiểm tra luồng tiếp nhận và xử lý.', 'PROCESSING', NULL, '2026-09-15 09:00:00.000000', NULL);
+INSERT INTO complaints (id, customer_id, reporter_id, reported_user_id, handled_by_admin_id, order_id, complaint_type, subject, description, status, resolution_notes, created_at, resolved_at) VALUES
+(33, 34, 34, 83, 3, 36, 'SERVICE', 'Báo cáo mẫu liên quan đến đơn 36', 'Nội dung báo cáo dữ liệu mẫu cho đơn 36, dùng để kiểm tra luồng tiếp nhận và xử lý.', 'RESOLVED', 'Đã xử lý dữ liệu mẫu.', '2026-09-16 09:00:00.000000', '2026-09-17 09:00:00.000000'),
+(34, 35, 35, 84, 3, 37, 'PROVIDER', 'Báo cáo mẫu liên quan đến đơn 37', 'Nội dung báo cáo dữ liệu mẫu cho đơn 37, dùng để kiểm tra luồng tiếp nhận và xử lý.', 'REJECTED', 'Đã xử lý dữ liệu mẫu.', '2026-09-17 09:00:00.000000', '2026-09-18 09:00:00.000000'),
+(35, 36, 36, 85, NULL, 38, 'ORDER', 'Báo cáo mẫu liên quan đến đơn 38', 'Nội dung báo cáo dữ liệu mẫu cho đơn 38, dùng để kiểm tra luồng tiếp nhận và xử lý.', 'OPEN', NULL, '2026-09-18 09:00:00.000000', NULL),
+(36, 37, 37, 86, 3, 39, 'PAYMENT', 'Báo cáo mẫu liên quan đến đơn 39', 'Nội dung báo cáo dữ liệu mẫu cho đơn 39, dùng để kiểm tra luồng tiếp nhận và xử lý.', 'PROCESSING', NULL, '2026-09-19 09:00:00.000000', NULL),
+(37, 38, 38, 87, 3, 40, 'SERVICE', 'Báo cáo mẫu liên quan đến đơn 40', 'Nội dung báo cáo dữ liệu mẫu cho đơn 40, dùng để kiểm tra luồng tiếp nhận và xử lý.', 'RESOLVED', 'Đã xử lý dữ liệu mẫu.', '2026-09-20 09:00:00.000000', '2026-09-21 09:00:00.000000'),
+(38, 39, 39, 88, 3, 41, 'PROVIDER', 'Báo cáo mẫu liên quan đến đơn 41', 'Nội dung báo cáo dữ liệu mẫu cho đơn 41, dùng để kiểm tra luồng tiếp nhận và xử lý.', 'REJECTED', 'Đã xử lý dữ liệu mẫu.', '2026-09-21 09:00:00.000000', '2026-09-22 09:00:00.000000'),
+(39, 40, 40, 89, NULL, 42, 'ORDER', 'Báo cáo mẫu liên quan đến đơn 42', 'Nội dung báo cáo dữ liệu mẫu cho đơn 42, dùng để kiểm tra luồng tiếp nhận và xử lý.', 'OPEN', NULL, '2026-09-22 09:00:00.000000', NULL),
+(40, 41, 41, 90, 3, 43, 'PAYMENT', 'Báo cáo mẫu liên quan đến đơn 43', 'Nội dung báo cáo dữ liệu mẫu cho đơn 43, dùng để kiểm tra luồng tiếp nhận và xử lý.', 'PROCESSING', NULL, '2026-09-23 09:00:00.000000', NULL),
+(41, 42, 42, 91, 3, 44, 'SERVICE', 'Báo cáo mẫu liên quan đến đơn 44', 'Nội dung báo cáo dữ liệu mẫu cho đơn 44, dùng để kiểm tra luồng tiếp nhận và xử lý.', 'RESOLVED', 'Đã xử lý dữ liệu mẫu.', '2026-09-24 09:00:00.000000', '2026-09-25 09:00:00.000000'),
+(42, 43, 43, 92, 3, 45, 'PROVIDER', 'Báo cáo mẫu liên quan đến đơn 45', 'Nội dung báo cáo dữ liệu mẫu cho đơn 45, dùng để kiểm tra luồng tiếp nhận và xử lý.', 'REJECTED', 'Đã xử lý dữ liệu mẫu.', '2026-09-25 09:00:00.000000', '2026-09-26 09:00:00.000000'),
+(43, 44, 44, 93, NULL, 46, 'ORDER', 'Báo cáo mẫu liên quan đến đơn 46', 'Nội dung báo cáo dữ liệu mẫu cho đơn 46, dùng để kiểm tra luồng tiếp nhận và xử lý.', 'OPEN', NULL, '2026-09-26 09:00:00.000000', NULL),
+(44, 45, 45, 94, 3, 47, 'PAYMENT', 'Báo cáo mẫu liên quan đến đơn 47', 'Nội dung báo cáo dữ liệu mẫu cho đơn 47, dùng để kiểm tra luồng tiếp nhận và xử lý.', 'PROCESSING', NULL, '2026-09-27 09:00:00.000000', NULL),
+(45, 46, 46, 95, 3, 48, 'SERVICE', 'Báo cáo mẫu liên quan đến đơn 48', 'Nội dung báo cáo dữ liệu mẫu cho đơn 48, dùng để kiểm tra luồng tiếp nhận và xử lý.', 'RESOLVED', 'Đã xử lý dữ liệu mẫu.', '2026-09-28 09:00:00.000000', '2026-09-29 09:00:00.000000'),
+(46, 47, 47, 96, 3, 49, 'PROVIDER', 'Báo cáo mẫu liên quan đến đơn 49', 'Nội dung báo cáo dữ liệu mẫu cho đơn 49, dùng để kiểm tra luồng tiếp nhận và xử lý.', 'REJECTED', 'Đã xử lý dữ liệu mẫu.', '2026-09-29 09:00:00.000000', '2026-09-30 09:00:00.000000'),
+(47, 48, 48, 97, NULL, 50, 'ORDER', 'Báo cáo mẫu liên quan đến đơn 50', 'Nội dung báo cáo dữ liệu mẫu cho đơn 50, dùng để kiểm tra luồng tiếp nhận và xử lý.', 'OPEN', NULL, '2026-09-30 09:00:00.000000', NULL),
+(48, 49, 49, 98, 3, 51, 'PAYMENT', 'Báo cáo mẫu liên quan đến đơn 51', 'Nội dung báo cáo dữ liệu mẫu cho đơn 51, dùng để kiểm tra luồng tiếp nhận và xử lý.', 'PROCESSING', NULL, '2026-10-01 09:00:00.000000', NULL),
+(49, 50, 50, 99, 3, 52, 'SERVICE', 'Báo cáo mẫu liên quan đến đơn 52', 'Nội dung báo cáo dữ liệu mẫu cho đơn 52, dùng để kiểm tra luồng tiếp nhận và xử lý.', 'RESOLVED', 'Đã xử lý dữ liệu mẫu.', '2026-10-02 09:00:00.000000', '2026-10-03 09:00:00.000000'),
+(50, 51, 51, 100, 3, 53, 'PROVIDER', 'Báo cáo mẫu liên quan đến đơn 53', 'Nội dung báo cáo dữ liệu mẫu cho đơn 53, dùng để kiểm tra luồng tiếp nhận và xử lý.', 'REJECTED', 'Đã xử lý dữ liệu mẫu.', '2026-10-03 09:00:00.000000', '2026-10-04 09:00:00.000000');
+
+-- Add 49 conversations; total 50.
+INSERT INTO conversations (id, customer_id, provider_id, created_at) VALUES
+(2, 4, 53, '2026-10-10 09:00:00.000000'),
+(3, 5, 54, '2026-10-09 09:00:00.000000'),
+(4, 6, 55, '2026-10-08 09:00:00.000000'),
+(5, 7, 56, '2026-10-07 09:00:00.000000'),
+(6, 8, 57, '2026-10-06 09:00:00.000000'),
+(7, 9, 58, '2026-10-05 09:00:00.000000'),
+(8, 10, 59, '2026-10-04 09:00:00.000000'),
+(9, 11, 60, '2026-10-03 09:00:00.000000'),
+(10, 12, 61, '2026-10-02 09:00:00.000000'),
+(11, 13, 62, '2026-10-01 09:00:00.000000'),
+(12, 14, 63, '2026-10-12 09:00:00.000000'),
+(13, 15, 64, '2026-10-11 09:00:00.000000'),
+(14, 16, 65, '2026-10-10 09:00:00.000000'),
+(15, 17, 66, '2026-10-09 09:00:00.000000'),
+(16, 18, 67, '2026-10-08 09:00:00.000000'),
+(17, 19, 68, '2026-10-07 09:00:00.000000'),
+(18, 20, 69, '2026-10-06 09:00:00.000000'),
+(19, 21, 70, '2026-10-05 09:00:00.000000'),
+(20, 22, 71, '2026-10-04 09:00:00.000000'),
+(21, 23, 72, '2026-10-03 09:00:00.000000'),
+(22, 24, 73, '2026-10-02 09:00:00.000000'),
+(23, 25, 74, '2026-10-01 09:00:00.000000'),
+(24, 26, 75, '2026-10-12 09:00:00.000000'),
+(25, 27, 76, '2026-10-11 09:00:00.000000'),
+(26, 28, 77, '2026-10-10 09:00:00.000000'),
+(27, 29, 78, '2026-10-09 09:00:00.000000'),
+(28, 30, 79, '2026-10-08 09:00:00.000000'),
+(29, 31, 80, '2026-10-07 09:00:00.000000'),
+(30, 32, 81, '2026-10-06 09:00:00.000000'),
+(31, 33, 82, '2026-10-05 09:00:00.000000');
+INSERT INTO conversations (id, customer_id, provider_id, created_at) VALUES
+(32, 34, 83, '2026-10-04 09:00:00.000000'),
+(33, 35, 84, '2026-10-03 09:00:00.000000'),
+(34, 36, 85, '2026-10-02 09:00:00.000000'),
+(35, 37, 86, '2026-10-01 09:00:00.000000'),
+(36, 38, 87, '2026-10-12 09:00:00.000000'),
+(37, 39, 88, '2026-10-11 09:00:00.000000'),
+(38, 40, 89, '2026-10-10 09:00:00.000000'),
+(39, 41, 90, '2026-10-09 09:00:00.000000'),
+(40, 42, 91, '2026-10-08 09:00:00.000000'),
+(41, 43, 92, '2026-10-07 09:00:00.000000'),
+(42, 44, 93, '2026-10-06 09:00:00.000000'),
+(43, 45, 94, '2026-10-05 09:00:00.000000'),
+(44, 46, 95, '2026-10-04 09:00:00.000000'),
+(45, 47, 96, '2026-10-03 09:00:00.000000'),
+(46, 48, 97, '2026-10-02 09:00:00.000000'),
+(47, 49, 98, '2026-10-01 09:00:00.000000'),
+(48, 50, 99, '2026-10-12 09:00:00.000000'),
+(49, 51, 100, '2026-10-11 09:00:00.000000'),
+(50, 52, 101, '2026-10-10 09:00:00.000000');
+
+-- Add 49 messages; total 52.
+INSERT INTO messages (id, conversation_id, sender_id, content, sent_at) VALUES
+(4, 2, 53, 'Tin nhắn dữ liệu mẫu trong hội thoại 02; trao đổi lịch hẹn và tiến độ dịch vụ.', '2026-10-10 09:10:00.000000'),
+(5, 3, 5, 'Tin nhắn dữ liệu mẫu trong hội thoại 03; trao đổi lịch hẹn và tiến độ dịch vụ.', '2026-10-09 09:11:00.000000'),
+(6, 4, 55, 'Tin nhắn dữ liệu mẫu trong hội thoại 04; trao đổi lịch hẹn và tiến độ dịch vụ.', '2026-10-08 09:12:00.000000'),
+(7, 5, 7, 'Tin nhắn dữ liệu mẫu trong hội thoại 05; trao đổi lịch hẹn và tiến độ dịch vụ.', '2026-10-07 09:13:00.000000'),
+(8, 6, 57, 'Tin nhắn dữ liệu mẫu trong hội thoại 06; trao đổi lịch hẹn và tiến độ dịch vụ.', '2026-10-06 09:14:00.000000'),
+(9, 7, 9, 'Tin nhắn dữ liệu mẫu trong hội thoại 07; trao đổi lịch hẹn và tiến độ dịch vụ.', '2026-10-05 09:15:00.000000'),
+(10, 8, 59, 'Tin nhắn dữ liệu mẫu trong hội thoại 08; trao đổi lịch hẹn và tiến độ dịch vụ.', '2026-10-04 09:16:00.000000'),
+(11, 9, 11, 'Tin nhắn dữ liệu mẫu trong hội thoại 09; trao đổi lịch hẹn và tiến độ dịch vụ.', '2026-10-03 09:17:00.000000'),
+(12, 10, 61, 'Tin nhắn dữ liệu mẫu trong hội thoại 10; trao đổi lịch hẹn và tiến độ dịch vụ.', '2026-10-02 09:18:00.000000'),
+(13, 11, 13, 'Tin nhắn dữ liệu mẫu trong hội thoại 11; trao đổi lịch hẹn và tiến độ dịch vụ.', '2026-10-01 09:19:00.000000'),
+(14, 12, 63, 'Tin nhắn dữ liệu mẫu trong hội thoại 12; trao đổi lịch hẹn và tiến độ dịch vụ.', '2026-10-12 09:20:00.000000'),
+(15, 13, 15, 'Tin nhắn dữ liệu mẫu trong hội thoại 13; trao đổi lịch hẹn và tiến độ dịch vụ.', '2026-10-11 09:21:00.000000'),
+(16, 14, 65, 'Tin nhắn dữ liệu mẫu trong hội thoại 14; trao đổi lịch hẹn và tiến độ dịch vụ.', '2026-10-10 09:22:00.000000'),
+(17, 15, 17, 'Tin nhắn dữ liệu mẫu trong hội thoại 15; trao đổi lịch hẹn và tiến độ dịch vụ.', '2026-10-09 09:23:00.000000'),
+(18, 16, 67, 'Tin nhắn dữ liệu mẫu trong hội thoại 16; trao đổi lịch hẹn và tiến độ dịch vụ.', '2026-10-08 09:24:00.000000'),
+(19, 17, 19, 'Tin nhắn dữ liệu mẫu trong hội thoại 17; trao đổi lịch hẹn và tiến độ dịch vụ.', '2026-10-07 09:25:00.000000'),
+(20, 18, 69, 'Tin nhắn dữ liệu mẫu trong hội thoại 18; trao đổi lịch hẹn và tiến độ dịch vụ.', '2026-10-06 09:26:00.000000'),
+(21, 19, 21, 'Tin nhắn dữ liệu mẫu trong hội thoại 19; trao đổi lịch hẹn và tiến độ dịch vụ.', '2026-10-05 09:27:00.000000'),
+(22, 20, 71, 'Tin nhắn dữ liệu mẫu trong hội thoại 20; trao đổi lịch hẹn và tiến độ dịch vụ.', '2026-10-04 09:28:00.000000'),
+(23, 21, 23, 'Tin nhắn dữ liệu mẫu trong hội thoại 21; trao đổi lịch hẹn và tiến độ dịch vụ.', '2026-10-03 09:29:00.000000'),
+(24, 22, 73, 'Tin nhắn dữ liệu mẫu trong hội thoại 22; trao đổi lịch hẹn và tiến độ dịch vụ.', '2026-10-02 09:30:00.000000'),
+(25, 23, 25, 'Tin nhắn dữ liệu mẫu trong hội thoại 23; trao đổi lịch hẹn và tiến độ dịch vụ.', '2026-10-01 09:31:00.000000'),
+(26, 24, 75, 'Tin nhắn dữ liệu mẫu trong hội thoại 24; trao đổi lịch hẹn và tiến độ dịch vụ.', '2026-10-12 09:32:00.000000'),
+(27, 25, 27, 'Tin nhắn dữ liệu mẫu trong hội thoại 25; trao đổi lịch hẹn và tiến độ dịch vụ.', '2026-10-11 09:33:00.000000'),
+(28, 26, 77, 'Tin nhắn dữ liệu mẫu trong hội thoại 26; trao đổi lịch hẹn và tiến độ dịch vụ.', '2026-10-10 09:34:00.000000'),
+(29, 27, 29, 'Tin nhắn dữ liệu mẫu trong hội thoại 27; trao đổi lịch hẹn và tiến độ dịch vụ.', '2026-10-09 09:35:00.000000'),
+(30, 28, 79, 'Tin nhắn dữ liệu mẫu trong hội thoại 28; trao đổi lịch hẹn và tiến độ dịch vụ.', '2026-10-08 09:36:00.000000'),
+(31, 29, 31, 'Tin nhắn dữ liệu mẫu trong hội thoại 29; trao đổi lịch hẹn và tiến độ dịch vụ.', '2026-10-07 09:37:00.000000'),
+(32, 30, 81, 'Tin nhắn dữ liệu mẫu trong hội thoại 30; trao đổi lịch hẹn và tiến độ dịch vụ.', '2026-10-06 09:38:00.000000'),
+(33, 31, 33, 'Tin nhắn dữ liệu mẫu trong hội thoại 31; trao đổi lịch hẹn và tiến độ dịch vụ.', '2026-10-05 09:39:00.000000');
+INSERT INTO messages (id, conversation_id, sender_id, content, sent_at) VALUES
+(34, 32, 83, 'Tin nhắn dữ liệu mẫu trong hội thoại 32; trao đổi lịch hẹn và tiến độ dịch vụ.', '2026-10-04 09:40:00.000000'),
+(35, 33, 35, 'Tin nhắn dữ liệu mẫu trong hội thoại 33; trao đổi lịch hẹn và tiến độ dịch vụ.', '2026-10-03 09:41:00.000000'),
+(36, 34, 85, 'Tin nhắn dữ liệu mẫu trong hội thoại 34; trao đổi lịch hẹn và tiến độ dịch vụ.', '2026-10-02 09:42:00.000000'),
+(37, 35, 37, 'Tin nhắn dữ liệu mẫu trong hội thoại 35; trao đổi lịch hẹn và tiến độ dịch vụ.', '2026-10-01 09:43:00.000000'),
+(38, 36, 87, 'Tin nhắn dữ liệu mẫu trong hội thoại 36; trao đổi lịch hẹn và tiến độ dịch vụ.', '2026-10-12 09:44:00.000000'),
+(39, 37, 39, 'Tin nhắn dữ liệu mẫu trong hội thoại 37; trao đổi lịch hẹn và tiến độ dịch vụ.', '2026-10-11 09:45:00.000000'),
+(40, 38, 89, 'Tin nhắn dữ liệu mẫu trong hội thoại 38; trao đổi lịch hẹn và tiến độ dịch vụ.', '2026-10-10 09:46:00.000000'),
+(41, 39, 41, 'Tin nhắn dữ liệu mẫu trong hội thoại 39; trao đổi lịch hẹn và tiến độ dịch vụ.', '2026-10-09 09:47:00.000000'),
+(42, 40, 91, 'Tin nhắn dữ liệu mẫu trong hội thoại 40; trao đổi lịch hẹn và tiến độ dịch vụ.', '2026-10-08 09:48:00.000000'),
+(43, 41, 43, 'Tin nhắn dữ liệu mẫu trong hội thoại 41; trao đổi lịch hẹn và tiến độ dịch vụ.', '2026-10-07 09:49:00.000000'),
+(44, 42, 93, 'Tin nhắn dữ liệu mẫu trong hội thoại 42; trao đổi lịch hẹn và tiến độ dịch vụ.', '2026-10-06 09:50:00.000000'),
+(45, 43, 45, 'Tin nhắn dữ liệu mẫu trong hội thoại 43; trao đổi lịch hẹn và tiến độ dịch vụ.', '2026-10-05 09:51:00.000000'),
+(46, 44, 95, 'Tin nhắn dữ liệu mẫu trong hội thoại 44; trao đổi lịch hẹn và tiến độ dịch vụ.', '2026-10-04 09:52:00.000000'),
+(47, 45, 47, 'Tin nhắn dữ liệu mẫu trong hội thoại 45; trao đổi lịch hẹn và tiến độ dịch vụ.', '2026-10-03 09:53:00.000000'),
+(48, 46, 97, 'Tin nhắn dữ liệu mẫu trong hội thoại 46; trao đổi lịch hẹn và tiến độ dịch vụ.', '2026-10-02 09:54:00.000000'),
+(49, 47, 49, 'Tin nhắn dữ liệu mẫu trong hội thoại 47; trao đổi lịch hẹn và tiến độ dịch vụ.', '2026-10-01 09:55:00.000000'),
+(50, 48, 99, 'Tin nhắn dữ liệu mẫu trong hội thoại 48; trao đổi lịch hẹn và tiến độ dịch vụ.', '2026-10-12 09:56:00.000000'),
+(51, 49, 51, 'Tin nhắn dữ liệu mẫu trong hội thoại 49; trao đổi lịch hẹn và tiến độ dịch vụ.', '2026-10-11 09:57:00.000000'),
+(52, 50, 101, 'Tin nhắn dữ liệu mẫu trong hội thoại 50; trao đổi lịch hẹn và tiến độ dịch vụ.', '2026-10-10 09:58:00.000000');
+
+
+
+
+-- Escrow v3 demo setup: all figures below are internal demo credits, not real money.
+UPDATE rental_orders SET status='PENDING_PROVIDER_ACCEPTANCE' WHERE status='PENDING_PAYMENT';
+UPDATE rental_orders
+SET locked_amount = CASE WHEN status IN ('PENDING_PROVIDER_ACCEPTANCE','PENDING_START_CONFIRMATION','PROCESSING','PENDING_CUSTOMER_ACCEPTANCE','PENDING_PAYMENT_OTP','CANCELLATION_REQUESTED_BY_CUSTOMER','CANCELLATION_COMPENSATION_PENDING_CUSTOMER') THEN total ELSE 0 END,
+    provider_accepted = CASE WHEN status IN ('PENDING_START_CONFIRMATION','PROCESSING','PENDING_CUSTOMER_ACCEPTANCE','PENDING_PAYMENT_OTP','CANCELLATION_REQUESTED_BY_CUSTOMER','CANCELLATION_COMPENSATION_PENDING_CUSTOMER') THEN TRUE ELSE FALSE END,
+    customer_started = CASE WHEN status IN ('PROCESSING','PENDING_CUSTOMER_ACCEPTANCE','PENDING_PAYMENT_OTP','CANCELLATION_REQUESTED_BY_CUSTOMER','CANCELLATION_COMPENSATION_PENDING_CUSTOMER') THEN TRUE ELSE FALSE END,
+    provider_started = CASE WHEN status IN ('PROCESSING','PENDING_CUSTOMER_ACCEPTANCE','PENDING_PAYMENT_OTP','CANCELLATION_REQUESTED_BY_CUSTOMER','CANCELLATION_COMPENSATION_PENDING_CUSTOMER') THEN TRUE ELSE FALSE END,
+    start_deposit_amount = CASE WHEN status IN ('PROCESSING','PENDING_CUSTOMER_ACCEPTANCE','PENDING_PAYMENT_OTP','CANCELLATION_REQUESTED_BY_CUSTOMER','CANCELLATION_COMPENSATION_PENDING_CUSTOMER') THEN ROUND(total / 3, 2) ELSE NULL END,
+    provider_completed = CASE WHEN status IN ('PENDING_CUSTOMER_ACCEPTANCE','PENDING_PAYMENT_OTP') THEN TRUE ELSE FALSE END,
+    customer_accepted_completion = CASE WHEN status='PENDING_PAYMENT_OTP' THEN TRUE ELSE FALSE END,
+    settled_at = CASE WHEN status='COMPLETED' THEN COALESCE(completed_at, created_at) ELSE NULL END;
+
+UPDATE rental_orders
+SET platform_fee_amount = CASE WHEN settled_at IS NOT NULL THEN ROUND((CASE WHEN status='CANCELLED' THEN COALESCE(cancellation_compensation, 0) ELSE total END) * 0.05, 2) ELSE NULL END,
+    provider_net_amount = CASE WHEN settled_at IS NOT NULL THEN (CASE WHEN status='CANCELLED' THEN COALESCE(cancellation_compensation, 0) ELSE total END) - ROUND((CASE WHEN status='CANCELLED' THEN COALESCE(cancellation_compensation, 0) ELSE total END) * 0.05, 2) ELSE NULL END;
+
+INSERT INTO user_wallets (user_id, balance, locked_amount)
+SELECT u.id,
+       CASE WHEN u.email='customer@skillrental.vn' THEN 6870000.00
+            WHEN u.role='PROVIDER' THEN COALESCE((SELECT SUM(o.provider_net_amount) FROM rental_orders o WHERE o.provider_id=u.id AND o.settled_at IS NOT NULL),0)
+            ELSE 0 END,
+       COALESCE((SELECT SUM(o.total) FROM rental_orders o WHERE o.customer_id=u.id AND o.locked_amount > 0),0)
+FROM users u;
+
+-- Per-project Provider income ledger. Historical completed seed orders are treated as settled demo entries.
+INSERT INTO wallet_transactions (wallet_id, order_id, type, amount, balance_after, locked_after, description, created_at)
+SELECT w.id, o.id, 'SETTLEMENT_IN', o.provider_net_amount,
+       (SELECT COALESCE(SUM(o2.provider_net_amount),0) FROM rental_orders o2
+         WHERE o2.provider_id=o.provider_id AND o2.settled_at IS NOT NULL
+           AND (COALESCE(o2.settled_at,o2.completed_at) < COALESCE(o.settled_at,o.completed_at)
+             OR (COALESCE(o2.settled_at,o2.completed_at) = COALESCE(o.settled_at,o.completed_at) AND o2.id <= o.id))),
+       0, CONCAT('Tiền demo nhận từ dự án DH', o.id, ' - ', COALESCE((SELECT b.service_name FROM bookings b WHERE b.id=o.booking_id), 'Dịch vụ')),
+       COALESCE(o.settled_at,o.completed_at)
+FROM rental_orders o JOIN user_wallets w ON w.user_id=o.provider_id
+WHERE o.settled_at IS NOT NULL AND o.provider_id IS NOT NULL AND o.provider_net_amount > 0;
+
+-- Customer demo history: saldo / holds are consistent with the primary sample orders DH1 and DH3.
+INSERT INTO wallet_transactions (wallet_id, order_id, type, amount, balance_after, locked_after, description, created_at)
+SELECT w.id, NULL, 'DEMO_TOPUP', 14300000, 14300000, 0,
+       'Số dư lịch sử để kiểm thử ví nội bộ; không phải giao dịch ngân hàng thật.', DATE_SUB(NOW(6), INTERVAL 30 DAY)
+FROM user_wallets w JOIN users u ON u.id=w.user_id WHERE u.email='customer@skillrental.vn'
+UNION ALL
+SELECT w.id, 5, 'SETTLEMENT_OUT', -2800000, 11500000, 0,
+       'Lịch sử demo: quyết toán dự án DH5.', DATE_SUB(NOW(6), INTERVAL 18 DAY)
+FROM user_wallets w JOIN users u ON u.id=w.user_id WHERE u.email='customer@skillrental.vn'
+UNION ALL
+SELECT w.id, 2, 'SETTLEMENT_OUT', -1500000, 10000000, 0,
+       'Lịch sử demo: quyết toán dự án DH2.', DATE_SUB(NOW(6), INTERVAL 7 DAY)
+FROM user_wallets w JOIN users u ON u.id=w.user_id WHERE u.email='customer@skillrental.vn'
+UNION ALL
+SELECT w.id, 1, 'HOLD', 2880000, 7120000, 2880000,
+       'Khóa tiền cho dự án DH1 đang thực hiện.', DATE_SUB(NOW(6), INTERVAL 3 DAY)
+FROM user_wallets w JOIN users u ON u.id=w.user_id WHERE u.email='customer@skillrental.vn'
+UNION ALL
+SELECT w.id, 3, 'HOLD', 250000, 6870000, 3130000,
+       'Khóa tiền cho yêu cầu DH3 chờ Provider nhận việc.', DATE_SUB(NOW(6), INTERVAL 1 HOUR)
+FROM user_wallets w JOIN users u ON u.id=w.user_id WHERE u.email='customer@skillrental.vn';
+
+COMMIT;

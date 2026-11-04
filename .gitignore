@@ -1,0 +1,16 @@
+target/
+.idea/
+*.iml
+.vscode/
+.env
+.env.*
+~$*.xlsx
+
+# Local private runtime data
+data/
+private-deliveries/
+.env
+client_secret*.json
+
+# Private SMTP credentials; only the example belongs in source control.
+config/mail.properties

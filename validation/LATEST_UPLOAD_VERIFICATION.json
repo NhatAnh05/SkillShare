@@ -1,0 +1,15 @@
+{
+  "all_input_files_retained": true,
+  "matches_previously_verified_code_and_qa": true,
+  "javascript_syntax_pass_files": 7,
+  "previous_maven_reports": {
+    "tests": 96,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "previous_workflow_browser": "PASS",
+  "previous_review_browser": "PASS",
+  "maven_rerun_this_handoff": false,
+  "browser_rerun_this_handoff": false
+}

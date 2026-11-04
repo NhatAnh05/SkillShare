@@ -1,0 +1,25 @@
+package com.skillrental.dto;
+
+import jakarta.validation.constraints.*;
+import lombok.Data;
+import org.springframework.format.annotation.DateTimeFormat;
+import java.time.*;
+
+@Data public class BookingForm {
+    @NotNull private Long serviceId;
+    private Long cartItemId;
+    @NotBlank @Size(max=36) private String idempotencyKey;
+    @FutureOrPresent @DateTimeFormat(iso=DateTimeFormat.ISO.DATE) private LocalDate bookingDate;
+    @DateTimeFormat(iso=DateTimeFormat.ISO.TIME) private LocalTime timeSlot;
+    @NotNull private com.skillrental.entity.ScheduleMode scheduleMode = com.skillrental.entity.ScheduleMode.APPOINTMENT;
+    @DateTimeFormat(iso=DateTimeFormat.ISO.DATE_TIME) private LocalDateTime deliveryDueAt;
+    @Size(max=1200) private String note;
+    @jakarta.validation.constraints.Min(1) @jakarta.validation.constraints.Max(24)
+    private int durationHours = 2;
+    @jakarta.validation.constraints.Min(1) @jakarta.validation.constraints.Max(99)
+    private int quantity = 1;
+    private boolean acceptedPolicy;
+    private boolean confirmPriceChange;
+    private boolean premium;
+    private boolean directBooking=true;
+}

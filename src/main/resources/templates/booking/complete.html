@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+ <head>
+  <meta charset="utf-8"/>
+  <meta content="width=device-width, initial-scale=1" name="viewport"/>
+  <title>
+   Hoàn tất đặt lịch · Skill Rental
+  </title>
+  <th:block th:replace="~{fragments :: customerStyles}"></th:block>
+  <meta name="_csrf" th:content="${_csrf.token}"/>
+  <meta name="_csrf_header" th:content="${_csrf.headerName}"/>
+ </head>
+ <body class="public-page">
+  <div th:replace="~{fragments :: icons}">
+  </div>
+  <div th:replace="~{fragments :: header}">
+  </div>
+  <main class="page">
+   <div class="container public-content">
+    <div class="booking-stepper">
+     <div class="is-done">
+      <b>
+       ✓
+      </b>
+      <span>
+       Chọn lịch
+      </span>
+     </div>
+     <span>
+      →
+     </span>
+     <div class="is-done">
+      <b>
+       ✓
+      </b>
+      <span>
+       Thanh toán
+      </span>
+     </div>
+     <span>
+      →
+     </span>
+     <div class="is-current">
+      <b>
+       3
+      </b>
+      <span>
+       Hoàn tất
+      </span>
+     </div>
+    </div>
+    <section class="card empty-state">
+     <h1>
+      Đã ghi nhận đặt lịch
+     </h1>
+     <p class="muted" th:text="${'Mã đơn: #SR-' + order.id}">
+     </p>
+     <p th:text="${order.booking.serviceName}">
+     </p>
+     <p class="alert success">
+      Đã ghi nhận bước thanh toán mô phỏng; chưa có giao dịch tiền thật.
+     </p>
+     <a class="btn btn-primary" th:href="@{/orders}">
+      Xem đơn hàng của tôi
+     </a>
+    </section>
+   </div>
+  </main>
+  <div th:replace="~{fragments :: footer}">
+  </div>
+  <div th:replace="~{fragments :: floatingChat}">
+  </div>
+  <script defer="" th:src="@{/js/app.js}">
+  </script>
+  <script defer="" th:src="@{/js/figma-ui.js}">
+  </script>
+ </body>
+</html>
