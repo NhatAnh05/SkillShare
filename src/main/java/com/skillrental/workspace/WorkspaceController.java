@@ -466,11 +466,12 @@ public class WorkspaceController {
     @PostMapping("/provider/complaints/{id}/refund")
     public String complaintRefund(@PathVariable Long id, Authentication authentication, RedirectAttributes ra) {
         User u = require(authentication, Role.PROVIDER);
-        Complaint c = complaints.findById(id).orElseThrow();
-        if (c.getOrder() == null || c.getOrder().getProvider() == null || !Objects.equals(c.getOrder().getProvider().getId(), u.getId())) throw new IllegalArgumentException("Không có quyền");
-        c.setStatus(ComplaintStatus.RESOLVED);
-        complaints.save(c);
-        ra.addFlashAttribute("success", "Đã đồng ý phương án hoàn tiền cho khách trong demo.");
+        try {
+            escrowService.refundComplaintByProvider(id, u);
+            ra.addFlashAttribute("success", "Đã hủy đơn theo đề nghị của Provider và hoàn 100% ký quỹ về ví Customer. Không có tiền nào chuyển ra ngân hàng.");
+        } catch (RuntimeException e) {
+            ra.addFlashAttribute("error", e.getMessage());
+        }
         return "redirect:/provider/complaints";
     }
 
@@ -1324,6 +1325,7 @@ public class WorkspaceController {
         model.addAttribute("financePoints", financePoints);
         model.addAttribute("commissionPoints", commissionPoints);
         model.addAttribute("settlementLedgerRows", escrowReconciliation.latest());
+        model.addAttribute("walletTransactionRows", walletTransactions.findTop100ByOrderByCreatedAtDesc());
         model.addAttribute("disputedOrders", allOrders.stream()
                 .filter(o -> o.getStatus() == OrderStatus.CANCELLATION_DISPUTED)
                 .sorted(Comparator.comparing(RentalOrder::getId).reversed()).limit(50).toList());
@@ -1402,8 +1404,16 @@ public class WorkspaceController {
     private List<WithdrawalRow> adminWithdrawals() {
         return providerWithdrawalRepository.findAllByOrderByCreatedAtDesc().stream()
                 .map(w -> new WithdrawalRow(String.valueOf(w.getId()), w.getProvider().getFullName(), w.getBankName(),
-                        w.getAccountNumber(), w.getAmount(), w.getCreatedAt() == null ? "-" : w.getCreatedAt().format(java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm")), w.getStatus()))
+                        w.getAccountNumber(), w.getAmount(),
+                        formatDateTime(w.getCreatedAt()), w.getStatus(),
+                        formatDateTime(w.getVerifiedAt()), formatDateTime(w.getProcessedAt()),
+                        w.getProcessedByAdmin() == null ? "-" : w.getProcessedByAdmin().getFullName(),
+                        w.getAdminNote()))
                 .toList();
+    }
+
+    private String formatDateTime(LocalDateTime value) {
+        return value == null ? "-" : value.format(java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm"));
     }
 
 
@@ -1604,7 +1614,9 @@ public class WorkspaceController {
     public record AdminOrderFinanceRow(RentalOrder order, BigDecimal settlementBasis, BigDecimal fee, BigDecimal net,
                                        List<RentalOrderStatusHistory> history) {}
     public record ReportRow(Long id, String target, String type, String detail, String reporter, String date, ComplaintStatus status) {}
-    public record WithdrawalRow(String id, String provider, String bank, String account, BigDecimal amount, String date, String status) {}
+    public record WithdrawalRow(String id, String provider, String bank, String account, BigDecimal amount,
+                                String date, String status, String verifiedAt, String processedAt,
+                                String processedBy, String adminNote) {}
     public record FeeInvoice(String code, String name, BigDecimal amount, String method, String date) {}
     public record PackageRow(String code, String name, BigDecimal price, String duration, String label, List<String> benefits) {}
     public record Certification(String name, String issuer, String issuedDate, String certificateId) {}

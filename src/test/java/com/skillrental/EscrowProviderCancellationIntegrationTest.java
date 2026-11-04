@@ -31,6 +31,7 @@ class EscrowProviderCancellationIntegrationTest {
     @Autowired EscrowSettlementRepository settlements;
     @Autowired EscrowReconciliationService reconciliation;
     @Autowired BookingRepository bookings;
+    @Autowired ComplaintRepository complaints;
 
     record Scenario(User customer, User provider, RentalOrder order) {}
 
@@ -131,6 +132,28 @@ class EscrowProviderCancellationIntegrationTest {
         orders.saveAndFlush(o);
         escrow.cancelByProvider(o.getId(), s.provider(), "Lịch không phù hợp");
         assertFullRefund(s, false);
+    }
+
+    @Test void providerRefundForComplaintUsesEscrowAndRecordsComplaintResolutionAtomically() {
+        Scenario s = create(OrderStatus.PROCESSING, true);
+        Complaint complaint = complaints.saveAndFlush(Complaint.builder()
+                .customer(s.customer()).reporter(s.customer()).reportedUser(s.provider())
+                .order(s.order()).subject("Yêu cầu hoàn tiền")
+                .description("Provider đồng ý hoàn toàn bộ ký quỹ.")
+                .status(ComplaintStatus.PROCESSING).createdAt(LocalDateTime.now()).build());
+
+        escrow.refundComplaintByProvider(complaint.getId(), s.provider());
+
+        assertFullRefund(s, true);
+        Complaint resolved = complaints.findById(complaint.getId()).orElseThrow();
+        assertEquals(ComplaintStatus.RESOLVED, resolved.getStatus());
+        assertNotNull(resolved.getResolvedAt());
+        assertTrue(resolved.getResolutionNotes().contains("hoàn 100% ký quỹ"));
+        assertNull(resolved.getHandledBy(), "Provider action must not be recorded as an Admin.");
+        assertThrows(IllegalStateException.class,
+                () -> escrow.refundComplaintByProvider(complaint.getId(), s.provider()));
+        assertEquals(1, transactions.findByOrderIdOrderByIdAsc(s.order().getId()).stream()
+                .filter(row -> "UNHOLD_REFUND".equals(row.getType())).count());
     }
 
     @Test void providerCancelsAfterBothStartedAndClosesThird() {

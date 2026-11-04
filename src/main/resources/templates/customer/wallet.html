@@ -27,7 +27,7 @@
           <div class="form-group" style="min-width:240px;flex:1"><label for="amount">Số tiền nạp (VNĐ)</label><input id="amount" name="amount" type="number" min="10000" max="50000000" step="10000" value="100000" required/></div>
           <button class="btn btn-primary" type="submit" th:disabled="${!vnpayConfigured}">Nạp qua VNPay Sandbox</button>
         </form>
-        <p class="muted" th:if="${!vnpayConfigured}">Chưa cấu hình VNPay Sandbox. Hãy đặt biến môi trường VNPAY_TMN_CODE và VNPAY_HASH_SECRET rồi khởi động lại ứng dụng.</p>
+        <p class="muted" th:if="${!vnpayConfigured}">Chưa cấu hình VNPay Sandbox. Hãy đặt VNPAY_TMN_CODE, VNPAY_HASH_SECRET và VNPAY_RETURN_URL rồi khởi động lại ứng dụng.</p>
         <details style="margin-top:12px" th:if="${demoTopupEnabled}"><summary>Nạp dữ liệu demo nội bộ (chỉ phát triển)</summary>
           <p class="muted">Không dùng chức năng này để mô phỏng giao dịch từ bên ngoài khi trình diễn thanh toán.</p>
           <form method="post" th:action="@{/customer/wallet/topup-demo}" style="display:flex;gap:10px;align-items:end;flex-wrap:wrap">

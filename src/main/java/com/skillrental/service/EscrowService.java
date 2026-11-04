@@ -40,6 +40,7 @@ public class EscrowService {
     private final EscrowSettlementRepository settlements;
     private final EscrowDisputeDecisionRepository disputeDecisions;
     private final ProviderWithdrawalRepository providerWithdrawals;
+    private final ComplaintRepository complaints;
     private final CommissionPolicy commissionPolicy;
     private final NotificationService notifications;
     private final RentalOrderStatusHistoryRepository orderHistory;
@@ -637,6 +638,31 @@ public class EscrowService {
         String why = (reason == null || reason.isBlank()) ? "Provider chủ động hủy."
                 : CancellationCompensationPolicy.description(reason, 1, 500, "Lý do hủy của Provider");
         refundAndCloseProviderCancellation(order, provider, why);
+    }
+
+    @Transactional
+    public void refundComplaintByProvider(Long complaintId, User provider) {
+        if (provider == null || provider.getRole() != Role.PROVIDER) {
+            throw new IllegalArgumentException("Chỉ Provider mới được hoàn tiền theo khiếu nại của đơn mình.");
+        }
+        Complaint complaint = complaints.findById(complaintId)
+                .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy khiếu nại."));
+        if (complaint.getStatus() == ComplaintStatus.RESOLVED
+                || complaint.getStatus() == ComplaintStatus.REJECTED) {
+            throw new IllegalStateException("Khiếu nại đã đóng; không thể khởi tạo hoàn tiền lần nữa.");
+        }
+        RentalOrder complaintOrder = complaint.getOrder();
+        if (complaintOrder == null || complaintOrder.getProvider() == null
+                || !complaintOrder.getProvider().getId().equals(provider.getId())) {
+            throw new IllegalArgumentException("Khiếu nại không thuộc đơn của Provider hiện tại.");
+        }
+        RentalOrder order = providerOrderForUpdate(complaintOrder.getId(), provider);
+        refundAndCloseProviderCancellation(order, provider,
+                "Provider đồng ý hoàn toàn bộ ký quỹ theo khiếu nại CMP-" + complaintId);
+        complaint.setStatus(ComplaintStatus.RESOLVED);
+        complaint.setResolutionNotes("Provider đồng ý hoàn 100% ký quỹ qua luồng hủy đơn nội bộ; không chuyển khoản ngân hàng.");
+        complaint.setResolvedAt(LocalDateTime.now());
+        complaints.save(complaint);
     }
 
     /**

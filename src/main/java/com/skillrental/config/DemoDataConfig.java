@@ -27,6 +27,7 @@ import java.util.List;
 @RequiredArgsConstructor
 public class DemoDataConfig {
     @Bean
+    @org.springframework.core.annotation.Order(0)
     CommandLineRunner seed(
             UserRepository users,
             CustomerProfileRepository customers,

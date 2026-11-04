@@ -40,7 +40,9 @@ public class VnPayWalletTopUpService {
     @Value("${skillshare.vnpay.return-url:http://localhost:8080/customer/wallet/vnpay/return}") private String returnUrl;
 
     public boolean configured() {
-        return tmnCode != null && !tmnCode.isBlank() && hashSecret != null && !hashSecret.isBlank();
+        return tmnCode != null && !tmnCode.isBlank()
+                && hashSecret != null && !hashSecret.isBlank()
+                && returnUrl != null && !returnUrl.isBlank();
     }
 
     @Transactional(readOnly = true)
@@ -53,7 +55,7 @@ public class VnPayWalletTopUpService {
         if (user == null || user.getRole() != Role.CUSTOMER)
             throw new IllegalArgumentException("Chỉ Customer mới được nạp ví.");
         if (!configured())
-            throw new IllegalStateException("Chưa cấu hình VNPay Sandbox. Hãy thiết lập VNPAY_TMN_CODE và VNPAY_HASH_SECRET.");
+            throw new IllegalStateException("Chưa cấu hình VNPay Sandbox. Hãy thiết lập VNPAY_TMN_CODE, VNPAY_HASH_SECRET và VNPAY_RETURN_URL.");
         // VNPay xử lý đơn vị VND nguyên; không cho phép số tiền có phần lẻ.
         if (amount == null || amount.compareTo(MIN_AMOUNT) < 0 || amount.compareTo(MAX_AMOUNT) > 0
                 || amount.stripTrailingZeros().scale() > 0)

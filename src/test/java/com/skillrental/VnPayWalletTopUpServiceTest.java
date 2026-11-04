@@ -49,6 +49,12 @@ class VnPayWalletTopUpServiceTest {
     }
 
     @Test
+    void paymentIsNotConfiguredWithoutReturnUrl() {
+        ReflectionTestUtils.setField(service, "returnUrl", "");
+        assertFalse(service.configured());
+    }
+
+    @Test
     void paymentRequestRejectsFractionalVndBeforePersisting() {
         assertThrows(IllegalArgumentException.class,
                 () -> service.createPayment(customer, new BigDecimal("10000.25"), "127.0.0.1"));
