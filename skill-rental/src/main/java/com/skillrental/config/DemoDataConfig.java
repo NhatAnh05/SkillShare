@@ -45,6 +45,9 @@ public class DemoDataConfig {
             PaymentRepository payments,
             PaymentAttemptRepository paymentAttempts,
             RefundRepository refunds,
+            WalletRepository wallets,
+            WalletTransactionRepository walletTransactions,
+            EscrowRepository escrows,
             ReviewRepository reviews,
             ComplaintRepository complaints,
             ConversationRepository conversations,
@@ -179,7 +182,28 @@ public class DemoDataConfig {
                     "Buổi mentoring Java 60 phút.", new BigDecimal("250000"), BookingStatus.PENDING,
                     now.minusHours(1), null, null));
             RentalOrder o3 = orders.save(order(b3, customer, provider, "250000", "0", "250000",
-                    OrderStatus.PENDING_PAYMENT, now.minusHours(1), null, null, null, null));
+                    OrderStatus.ESCROW_HELD, now.minusHours(1), null, null, null, null));
+
+            // Unified escrow demo: the pending order holds funds in the customer's wallet.
+            Wallet customerWallet = wallets.save(Wallet.builder().user(customer)
+                    .availableBalance(BigDecimal.ZERO)
+                    .heldBalance(new BigDecimal("250000"))
+                    .totalDeposited(new BigDecimal("250000"))
+                    .totalWithdrawn(BigDecimal.ZERO).build());
+            walletTransactions.save(WalletTransaction.builder().wallet(customerWallet)
+                    .type(WalletTransactionType.DEPOSIT).amount(new BigDecimal("250000"))
+                    .balanceAfter(new BigDecimal("250000")).heldAfter(BigDecimal.ZERO)
+                    .description("Nạp tiền vào ví qua demo seed").build());
+            walletTransactions.save(WalletTransaction.builder().wallet(customerWallet)
+                    .type(WalletTransactionType.HOLD).amount(new BigDecimal("250000"))
+                    .balanceAfter(BigDecimal.ZERO).heldAfter(new BigDecimal("250000"))
+                    .referenceType("ORDER").referenceId(o3.getId())
+                    .description("Khóa tiền đặt đơn #SR-" + o3.getId()).build());
+            escrows.save(Escrow.builder().order(o3).customer(customer).provider(provider)
+                    .totalAmount(new BigDecimal("250000")).releasedAmount(BigDecimal.ZERO)
+                    .customerStartConfirmed(false).providerStartConfirmed(false).advanceReleased(false)
+                    .status(EscrowStatus.HELD)
+                    .createdAt(now.minusHours(1)).updatedAt(now.minusHours(1)).build());
 
             Booking b4 = bookings.save(booking(customer, provider, mentoring, LocalDate.now().minusDays(12),
                     "Đơn demo đã hủy và hoàn tiền.", new BigDecimal("250000"), BookingStatus.CANCELLED,
@@ -207,7 +231,7 @@ public class DemoDataConfig {
             orderHistory.save(history(o2, "PENDING_PAYMENT", "PAID", customer, "Thanh toán thành công.", now.minusDays(10)));
             orderHistory.save(history(o2, "PAID", "PROCESSING", provider, "Bắt đầu thiết kế giao diện.", now.minusDays(9)));
             orderHistory.save(history(o2, "PROCESSING", "COMPLETED", provider, "Đã bàn giao file thiết kế.", now.minusDays(7)));
-            orderHistory.save(history(o3, null, "PENDING_PAYMENT", customer, "Đơn hàng chờ thanh toán.", now.minusHours(1)));
+            orderHistory.save(history(o3, null, "ESCROW_HELD", customer, "Đã khóa 250.000đ vào ví, chờ hai bên xác nhận bắt đầu.", now.minusHours(1)));
             orderHistory.save(history(o4, "PAID", "CANCELLED", customer, "Đã xác nhận hủy đơn.", now.minusDays(12)));
             orderHistory.save(history(o5, "PAID", "PROCESSING", provider, "Bắt đầu rà soát API.", now.minusDays(20)));
             orderHistory.save(history(o5, "PROCESSING", "COMPLETED", provider, "Đã bàn giao và nghiệm thu.", now.minusDays(18)));
@@ -216,8 +240,6 @@ public class DemoDataConfig {
                     "WELCOME10", "2880000", PaymentStatus.PAID, now.minusDays(3)));
             Payment pay2 = payments.save(payment(o2, "VNPAY", "VNPAY", "DEMO-VNPAY-TXN-002", "DEMO-PAYMENT-KEY-002",
                     null, "1500000", PaymentStatus.PAID, now.minusDays(10)));
-            Payment pay3 = payments.save(payment(o3, "VNPAY", "VNPAY", null, "DEMO-PAYMENT-KEY-003",
-                    null, "250000", PaymentStatus.PENDING, null));
             Payment pay4 = payments.save(payment(o4, "MOMO", "MOMO", "DEMO-MOMO-TXN-004", "DEMO-PAYMENT-KEY-004",
                     null, "250000", PaymentStatus.REFUNDED, now.minusDays(14)));
             Payment pay5 = payments.save(payment(o5, "BANK_TRANSFER", "BANK_TRANSFER", "DEMO-BANK-TXN-005", "DEMO-PAYMENT-KEY-005",
@@ -225,7 +247,6 @@ public class DemoDataConfig {
 
             paymentAttempts.save(paymentAttempt(pay1, "MOMO", "DEMO-MERCHANT-001", "DEMO-MOMO-TXN-001", "2880000", PaymentAttemptStatus.SUCCEEDED, now.minusDays(3), now.minusDays(3)));
             paymentAttempts.save(paymentAttempt(pay2, "VNPAY", "DEMO-MERCHANT-002", "DEMO-VNPAY-TXN-002", "1500000", PaymentAttemptStatus.SUCCEEDED, now.minusDays(10), now.minusDays(10)));
-            paymentAttempts.save(paymentAttempt(pay3, "VNPAY", "DEMO-MERCHANT-003", null, "250000", PaymentAttemptStatus.CREATED, now.minusMinutes(30), null));
             paymentAttempts.save(paymentAttempt(pay4, "MOMO", "DEMO-MERCHANT-004", "DEMO-MOMO-TXN-004", "250000", PaymentAttemptStatus.SUCCEEDED, now.minusDays(14), now.minusDays(14)));
             paymentAttempts.save(paymentAttempt(pay5, "BANK_TRANSFER", "DEMO-MERCHANT-005", "DEMO-BANK-TXN-005", "2800000", PaymentAttemptStatus.SUCCEEDED, now.minusDays(21), now.minusDays(21)));
 

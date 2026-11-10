@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+ <head>
+  <meta charset="utf-8"/>
+  <meta content="width=device-width,initial-scale=1" name="viewport"/>
+  <title>
+   Lỗi hệ thống · Skill Rental
+  </title>
+  <th:block th:replace="~{fragments :: customerStyles}"></th:block>
+ </head>
+ <body class="public-page">
+  <div th:replace="~{fragments :: icons}">
+  </div>
+  <div th:replace="~{fragments :: header}">
+  </div>
+  <main class="page">
+   <div class="container public-content">
+    <section class="card empty-state">
+     <p aria-hidden="true" style="font-size:56px;line-height:1;margin:0">
+      ⚠️
+     </p>
+     <h1>
+      500 — Lỗi hệ thống
+     </h1>
+     <p class="muted">
+      Hệ thống gặp sự cố khi xử lý yêu cầu của bạn. Vui lòng thử lại sau ít phút.
+      Nếu lỗi vẫn tiếp diễn, hãy liên hệ quản trị viên kèm thời điểm xảy ra lỗi
+      <span th:text="${timestamp ?: ''}">
+      </span>
+      .
+     </p>
+     <div style="display:flex;gap:10px;flex-wrap:wrap;justify-content:center">
+      <a class="btn btn-primary" th:href="@{/marketplace}">
+       Về trang chủ
+      </a>
+      <a class="btn btn-secondary" href="javascript:history.back()">
+       Quay lại trang trước
+      </a>
+     </div>
+    </section>
+   </div>
+  </main>
+  <div th:replace="~{fragments :: footer}">
+  </div>
+  <div th:replace="~{fragments :: floatingChat}">
+  </div>
+  <script defer="" src="/js/app.js">
+  </script>
+ </body>
+</html>

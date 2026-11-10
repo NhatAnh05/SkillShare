@@ -23,6 +23,9 @@
      </h1>
      <p class="muted">
       Xem tiến độ, đánh giá hoặc khiếu nại từng đơn hàng.
+      <a th:href="@{/wallet}">Ví của tôi</a>
+      <span th:if="${walletBalance != null}" th:text="${' · Số dư khả dụng: ' + #numbers.formatDecimal(walletBalance,0,'POINT',0,'COMMA') + 'đ'}">
+      </span>
      </p>
      <div th:replace="~{fragments :: flash}">
      </div>
@@ -86,10 +89,10 @@
          </td>
          <td th:text="${#numbers.formatDecimal(o.total,0,'POINT',0,'COMMA')+'đ'}">
          </td>
-         <td>
-          <span class="badge" th:classappend="${o.status.name()=='PENDING_PAYMENT'?'pending':(o.status.name()=='PAID'||o.status.name()=='PROCESSING'?'info':(o.status.name()=='COMPLETED'?'done':'bad'))}" th:text="${o.status.name()=='PENDING_PAYMENT'?'Chờ thanh toán':(o.status.name()=='PAID'?'Đã thanh toán':(o.status.name()=='PROCESSING'?'Đang xử lý':(o.status.name()=='COMPLETED'?'Hoàn thành':'Đã hủy')))}">
-          </span>
-         </td>
+          <td>
+           <span class="badge" th:classappend="${o.status.name()=='COMPLETED'?'done':(o.status.name()=='CANCELLED'?'bad':(o.status.name()=='PENDING_PAYMENT'||o.status.name()=='AWAITING_CONFIRMATION'||o.status.name()=='CANCELLATION_REQUESTED'?'pending':'info'))}" th:text="${o.status.name()=='PENDING_PAYMENT'?'Chờ thanh toán':(o.status.name()=='ESCROW_HELD'?'Đã giữ tiền':(o.status.name()=='PAID'?'Đã thanh toán':(o.status.name()=='PROCESSING'?'Đang thực hiện':(o.status.name()=='AWAITING_CONFIRMATION'?'Chờ nghiệm thu':(o.status.name()=='CANCELLATION_REQUESTED'?'Chờ xử lý hủy':(o.status.name()=='COMPLETED'?'Hoàn thành':'Đã hủy'))))))}">
+           </span>
+          </td>
          <td>
           <div class="icon-actions">
            <button aria-label="Xem tiến độ" class="action-icon" th:attr="data-order-detail=${o.id}" title="Xem tiến độ" type="button">
@@ -104,16 +107,13 @@
            <button aria-label="Chỉ đánh giá được khi đơn hoàn thành" class="action-icon is-disabled" disabled="disabled" th:unless="${o.status.name()=='COMPLETED'}" title="Chỉ đánh giá được khi đơn hoàn thành" type="button">
             <svg class="icon"><use href="#i-check"></use></svg>
            </button>
-           <a aria-label="Khiếu nại" class="action-icon" th:href="@{/orders/{id}/complaint(id=${o.id})}" title="Khiếu nại">
-            <svg class="icon">
-             <use href="#i-alert">
-             </use>
-            </svg>
-           </a>
-           <a class="btn btn-outline btn-sm" th:href="@{/payment/{id}(id=${o.id})}" th:if="${o.status.name()=='PENDING_PAYMENT'}">
-            Thanh toán
-           </a>
-          </div>
+            <a aria-label="Khiếu nại" class="action-icon" th:href="@{/orders/{id}/complaint(id=${o.id})}" title="Khiếu nại">
+             <svg class="icon">
+              <use href="#i-alert">
+              </use>
+             </svg>
+            </a>
+           </div>
          </td>
         </tr>
        </tbody>

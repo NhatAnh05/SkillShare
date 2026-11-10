@@ -34,7 +34,7 @@
        ✓
       </b>
       <span>
-       Thanh toán
+       Giữ tiền
       </span>
      </div>
      <span>
@@ -57,12 +57,24 @@
      </p>
      <p th:text="${order.booking.serviceName}">
      </p>
-     <p class="alert success">
-      Đã ghi nhận bước thanh toán mô phỏng; chưa có giao dịch tiền thật.
+     <p class="alert success" th:if="${escrow != null}"
+        th:text="${'Đã khóa tạm ' + #numbers.formatDecimal(escrow.totalAmount,0,'POINT',0,'COMMA') + 'đ trong ví. Chưa thanh toán ngay cho Provider.'}">
      </p>
-     <a class="btn btn-primary" th:href="@{/orders}">
-      Xem đơn hàng của tôi
-     </a>
+     <p class="muted" th:if="${walletBalance != null}"
+        th:text="${'Số dư khả dụng còn lại: ' + #numbers.formatDecimal(walletBalance,0,'POINT',0,'COMMA') + 'đ.'}">
+     </p>
+     <p class="muted">
+      Bước tiếp theo: cả hai bên xác nhận bắt đầu để Provider nhận tạm ứng 1/3.
+      Sau khi Provider báo hoàn thành, bạn nghiệm thu và nhập OTP để tất toán phần còn lại.
+     </p>
+     <div style="display:flex;gap:10px;flex-wrap:wrap;justify-content:center">
+      <a class="btn btn-primary" th:href="@{/orders/{id}/progress(id=${order.id})}">
+       Xem tiến độ đơn hàng
+      </a>
+      <a class="btn btn-secondary" th:href="@{/orders}">
+       Đơn hàng của tôi
+      </a>
+     </div>
     </section>
    </div>
   </main>

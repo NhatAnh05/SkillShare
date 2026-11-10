@@ -22,7 +22,8 @@
       ← Quay lại đơn hàng
      </a>
      <div class="card" style="margin-top:16px">
-      <div class="order-details" th:fragment="details">
+      <div class="order-details" th:fragment="details"
+           th:with="st=${order.status.name()}, e=${escrow}">
        <h3 th:text="${'Đơn hàng #SR-'+order.id}">
        </h3>
        <p class="muted" th:text="${order.booking.serviceName+' · '+order.provider.fullName}">
@@ -39,9 +40,47 @@
        </p>
        <p>
         Trạng thái:
-        <span class="badge info" th:text="${order.status.name()=='PENDING_PAYMENT'?'Chờ thanh toán':(order.status.name()=='PAID'?'Đã thanh toán':(order.status.name()=='PROCESSING'?'Đang xử lý':(order.status.name()=='COMPLETED'?'Hoàn thành':'Đã hủy')))}">
+        <span class="badge"
+              th:classappend="${st=='COMPLETED'?'done':(st=='CANCELLED'?'bad':(st=='AWAITING_CONFIRMATION'||st=='CANCELLATION_REQUESTED'?'pending':'info'))}"
+              th:text="${st=='PENDING_PAYMENT'?'Chờ thanh toán':(st=='ESCROW_HELD'?'Đã giữ tiền trong ví':(st=='PAID'?'Đã thanh toán':(st=='PROCESSING'?'Đang thực hiện':(st=='AWAITING_CONFIRMATION'?'Chờ nghiệm thu':(st=='CANCELLATION_REQUESTED'?'Chờ Provider phản hồi hủy':(st=='COMPLETED'?'Hoàn thành':'Đã hủy'))))))}">
         </span>
        </p>
+
+       <div class="card" style="background:var(--surface-2);margin:14px 0" th:if="${e != null}">
+        <h4 style="margin-top:0">
+         Ký quỹ (escrow)
+        </h4>
+        <div class="price-line">
+         <span>
+          Đang khóa
+         </span>
+         <strong th:text="${#numbers.formatDecimal(e.totalAmount,0,'POINT',0,'COMMA')+'đ'}">
+         </strong>
+        </div>
+        <div class="price-line">
+         <span>
+          Đã giải ngân cho Provider
+         </span>
+         <strong th:text="${#numbers.formatDecimal(e.releasedAmount,0,'POINT',0,'COMMA')+'đ'}">
+         </strong>
+        </div>
+        <div class="price-line total">
+         <span>
+          Còn lại trong escrow
+         </span>
+         <strong th:text="${#numbers.formatDecimal(remaining,0,'POINT',0,'COMMA')+'đ'}">
+         </strong>
+        </div>
+        <p class="muted" style="font-size:var(--text-sm)" th:if="${st=='ESCROW_HELD'}">
+         Khách
+         <strong th:text="${e.customerStartConfirmed?'đã xác nhận bắt đầu':'chưa xác nhận bắt đầu'}">
+         </strong>
+         · Provider
+         <strong th:text="${e.providerStartConfirmed?'đã xác nhận bắt đầu':'chưa xác nhận bắt đầu'}">
+         </strong>
+        </p>
+       </div>
+
        <div class="timeline modal-timeline">
         <div class="step on">
          <div class="dot">
@@ -51,7 +90,7 @@
           Đặt lịch
          </strong>
         </div>
-        <div class="step" th:classappend="${order.status.name()!='PENDING_PAYMENT'?'on':''}">
+        <div class="step" th:classappend="${(e != null and e.advanceReleased) or (e == null and st!='PENDING_PAYMENT') ?'on':''}">
          <div class="dot">
           2
          </div>
@@ -59,7 +98,7 @@
           Bắt đầu
          </strong>
         </div>
-        <div class="step" th:classappend="${order.status.name()=='PROCESSING'||order.status.name()=='COMPLETED'?'on':''}">
+        <div class="step" th:classappend="${st=='PROCESSING'||st=='AWAITING_CONFIRMATION'||st=='COMPLETED'?'on':''}">
          <div class="dot">
           3
          </div>
@@ -67,7 +106,7 @@
           Thực hiện
          </strong>
         </div>
-        <div class="step" th:classappend="${order.status.name()=='COMPLETED'?'on':''}">
+        <div class="step" th:classappend="${st=='COMPLETED'?'on':''}">
          <div class="dot">
           4
          </div>
@@ -76,23 +115,56 @@
          </strong>
         </div>
        </div>
+
+       <p class="muted" th:if="${st=='CANCELLATION_REQUESTED'}">
+        Bạn đã yêu cầu hủy đơn. Provider đang mô tả phần công việc đã làm và đề xuất mức chi trả.
+        Hệ thống sẽ thanh toán phần đã làm và hoàn phần còn lại về ví của bạn.
+       </p>
+
        <div class="modal-actions">
-        <form method="post" th:action="@{/orders/{id}/state(id=${order.id})}" th:if="${order.status.name()=='PAID'}">
+        <form method="post" th:action="@{/orders/{id}/start-confirm(id=${order.id})}" th:if="${st=='ESCROW_HELD'}">
+         <button class="btn btn-secondary" type="submit">
+          Xác nhận bắt đầu
+         </button>
+        </form>
+
+        <form method="post" th:action="@{/orders/{id}/accept(id=${order.id})}" th:if="${st=='AWAITING_CONFIRMATION'}">
+         <button class="btn btn-primary" type="submit">
+          Nghiệm thu &amp; nhập OTP thanh toán
+         </button>
+        </form>
+
+        <a class="btn btn-outline" th:href="@{/orders/{id}/review(id=${order.id})}" th:if="${st=='COMPLETED'}">
+         Đánh giá
+        </a>
+
+        <form method="post" th:action="@{/orders/{id}/state(id=${order.id})}" th:if="${e == null and st=='PAID'}">
          <input name="action" type="hidden" value="processing"/>
          <button class="btn btn-secondary" type="submit">
           Bắt đầu thực hiện (mô phỏng)
          </button>
         </form>
-        <form method="post" th:action="@{/orders/{id}/state(id=${order.id})}" th:if="${order.status.name()=='PROCESSING'}">
+
+        <form method="post" th:action="@{/orders/{id}/state(id=${order.id})}" th:if="${e == null and st=='PROCESSING'}">
          <input name="action" type="hidden" value="complete"/>
          <button class="btn btn-primary" type="submit">
           Xác nhận hoàn thành
          </button>
         </form>
-        <a class="btn btn-outline" th:href="@{/orders/{id}/review(id=${order.id})}" th:if="${order.status.name()=='COMPLETED'}">
-         Đánh giá
-        </a>
        </div>
+
+       <form method="post" style="margin-top:14px;border-top:1px solid var(--border);padding-top:14px"
+             th:action="@{/orders/{id}/cancel(id=${order.id})}"
+             th:if="${st=='ESCROW_HELD' or st=='PROCESSING'}">
+        <div class="form-group">
+         <label th:text="${st=='ESCROW_HELD'?'Hủy đơn (hoàn 100% tiền khóa về ví)':'Yêu cầu hủy sau khi đã bắt đầu'}">
+         </label>
+         <input class="input" name="reason" placeholder="Nhập lý do hủy đơn" required/>
+        </div>
+        <button class="btn btn-outline" type="submit"
+                th:text="${st=='ESCROW_HELD'?'Hủy đơn và hoàn tiền':'Gửi yêu cầu hủy tới Provider'}">
+        </button>
+       </form>
       </div>
      </div>
     </section>

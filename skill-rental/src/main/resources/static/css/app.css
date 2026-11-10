@@ -1300,16 +1300,20 @@ table {
 :root { --primary:#16A34A; --primary-dark:#15803D; --primary-light:#DCFCE7;
     --secondary:#0F172A; --bg:#F8FAFC; --border:#E2E8F0; --warning:#F59E0B; }
 .sr-only { position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; }
-.public-page .public-content { max-width:1280px; }
+.public-page .public-content { width:min(1300px,calc(100% - 32px)); max-width:none; }
 .public-page .header .container { width:min(1300px,calc(100% - 32px)); gap:13px; }
-.header-quick-search { flex:1; max-width:210px; min-width:118px; display:flex; align-items:center;
+.marketplace-page .header .container { width:min(1280px,calc(100% - 32px)); }
+.header .nav { flex-wrap:nowrap; }
+.header-quick-search { flex:0 1 190px; max-width:210px; min-width:0; display:flex; align-items:center;
     background:#F8FAFC; border:1px solid var(--border); border-radius:9px; height:40px; padding:0 8px; }
 .header-quick-search input { width:100%; min-width:0; border:0; background:transparent; outline:0; color:var(--secondary); font-size:var(--text-sm); }
 .header-quick-search button { border:0; background:transparent; cursor:pointer; color:var(--primary); font-size:var(--text-xl); }
-.public-page .header-inner .nav { gap:2px; }
-.public-page .header-inner .nav-item { padding:0 9px; white-space:nowrap; }
+.public-page .header-inner .nav { gap:0; }
+.public-page .header-inner .nav-item { padding:0 5px; white-space:nowrap; }
 .public-page .header-inner .nav-item .icon { width:18px; height:18px; }
 .public-page .header-actions { gap:8px; }
+@media (max-width:1320px) { .header-quick-search { display:none; } }
+@media (max-width:1150px) { .header .nav .nav-item > span { display:none; } }
 
 /* 1. Login: on conventional laptop screens the entire view remains within 100dvh. */
 body.login-v2 { background:#F4F9FF; overflow:hidden; }

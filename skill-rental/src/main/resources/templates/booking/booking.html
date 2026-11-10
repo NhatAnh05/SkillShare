@@ -34,7 +34,7 @@
        2
       </b>
       <span>
-       Thanh toán
+       Giữ tiền
       </span>
      </div>
      <span>
@@ -148,15 +148,24 @@
        </label>
        <textarea class="textarea" id="booking-note" placeholder="Mô tả nhu cầu của bạn…" th:field="*{note}"></textarea>
       </div>
-      <label class="checkbox-label">
-       <input id="booking-premium" th:field="*{premium}" type="checkbox"/>
-       Đặt kỹ năng cao (+25%)
-      </label>
-      <button class="btn btn-primary booking-submit" type="submit">
-       Tiếp tục thanh toán →
-      </button>
+       <label class="checkbox-label">
+        <input id="booking-premium" th:field="*{premium}" type="checkbox"/>
+        Đặt kỹ năng cao (+25%)
+       </label>
+       <div class="form-group">
+        <label for="booking-coupon">
+         Mã giảm giá
+        </label>
+        <input autocomplete="off" class="input" id="booking-coupon" placeholder="WELCOME10 / SKILL20" th:field="*{couponCode}" type="text"/>
+        <small class="muted">
+         WELCOME10 giảm 10% · SKILL20 giảm 20% trên tổng đơn.
+        </small>
+       </div>
+       <button class="btn btn-primary booking-submit" type="submit">
+        Đặt lịch &amp; giữ tiền →
+       </button>
      </form>
-     <aside class="card booking-summary" th:attr="data-rate=${provider.hourlyRate}">
+     <aside class="card booking-summary" th:attr="data-rate=${provider.hourlyRate},data-wallet=${walletBalance}">
       <h2>
        Tóm tắt đơn hàng
       </h2>
@@ -179,15 +188,23 @@
        <strong id="booking-base">
        </strong>
       </div>
-      <div class="price-line">
-       <span>
-        Phí kỹ năng cao (+25%)
-       </span>
-       <strong id="booking-extra">
-        0đ
-       </strong>
-      </div>
-      <hr/>
+       <div class="price-line">
+        <span>
+         Phí kỹ năng cao (+25%)
+        </span>
+        <strong id="booking-extra">
+         0đ
+        </strong>
+       </div>
+       <div class="price-line">
+        <span>
+         Giảm giá coupon
+        </span>
+        <strong id="booking-discount">
+         0đ
+        </strong>
+       </div>
+       <hr/>
       <div class="price-line total">
        <span>
         Tổng cộng
@@ -195,8 +212,20 @@
        <strong id="booking-total">
        </strong>
       </div>
+      <div class="price-line">
+       <span>
+        Số dư ví khả dụng
+       </span>
+       <strong th:text="${#numbers.formatDecimal(walletBalance,0,'POINT',0,'COMMA')+'đ'}">
+       </strong>
+      </div>
+      <p class="alert danger" id="booking-wallet-note" style="display:none">
+       Số dư ví không đủ để đặt lịch này. Hệ thống sẽ chuyển bạn sang trang nạp tiền.
+      </p>
       <p class="booking-demo-notice">
-       Thanh toán ở phiên bản demo, chưa có dịch vụ giữ tiền trung gian thực tế.
+       Khi đặt lịch, hệ thống khóa tạm số tiền trong ví (chưa thanh toán ngay).
+       Khi cả hai bên xác nhận bắt đầu, Provider nhận tạm ứng 1/3 giá trị đơn.
+       Phần còn lại được tất toán sau khi Provider hoàn thành và bạn nhập mã OTP xác nhận.
       </p>
      </aside>
     </div>

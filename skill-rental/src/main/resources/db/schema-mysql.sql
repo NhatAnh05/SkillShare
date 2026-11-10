@@ -279,7 +279,7 @@ CREATE TABLE IF NOT EXISTS rental_orders (
     CONSTRAINT fk_rental_orders_customer FOREIGN KEY (customer_id) REFERENCES users(id) ON UPDATE CASCADE ON DELETE RESTRICT,
     CONSTRAINT fk_rental_orders_provider FOREIGN KEY (provider_id) REFERENCES users(id) ON UPDATE CASCADE ON DELETE RESTRICT,
     CONSTRAINT fk_rental_orders_cancelled_by FOREIGN KEY (cancelled_by_user_id) REFERENCES users(id) ON UPDATE CASCADE ON DELETE SET NULL,
-    CONSTRAINT ck_rental_orders_status CHECK (status IN ('PENDING_PAYMENT','PAID','PROCESSING','COMPLETED','CANCELLED')),
+    CONSTRAINT ck_rental_orders_status CHECK (status IN ('PENDING_PAYMENT','ESCROW_HELD','PAID','PROCESSING','AWAITING_CONFIRMATION','CANCELLATION_REQUESTED','COMPLETED','CANCELLED')),
     CONSTRAINT ck_rental_orders_amounts CHECK (subtotal >= 0 AND discount >= 0 AND total >= 0 AND discount <= subtotal),
     INDEX idx_rental_orders_customer_id (customer_id, id),
     INDEX idx_rental_orders_customer_status (customer_id, status),
@@ -323,6 +323,91 @@ CREATE TABLE IF NOT EXISTS rental_order_status_history (
     CONSTRAINT fk_order_history_order FOREIGN KEY (order_id) REFERENCES rental_orders(id) ON UPDATE CASCADE ON DELETE RESTRICT,
     CONSTRAINT fk_order_history_user FOREIGN KEY (changed_by_user_id) REFERENCES users(id) ON UPDATE CASCADE ON DELETE SET NULL,
     INDEX idx_order_history_order_date (order_id, created_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- 5b. WALLET / ESCROW / PAYMENT OTP -----------------------------------------
+CREATE TABLE IF NOT EXISTS wallets (
+    id BIGINT NOT NULL AUTO_INCREMENT,
+    user_id BIGINT NOT NULL,
+    available_balance DECIMAL(14,2) NOT NULL DEFAULT 0,
+    held_balance DECIMAL(14,2) NOT NULL DEFAULT 0,
+    total_deposited DECIMAL(14,2) NOT NULL DEFAULT 0,
+    total_withdrawn DECIMAL(14,2) NOT NULL DEFAULT 0,
+    version BIGINT NULL,
+    created_at DATETIME(6) NULL,
+    updated_at DATETIME(6) NULL,
+    PRIMARY KEY (id),
+    CONSTRAINT uq_wallets_user UNIQUE (user_id),
+    CONSTRAINT fk_wallets_user FOREIGN KEY (user_id) REFERENCES users(id) ON UPDATE CASCADE ON DELETE RESTRICT,
+    CONSTRAINT ck_wallets_balances CHECK (available_balance >= 0 AND held_balance >= 0
+        AND total_deposited >= 0 AND total_withdrawn >= 0)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS wallet_transactions (
+    id BIGINT NOT NULL AUTO_INCREMENT,
+    wallet_id BIGINT NOT NULL,
+    type VARCHAR(30) NOT NULL,
+    amount DECIMAL(14,2) NOT NULL,
+    balance_after DECIMAL(14,2) NOT NULL,
+    held_after DECIMAL(14,2) NOT NULL,
+    reference_type VARCHAR(30) NULL,
+    reference_id BIGINT NULL,
+    description VARCHAR(500) NOT NULL,
+    created_at DATETIME(6) NULL,
+    PRIMARY KEY (id),
+    CONSTRAINT fk_wallet_tx_wallet FOREIGN KEY (wallet_id) REFERENCES wallets(id) ON UPDATE CASCADE ON DELETE RESTRICT,
+    INDEX idx_wallet_tx_wallet_created (wallet_id, created_at),
+    INDEX idx_wallet_tx_reference (reference_type, reference_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS escrows (
+    id BIGINT NOT NULL AUTO_INCREMENT,
+    order_id BIGINT NOT NULL,
+    customer_id BIGINT NOT NULL,
+    provider_id BIGINT NOT NULL,
+    total_amount DECIMAL(14,2) NOT NULL,
+    released_amount DECIMAL(14,2) NOT NULL DEFAULT 0,
+    customer_start_confirmed BIT(1) NOT NULL DEFAULT b'0',
+    provider_start_confirmed BIT(1) NOT NULL DEFAULT b'0',
+    customer_start_confirmed_at DATETIME(6) NULL,
+    provider_start_confirmed_at DATETIME(6) NULL,
+    started_at DATETIME(6) NULL,
+    advance_released BIT(1) NOT NULL DEFAULT b'0',
+    provider_completed_at DATETIME(6) NULL,
+    customer_accepted_at DATETIME(6) NULL,
+    cancelled_at DATETIME(6) NULL,
+    cancelled_by_user_id BIGINT NULL,
+    cancellation_reason VARCHAR(1000) NULL,
+    work_summary VARCHAR(1500) NULL,
+    compensation_amount DECIMAL(14,2) NULL,
+    status VARCHAR(40) NOT NULL,
+    created_at DATETIME(6) NULL,
+    updated_at DATETIME(6) NULL,
+    PRIMARY KEY (id),
+    CONSTRAINT uq_escrows_order UNIQUE (order_id),
+    CONSTRAINT fk_escrows_order FOREIGN KEY (order_id) REFERENCES rental_orders(id) ON UPDATE CASCADE ON DELETE RESTRICT,
+    CONSTRAINT fk_escrows_customer FOREIGN KEY (customer_id) REFERENCES users(id) ON UPDATE CASCADE ON DELETE RESTRICT,
+    CONSTRAINT fk_escrows_provider FOREIGN KEY (provider_id) REFERENCES users(id) ON UPDATE CASCADE ON DELETE RESTRICT,
+    CONSTRAINT fk_escrows_cancelled_by FOREIGN KEY (cancelled_by_user_id) REFERENCES users(id) ON UPDATE CASCADE ON DELETE SET NULL,
+    CONSTRAINT ck_escrows_amounts CHECK (total_amount >= 0 AND released_amount >= 0 AND released_amount <= total_amount),
+    INDEX idx_escrows_status_created (status, created_at),
+    INDEX idx_escrows_provider (provider_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS payment_otps (
+    id BIGINT NOT NULL AUTO_INCREMENT,
+    order_id BIGINT NOT NULL,
+    user_id BIGINT NOT NULL,
+    code_hash VARCHAR(255) NOT NULL,
+    purpose VARCHAR(60) NOT NULL,
+    expires_at DATETIME(6) NOT NULL,
+    consumed BIT(1) NOT NULL DEFAULT b'0',
+    attempts INT NOT NULL DEFAULT 0,
+    created_at DATETIME(6) NULL,
+    PRIMARY KEY (id),
+    CONSTRAINT fk_payment_otp_order FOREIGN KEY (order_id) REFERENCES rental_orders(id) ON UPDATE CASCADE ON DELETE CASCADE,
+    CONSTRAINT fk_payment_otp_user FOREIGN KEY (user_id) REFERENCES users(id) ON UPDATE CASCADE ON DELETE CASCADE,
+    INDEX idx_payment_otp_order_created (order_id, created_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- 6. PAYMENT / REFUND ---------------------------------------------------------

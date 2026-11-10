@@ -11,6 +11,7 @@ import java.time.*;
     @NotNull @DateTimeFormat(iso=DateTimeFormat.ISO.TIME) private LocalTime timeSlot;
     @Size(max=1200) private String note;
     @jakarta.validation.constraints.Min(2) @jakarta.validation.constraints.Max(2) private int durationHours = 2;
+    @Size(max=40, message="Mã giảm giá tối đa 40 ký tự") private String couponCode;
     private boolean premium;
     private boolean directBooking=true;
 }

@@ -1,0 +1,12 @@
+package com.skillrental.entity;
+
+public enum EscrowStatus {
+    HELD,
+    STARTED,
+    AWAITING_CONFIRMATION,
+    RELEASED,
+    CANCELLATION_REQUESTED,
+    CANCELLED_REFUNDED,
+    PARTIAL_REFUND,
+    PROVIDER_CANCELLED_REFUNDED
+}

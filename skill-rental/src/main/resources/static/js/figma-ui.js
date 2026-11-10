@@ -86,14 +86,38 @@
             });
         });
 
+        const walletBalance = Number(summary?.dataset.wallet || 0);
+        const walletNote = document.getElementById('booking-wallet-note');
+        const submitButton = bookingForm.querySelector('button[type="submit"]');
+        const couponField = document.getElementById('booking-coupon');
+
+        const couponRate = code => {
+            code = String(code || '').trim().toUpperCase();
+            if (code === 'WELCOME10') return .10;
+            if (code === 'SKILL20') return .20;
+            return 0;
+        };
+
         function updatePrice() {
             const base = rate * 2;
             const extra = premium?.checked ? base * .25 : 0;
+            const subtotal = base + extra;
+            const discount = subtotal * couponRate(couponField?.value);
+            const total = subtotal - discount;
             document.getElementById('booking-base').textContent = money(base);
             document.getElementById('booking-extra').textContent = money(extra);
-            document.getElementById('booking-total').textContent = money(base + extra);
+            document.getElementById('booking-discount').textContent = '-' + money(discount);
+            document.getElementById('booking-total').textContent = money(total);
+            const insufficient = total > walletBalance;
+            if (walletNote) {
+                walletNote.style.display = insufficient ? '' : 'none';
+            }
+            if (submitButton) {
+                submitButton.textContent = insufficient ? 'Nạp tiền để đặt →' : 'Đặt lịch & giữ tiền →';
+            }
         }
         premium?.addEventListener('change', updatePrice);
+        couponField?.addEventListener('input', updatePrice);
         bookingForm.addEventListener('submit', event => {
             if (!dateField.value || !slotField.value) {
                 event.preventDefault();

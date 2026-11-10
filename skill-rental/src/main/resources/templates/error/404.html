@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+ <head>
+  <meta charset="utf-8"/>
+  <meta content="width=device-width,initial-scale=1" name="viewport"/>
+  <title>
+   Không tìm thấy trang · Skill Rental
+  </title>
+  <th:block th:replace="~{fragments :: customerStyles}"></th:block>
+ </head>
+ <body class="public-page">
+  <div th:replace="~{fragments :: icons}">
+  </div>
+  <div th:replace="~{fragments :: header}">
+  </div>
+  <main class="page">
+   <div class="container public-content">
+    <section class="card empty-state">
+     <p aria-hidden="true" style="font-size:56px;line-height:1;margin:0">
+      🔍
+     </p>
+     <h1>
+      404 — Không tìm thấy trang
+     </h1>
+     <p class="muted">
+      Trang bạn tìm kiếm không tồn tại hoặc đã bị xóa. Kiểm tra lại đường dẫn
+      <code th:text="${path ?: ''}">
+      </code>
+      hoặc quay về một trong các trang bên dưới.
+     </p>
+     <div style="display:flex;gap:10px;flex-wrap:wrap;justify-content:center">
+      <a class="btn btn-primary" th:href="@{/marketplace}">
+       Về trang chủ
+      </a>
+      <a class="btn btn-secondary" th:href="@{/orders}">
+       Đơn hàng của tôi
+      </a>
+     </div>
+    </section>
+   </div>
+  </main>
+  <div th:replace="~{fragments :: footer}">
+  </div>
+  <div th:replace="~{fragments :: floatingChat}">
+  </div>
+  <script defer="" src="/js/app.js">
+  </script>
+ </body>
+</html>

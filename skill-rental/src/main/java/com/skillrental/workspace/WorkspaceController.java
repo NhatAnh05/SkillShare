@@ -3,6 +3,9 @@ package com.skillrental.workspace;
 import com.skillrental.entity.*;
 import com.skillrental.repository.*;
 import com.skillrental.service.CurrentUserService;
+import com.skillrental.service.EscrowService;
+import com.skillrental.service.InsufficientFundsException;
+import com.skillrental.service.WalletService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
@@ -42,6 +45,9 @@ public class WorkspaceController {
     private final ConversationRepository conversations;
     private final MessageRepository messages;
     private final WorkspaceState state;
+    private final WalletService walletService;
+    private final EscrowService escrowService;
+    private final com.skillrental.service.EscrowMaintenanceService escrowMaintenance;
 
     @GetMapping("/workspace")
     public String workspace(Authentication authentication) {
@@ -80,7 +86,12 @@ public class WorkspaceController {
                 model.addAttribute("requests", openRequests(q));
             }
             case "applications" -> model.addAttribute("applications", providerApplications(u));
-            case "bookings" -> model.addAttribute("providerOrders", providerOrders(u));
+            case "bookings" -> {
+                model.addAttribute("providerOrders", providerOrders(u));
+                model.addAttribute("escrowMap", escrowService.forProvider(u).stream()
+                        .filter(escrow -> escrow.getOrder() != null)
+                        .collect(Collectors.toMap(escrow -> escrow.getOrder().getId(), escrow -> escrow, (a, b) -> a)));
+            }
             case "wallet" -> fillProviderWallet(model, u);
             case "reviews" -> model.addAttribute("providerReviews", reviews.findByProviderOrderByIdDesc(u));
             case "complaints" -> model.addAttribute("providerComplaints", providerComplaints(u));
@@ -300,12 +311,32 @@ public class WorkspaceController {
     public String providerProcessing(@PathVariable Long id, Authentication authentication, RedirectAttributes ra) {
         User u = require(authentication, Role.PROVIDER);
         RentalOrder o = ownedProviderOrder(id, u);
-        if (o.getStatus() == OrderStatus.PAID) {
-            o.setStatus(OrderStatus.PROCESSING);
-            o.getBooking().setStatus(BookingStatus.IN_PROGRESS);
-            orders.save(o);
-            bookings.save(o.getBooking());
-            ra.addFlashAttribute("success", "Đã nhận xử lý đơn hàng.");
+        try {
+            if (escrowService.find(o).isPresent()) {
+                escrowService.confirmStart(o, u);
+                ra.addFlashAttribute("success", "Đã xác nhận bắt đầu đơn hàng.");
+            } else if (o.getStatus() == OrderStatus.PAID) {
+                o.setStatus(OrderStatus.PROCESSING);
+                o.getBooking().setStatus(BookingStatus.IN_PROGRESS);
+                orders.save(o);
+                bookings.save(o.getBooking());
+                ra.addFlashAttribute("success", "Đã nhận xử lý đơn hàng.");
+            }
+        } catch (IllegalArgumentException ex) {
+            ra.addFlashAttribute("error", ex.getMessage());
+        }
+        return "redirect:/provider/bookings";
+    }
+
+    @PostMapping("/provider/orders/{id}/start-confirm")
+    public String providerStartConfirm(@PathVariable Long id, Authentication authentication, RedirectAttributes ra) {
+        User u = require(authentication, Role.PROVIDER);
+        RentalOrder o = ownedProviderOrder(id, u);
+        try {
+            escrowService.confirmStart(o, u);
+            ra.addFlashAttribute("success", "Đã xác nhận bắt đầu. Khi cả hai bên xác nhận, 1/3 giá trị đơn được tạm ứng.");
+        } catch (IllegalArgumentException ex) {
+            ra.addFlashAttribute("error", ex.getMessage());
         }
         return "redirect:/provider/bookings";
     }
@@ -314,13 +345,60 @@ public class WorkspaceController {
     public String providerComplete(@PathVariable Long id, Authentication authentication, RedirectAttributes ra) {
         User u = require(authentication, Role.PROVIDER);
         RentalOrder o = ownedProviderOrder(id, u);
-        if (o.getStatus() == OrderStatus.PROCESSING) {
-            o.setStatus(OrderStatus.COMPLETED);
-            o.setCompletedAt(LocalDateTime.now());
-            o.getBooking().setStatus(BookingStatus.COMPLETED);
-            orders.save(o);
-            bookings.save(o.getBooking());
-            ra.addFlashAttribute("success", "Đã đánh dấu hoàn tất và chờ khách nghiệm thu.");
+        try {
+            if (escrowService.find(o).isPresent()) {
+                escrowService.providerComplete(o, u);
+                ra.addFlashAttribute("success", "Đã báo hoàn thành. Đang chờ khách nghiệm thu và nhập OTP tất toán.");
+            } else if (o.getStatus() == OrderStatus.PROCESSING) {
+                o.setStatus(OrderStatus.COMPLETED);
+                o.setCompletedAt(LocalDateTime.now());
+                o.getBooking().setStatus(BookingStatus.COMPLETED);
+                orders.save(o);
+                bookings.save(o.getBooking());
+                ra.addFlashAttribute("success", "Đã đánh dấu hoàn tất và chờ khách nghiệm thu.");
+            }
+        } catch (IllegalArgumentException ex) {
+            ra.addFlashAttribute("error", ex.getMessage());
+        }
+        return "redirect:/provider/bookings";
+    }
+
+    @PostMapping("/provider/orders/{id}/cancel")
+    public String providerCancelOrder(@PathVariable Long id,
+                                      @RequestParam(required = false) String reason,
+                                      Authentication authentication, RedirectAttributes ra) {
+        User u = require(authentication, Role.PROVIDER);
+        RentalOrder o = ownedProviderOrder(id, u);
+        String safeReason = (reason == null || reason.isBlank()) ? "Provider yêu cầu hủy đơn." : reason.trim();
+        try {
+            var escrow = escrowService.find(o);
+            if (escrow.isEmpty()) {
+                ra.addFlashAttribute("error", "Đơn hàng không sử dụng escrow.");
+            } else if (escrow.get().getStatus() == EscrowStatus.HELD) {
+                escrowService.cancelBeforeStart(o, u, safeReason);
+                ra.addFlashAttribute("success", "Đã hủy đơn trước khi bắt đầu. Tiền khóa được hoàn 100% cho khách.");
+            } else {
+                escrowService.providerCancel(o, u, safeReason);
+                ra.addFlashAttribute("success", "Đã hủy đơn. Hệ thống hoàn 100% tiền đã thanh toán cho khách.");
+            }
+        } catch (IllegalArgumentException ex) {
+            ra.addFlashAttribute("error", ex.getMessage());
+        }
+        return "redirect:/provider/bookings";
+    }
+
+    @PostMapping("/provider/orders/{id}/cancel-response")
+    public String providerCancelResponse(@PathVariable Long id,
+                                         @RequestParam String workSummary,
+                                         @RequestParam BigDecimal proposedAmount,
+                                         Authentication authentication, RedirectAttributes ra) {
+        User u = require(authentication, Role.PROVIDER);
+        RentalOrder o = ownedProviderOrder(id, u);
+        try {
+            escrowService.respondToCancellation(o, u, workSummary, proposedAmount);
+            ra.addFlashAttribute("success", "Đã gửi mô tả công việc và mức chi trả. Hệ thống đã thanh toán và hoàn phần còn lại cho khách.");
+        } catch (IllegalArgumentException ex) {
+            ra.addFlashAttribute("error", ex.getMessage());
         }
         return "redirect:/provider/bookings";
     }
@@ -368,7 +446,7 @@ public class WorkspaceController {
     @PostMapping("/provider/wallet/withdraw")
     public String withdraw(@RequestParam BigDecimal amount, Authentication authentication, RedirectAttributes ra) {
         User u = require(authentication, Role.PROVIDER);
-        BigDecimal available = providerWalletBalance(u);
+        BigDecimal available = walletService.available(u);
         if (amount == null || amount.signum() <= 0) {
             ra.addFlashAttribute("error", "Số tiền rút không hợp lệ.");
         } else if (amount.compareTo(MIN_WITHDRAWAL) < 0) {
@@ -376,7 +454,12 @@ public class WorkspaceController {
         } else if (amount.compareTo(available) > 0) {
             ra.addFlashAttribute("error", "Số tiền rút vượt số dư khả dụng " + money(available) + ".");
         } else {
-            ra.addFlashAttribute("success", "Đã ghi nhận yêu cầu rút " + money(amount) + ". Hệ thống demo sẽ mô phỏng xử lý trong 5-15 phút.");
+            try {
+                walletService.withdraw(u, amount);
+                ra.addFlashAttribute("success", "Đã rút " + money(amount) + " khỏi ví. Hệ thống demo ghi nhận chuyển khoản trong 5-15 phút.");
+            } catch (InsufficientFundsException ex) {
+                ra.addFlashAttribute("error", ex.getMessage());
+            }
         }
         return "redirect:/provider/wallet";
     }
@@ -490,9 +573,34 @@ public class WorkspaceController {
     @PostMapping("/admin/escrow/check")
     public String escrowCheck(Authentication authentication, RedirectAttributes ra) {
         require(authentication, Role.ADMIN);
-        BigDecimal active = orders.findAll().stream().filter(o -> o.getStatus() == OrderStatus.PAID || o.getStatus() == OrderStatus.PROCESSING)
-                .map(RentalOrder::getTotal).reduce(BigDecimal.ZERO, BigDecimal::add);
-        ra.addFlashAttribute("success", "Đã đối soát demo Escrow. Tổng tiền đang bảo lãnh: " + money(active) + ".");
+        BigDecimal escrowTotal = escrowService.totalHeldInEscrow();
+        BigDecimal walletHeld = walletService.totalHeldAcrossWallets();
+        boolean match = escrowTotal.compareTo(walletHeld) == 0;
+        String message = "Đối soát Escrow: tiền đang bảo lãnh theo đơn " + money(escrowTotal)
+                + "đ · tổng tiền đang khóa trong ví khách " + money(walletHeld) + "đ — "
+                + (match ? "khớp." : "LỆCH, cần kiểm tra thủ công.");
+        if (match) {
+            ra.addFlashAttribute("success", message);
+        } else {
+            ra.addFlashAttribute("error", message);
+        }
+        return "redirect:/admin/dashboard";
+    }
+
+    @PostMapping("/admin/escrow/sweep")
+    public String escrowSweep(Authentication authentication, RedirectAttributes ra) {
+        require(authentication, Role.ADMIN);
+        var result = escrowMaintenance.runSweep();
+        if (result.totalActions() == 0) {
+            ra.addFlashAttribute("success", "Đã quét đơn quá hạn: không có đơn nào cần xử lý tự động (thời hạn chờ: "
+                    + escrowMaintenance.holdExpiryDays() + " ngày xác nhận bắt đầu, "
+                    + escrowMaintenance.confirmExpiryDays() + " ngày nghiệm thu, "
+                    + escrowMaintenance.cancelResponseDays() + " ngày phản hồi hủy).");
+        } else {
+            ra.addFlashAttribute("success", "Đã quét đơn quá hạn: hủy " + result.cancelledHolds()
+                    + " đơn chờ xác nhận bắt đầu, tự tất toán " + result.autoReleased()
+                    + " đơn chờ nghiệm thu, hoàn tiền " + result.autoRefunded() + " đơn hủy không phản hồi.");
+        }
         return "redirect:/admin/dashboard";
     }
 
@@ -653,6 +761,7 @@ public class WorkspaceController {
         model.addAttribute("requests", List.of());
         model.addAttribute("applications", List.of());
         model.addAttribute("providerOrders", List.of());
+        model.addAttribute("escrowMap", Map.of());
         model.addAttribute("providerReviews", List.of());
         model.addAttribute("providerComplaints", List.of());
         model.addAttribute("providerConversations", List.of());
@@ -696,34 +805,20 @@ public class WorkspaceController {
     }
 
     private void fillProviderWallet(Model model, User user) {
-        List<RentalOrder> providerOrders = providerOrders(user);
+        Wallet wallet = walletService.getOrCreate(user);
 
-        BigDecimal lifetime = providerOrders.stream()
-                .filter(order -> order.getStatus() == OrderStatus.COMPLETED)
-                .map(RentalOrder::getTotal)
-                .filter(Objects::nonNull)
+        BigDecimal escrow = escrowService.forProvider(user).stream()
+                .filter(escrowItem -> escrowItem.getStatus() == EscrowStatus.STARTED
+                        || escrowItem.getStatus() == EscrowStatus.AWAITING_CONFIRMATION
+                        || escrowItem.getStatus() == EscrowStatus.CANCELLATION_REQUESTED)
+                .map(escrowItem -> WalletService.nz(escrowItem.getTotalAmount())
+                        .subtract(WalletService.nz(escrowItem.getReleasedAmount())))
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
 
-        BigDecimal escrow = providerOrders.stream()
-                .filter(order -> order.getStatus() == OrderStatus.PAID
-                        || order.getStatus() == OrderStatus.PROCESSING)
-                .map(RentalOrder::getTotal)
-                .filter(Objects::nonNull)
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
-
-        model.addAttribute("walletBalance", lifetime.multiply(new BigDecimal("0.90")));
+        model.addAttribute("walletBalance", WalletService.nz(wallet.getAvailableBalance()));
         model.addAttribute("escrow", escrow);
-        model.addAttribute("lifetime", lifetime);
+        model.addAttribute("lifetime", walletService.totalEarnings(user));
         model.addAttribute("withdrawals", providerWithdrawals());
-    }
-
-    private BigDecimal providerWalletBalance(User user) {
-        return providerOrders(user).stream()
-                .filter(order -> order.getStatus() == OrderStatus.COMPLETED)
-                .map(RentalOrder::getTotal)
-                .filter(Objects::nonNull)
-                .reduce(BigDecimal.ZERO, BigDecimal::add)
-                .multiply(new BigDecimal("0.90"));
     }
 
     private void fillProviderChat(Model model, User user) {
@@ -769,14 +864,17 @@ public class WorkspaceController {
         long userCount = users.count();
         long providerCount = providers.count();
         BigDecimal inflow = paidSum();
-        BigDecimal escrow = orders.findAll().stream().filter(o -> o.getStatus() == OrderStatus.PAID || o.getStatus() == OrderStatus.PROCESSING).map(RentalOrder::getTotal).reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal escrow = escrowService.totalHeldInEscrow();
         long pendingProviders = providers.findAll().stream().filter(p -> !state.isProviderApproved(p.getId())).count();
         model.addAttribute("userCount", userCount);
         model.addAttribute("providerCount", providerCount);
         model.addAttribute("pendingProviders", pendingProviders);
         model.addAttribute("commission", inflow.multiply(new BigDecimal("0.10")));
         model.addAttribute("escrow", escrow);
-        model.addAttribute("activeOrders", orders.findAll().stream().filter(o -> o.getStatus() == OrderStatus.PAID || o.getStatus() == OrderStatus.PROCESSING).count());
+        model.addAttribute("activeOrders", orders.findAll().stream().filter(o ->
+                o.getStatus() == OrderStatus.ESCROW_HELD || o.getStatus() == OrderStatus.PAID
+                        || o.getStatus() == OrderStatus.PROCESSING || o.getStatus() == OrderStatus.AWAITING_CONFIRMATION
+                        || o.getStatus() == OrderStatus.CANCELLATION_REQUESTED).count());
     }
 
     private void fillAdminStatistics(Model model) {
@@ -795,7 +893,7 @@ public class WorkspaceController {
         BigDecimal inflow = paidSum();
         BigDecimal outflow = orders.findAll().stream().filter(o -> o.getStatus() == OrderStatus.COMPLETED).map(RentalOrder::getTotal).reduce(BigDecimal.ZERO, BigDecimal::add);
         BigDecimal commission = inflow.multiply(new BigDecimal("0.10"));
-        BigDecimal escrow = orders.findAll().stream().filter(o -> o.getStatus() == OrderStatus.PAID || o.getStatus() == OrderStatus.PROCESSING).map(RentalOrder::getTotal).reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal escrow = escrowService.totalHeldInEscrow();
         model.addAttribute("inflow", inflow);
         model.addAttribute("outflow", outflow);
         model.addAttribute("commission", commission);
